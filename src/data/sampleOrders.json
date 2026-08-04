@@ -1,0 +1,172 @@
+{
+  "$comment": "Sample wave for the 'dc-north' layout. This is exactly the shape the importer accepts — paste your own WMS export in the same form. Locations may be given as an operator code (A03-R14-2B), a bin id, or a SKU id. 'releasedAt' is seconds into the shift.",
+  "orders": [
+    {
+      "id": "ord-s1",
+      "ref": "SO-004101",
+      "channel": "Ecommerce",
+      "priority": "express",
+      "releasedAt": 0,
+      "lines": [
+        { "location": "A01-L02-2A", "qty": 2 },
+        { "location": "A02-R05-2B", "qty": 1 },
+        { "location": "A04-L09-1A", "qty": 4 },
+        { "location": "A06-R03-2A", "qty": 1 },
+        { "location": "A07-L15-3B", "qty": 2 }
+      ]
+    },
+    {
+      "id": "ord-s2",
+      "ref": "SO-004102",
+      "channel": "Store Replen",
+      "priority": "standard",
+      "releasedAt": 8,
+      "lines": [
+        { "location": "A03-R01-2A", "qty": 6 },
+        { "location": "A03-R04-2B", "qty": 3 },
+        { "location": "A05-L07-1B", "qty": 2 },
+        { "location": "A08-R12-2A", "qty": 1 },
+        { "location": "A08-L18-3A", "qty": 2 },
+        { "location": "A02-L11-2B", "qty": 5 }
+      ]
+    },
+    {
+      "id": "ord-s3",
+      "ref": "SO-004103",
+      "channel": "Click & Collect",
+      "priority": "express",
+      "releasedAt": 22,
+      "lines": [
+        { "location": "A05-R02-2A", "qty": 1 },
+        { "location": "A05-R06-2A", "qty": 2 },
+        { "location": "A06-L08-1A", "qty": 1 }
+      ]
+    },
+    {
+      "id": "ord-s4",
+      "ref": "SO-004104",
+      "channel": "Ecommerce",
+      "priority": "standard",
+      "releasedAt": 40,
+      "lines": [
+        { "location": "A01-R14-3A", "qty": 2 },
+        { "location": "A03-L16-4B", "qty": 1 },
+        { "location": "A04-R20-3B", "qty": 1 },
+        { "location": "A07-R19-4A", "qty": 2 },
+        { "location": "A08-L13-2B", "qty": 3 },
+        { "location": "A02-R17-2A", "qty": 1 },
+        { "location": "A06-L11-2B", "qty": 4 }
+      ]
+    },
+    {
+      "id": "ord-s5",
+      "ref": "SO-004105",
+      "channel": "Wholesale",
+      "priority": "standard",
+      "releasedAt": 62,
+      "lines": [
+        { "location": "A02-L03-2A", "qty": 8 },
+        { "location": "A02-L04-2B", "qty": 6 },
+        { "location": "A04-R05-1A", "qty": 4 },
+        { "location": "A04-R06-2A", "qty": 4 }
+      ]
+    },
+    {
+      "id": "ord-s6",
+      "ref": "SO-004106",
+      "channel": "Ecommerce",
+      "priority": "standard",
+      "releasedAt": 85,
+      "lines": [
+        { "location": "A01-L07-2B", "qty": 1 },
+        { "location": "A03-R10-2A", "qty": 2 },
+        { "location": "A05-L12-3A", "qty": 1 },
+        { "location": "A06-R16-2B", "qty": 2 },
+        { "location": "A08-R08-1B", "qty": 1 }
+      ]
+    },
+    {
+      "id": "ord-s7",
+      "ref": "SO-004107",
+      "channel": "Store Replen",
+      "priority": "standard",
+      "releasedAt": 104,
+      "lines": [
+        { "location": "A07-L01-2A", "qty": 5 },
+        { "location": "A07-L02-2B", "qty": 3 },
+        { "location": "A07-R09-2A", "qty": 2 },
+        { "location": "A06-L06-1A", "qty": 3 },
+        { "location": "A05-R13-2B", "qty": 2 },
+        { "location": "A04-L18-3A", "qty": 1 }
+      ]
+    },
+    {
+      "id": "ord-s8",
+      "ref": "SO-004108",
+      "channel": "Click & Collect",
+      "priority": "express",
+      "releasedAt": 126,
+      "lines": [
+        { "location": "A02-R02-2B", "qty": 1 },
+        { "location": "A03-L05-2A", "qty": 2 }
+      ]
+    },
+    {
+      "id": "ord-s9",
+      "ref": "SO-004109",
+      "channel": "Ecommerce",
+      "priority": "standard",
+      "releasedAt": 150,
+      "lines": [
+        { "location": "A01-R19-4B", "qty": 1 },
+        { "location": "A04-L14-3B", "qty": 2 },
+        { "location": "A05-R17-4A", "qty": 1 },
+        { "location": "A08-L20-3B", "qty": 1 },
+        { "location": "A06-R12-2A", "qty": 3 },
+        { "location": "A02-L08-1B", "qty": 2 }
+      ]
+    },
+    {
+      "id": "ord-s10",
+      "ref": "SO-004110",
+      "channel": "Ecommerce",
+      "priority": "standard",
+      "releasedAt": 172,
+      "lines": [
+        { "location": "A03-R07-2A", "qty": 2 },
+        { "location": "A03-R11-2B", "qty": 1 },
+        { "location": "A04-L04-2A", "qty": 3 },
+        { "location": "A07-R06-1A", "qty": 2 }
+      ]
+    },
+    {
+      "id": "ord-s11",
+      "ref": "SO-004111",
+      "channel": "Wholesale",
+      "priority": "standard",
+      "releasedAt": 198,
+      "lines": [
+        { "location": "A08-R01-2A", "qty": 9 },
+        { "location": "A08-R03-2B", "qty": 7 },
+        { "location": "A06-L02-2A", "qty": 5 },
+        { "location": "A01-L10-2B", "qty": 4 },
+        { "location": "A05-L15-3A", "qty": 2 }
+      ]
+    },
+    {
+      "id": "ord-s12",
+      "ref": "SO-004112",
+      "channel": "Store Replen",
+      "priority": "standard",
+      "releasedAt": 224,
+      "lines": [
+        { "location": "A02-R14-3A", "qty": 3 },
+        { "location": "A04-R16-3B", "qty": 2 },
+        { "location": "A05-L20-4A", "qty": 1 },
+        { "location": "A07-L17-4B", "qty": 1 },
+        { "location": "A03-L13-2A", "qty": 4 },
+        { "location": "A06-R05-2B", "qty": 2 }
+      ]
+    }
+  ]
+}
