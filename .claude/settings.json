@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(echo \"TS:$?\")",
+      "PowerShell(npx tsc --noEmit -p tsconfig.json)",
+      "PowerShell(npx vitest run src/inbound src/warehouse src/pathfinding 2>&1)"
+    ]
+  }
+}

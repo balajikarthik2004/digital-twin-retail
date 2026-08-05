@@ -49,7 +49,11 @@ export function SceneView() {
       const engine = state.engine
       if (engine) {
         engine.advance(dt, state.timeScale)
-        scene.frame(dt, engine.agents)
+        scene.frame(dt, engine.agents, {
+          parcels: engine.parcels,
+          stations: engine.packStations,
+          speed: state.settings.conveyorSpeed,
+        })
 
         // Publish metrics at ~8 Hz; enough for a live dashboard, cheap for React.
         metricsAccumulator += dt
@@ -69,12 +73,14 @@ export function SceneView() {
       if (
         s.showPaths !== prev.showPaths ||
         s.showSequence !== prev.showSequence ||
+        s.showParcels !== prev.showParcels ||
         s.binColorMode !== prev.binColorMode ||
         s.focusAgentId !== prev.focusAgentId
       ) {
         scene.setOptions({
           showPaths: s.showPaths,
           showSequence: s.showSequence,
+          showParcels: s.showParcels,
           binColorMode: s.binColorMode,
           focusAgentId: s.focusAgentId,
         })
@@ -82,9 +88,34 @@ export function SceneView() {
       if (s.theme !== prev.theme) scene.setTheme(s.theme)
       if (s.selection !== prev.selection) scene.setSelection(s.selection)
       if (s.cameraPreset !== prev.cameraPreset) scene.applyPreset(s.cameraPreset)
+
+      // Inbound roadmap: draw the walk to the free location and fly to it, so
+      // the plan on the left is the thing you are looking at in the scene.
+      if (s.putawayPlan !== prev.putawayPlan) {
+        const plan = s.putawayPlan
+        scene.setPutawayRoute(
+          plan?.route ?? null,
+          plan?.candidates.map((c) => ({ binId: c.binId, chosen: c.binId === plan.chosenBinId })) ??
+            [],
+        )
+        if (plan && plan.chosenBinId !== prev.putawayPlan?.chosenBinId) {
+          scene.setSelection({ kind: 'bin', id: plan.chosenBinId })
+          scene.frameRoute(plan.route)
+        }
+      }
+
+      // A confirmed putaway physically changes a shelf, so the scene has to be
+      // told — the bin palettes are baked and would otherwise show the old SKU.
+      if (s.lastPlacement !== prev.lastPlacement) {
+        if (s.lastPlacement) scene.markPlaced(s.lastPlacement.binId)
+        else if (!s.putawayPlan) scene.setPutawayRoute(null)
+      }
       if (s.leftOpen !== prev.leftOpen || s.rightOpen !== prev.rightOpen) {
         // Panel transition is 300ms; resize once it has settled.
-        window.setTimeout(() => scene.resize(), 320)
+        window.setTimeout(() => {
+          scene.resize()
+          scene.applyPreset(scene.activePreset)
+        }, 320)
       }
     })
 
@@ -93,6 +124,7 @@ export function SceneView() {
     scene.setOptions({
       showPaths: initial.showPaths,
       showSequence: initial.showSequence,
+      showParcels: initial.showParcels,
       binColorMode: initial.binColorMode,
       focusAgentId: initial.focusAgentId,
     })

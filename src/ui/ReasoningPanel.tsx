@@ -10,7 +10,8 @@ const KIND_STYLE: Record<Thought['kind'], { label: string; tone: string; glyph: 
   wait: { label: 'Waiting', tone: 'text-[var(--viz-warning)]', glyph: '‖' },
   short: { label: 'Short pick', tone: 'text-[var(--viz-critical)]', glyph: '!' },
   break: { label: 'Break', tone: 'text-ink-400', glyph: '☕' },
-  done: { label: 'Dropped off', tone: 'text-[var(--viz-good)]', glyph: '✓' },
+  done: { label: 'Picked', tone: 'text-[var(--viz-good)]', glyph: '✓' },
+  pack: { label: 'Handed to pack', tone: 'text-[var(--viz-series-3)]', glyph: '▣' },
 }
 
 /**

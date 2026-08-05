@@ -35,7 +35,8 @@ export const PHASE_LABEL: Record<string, string> = {
   traveling: 'Travelling',
   picking: 'Picking',
   returning: 'Returning',
-  unloading: 'At pack',
+  unloading: 'Dropping at pack',
+  awaitPack: 'Held at pack',
   blocked: 'Waiting',
   break: 'On break',
 }
@@ -46,6 +47,35 @@ export const PHASE_TONE: Record<string, string> = {
   picking: 'text-[var(--viz-warning)]',
   returning: 'text-[var(--viz-series-3)]',
   unloading: 'text-[var(--viz-series-3)]',
+  awaitPack: 'text-[var(--viz-critical)]',
   blocked: 'text-[var(--viz-critical)]',
   break: 'text-ink-300',
+}
+
+/** Pack bench states, shown on the bench rows in the dashboard. */
+export const PACK_PHASE_LABEL: Record<string, string> = {
+  idle: 'Waiting for totes',
+  packing: 'Packing',
+  mergeBlocked: 'Belt full — held',
+  unstaffed: 'Not staffed',
+}
+
+export const PACK_PHASE_TONE: Record<string, string> = {
+  idle: 'text-ink-400',
+  packing: 'text-[var(--viz-good)]',
+  mergeBlocked: 'text-[var(--viz-critical)]',
+  unstaffed: 'text-ink-500',
+}
+
+export const PARCEL_STAGE_LABEL: Record<string, string> = {
+  conveying: 'On conveyor',
+  staged: 'Staged at dock',
+  dispatched: 'Shipped',
+}
+
+/** Seconds → a compact `1m 20s` / `48s` for dense rows. */
+export function shortDuration(seconds: number): string {
+  const s = Math.max(0, Math.round(seconds))
+  if (s < 60) return `${s}s`
+  return `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, '0')}s`
 }

@@ -1,3 +1,4 @@
+import type { Order } from '../simulation/types'
 import type { ThemeMode } from '../ui/theme'
 import type { VelocityTier } from '../warehouse/types'
 
@@ -12,7 +13,6 @@ export interface SceneTheme {
   rackDeck: number
   dock: number
   dockDoor: number
-  pack: number
   packTop: number
   stagingEdge: number
   curb: number
@@ -23,6 +23,43 @@ export interface SceneTheme {
   /** Path-trail opacities: the planned route, and the portion already walked. */
   ribbonPlan: number
   ribbonWalked: number
+  /**
+   * Inbound putaway roadmap. Deliberately outside the picker identity palette
+   * and outside the velocity/zone bin colours, so a route to free space can
+   * never be mistaken for a pick path or for a slotting tier.
+   */
+  putaway: {
+    /** The goods-in → shelf ribbon. */
+    route: number
+    routeOpacity: number
+    /** The chosen location. */
+    target: number
+    /** The runners-up on the shortlist. */
+    candidate: number
+  }
+  /** Outbound conveyor: frame steel, belt surface and its moulded cleats. */
+  conveyor: {
+    frame: number
+    leg: number
+    belt: string
+    cleat: string
+    /** Divert chutes read as a lighter, unpowered slide. */
+    chute: string
+  }
+  /** Cartons on the belt and the shipping label that carries the channel colour. */
+  parcel: {
+    carton: number
+    tape: number
+  }
+  /** Pack bench furniture: the packer's hi-vis, and the andon beacon states. */
+  pack: {
+    packer: number
+    bench: number
+    beaconPacking: number
+    beaconIdle: number
+    beaconBlocked: number
+    beaconClosed: number
+  }
   lights: {
     skyColor: number
     groundColor: number
@@ -69,7 +106,6 @@ const LIGHT: SceneTheme = {
   rackDeck: 0x707e8f,
   dock: 0x8b97a5,
   dockDoor: 0x2b6cb0,
-  pack: 0x93a0af,
   packTop: 0x1f8a66,
   stagingEdge: 0x0f7490,
   curb: 0x8d99a7,
@@ -77,6 +113,23 @@ const LIGHT: SceneTheme = {
   binDone: 0x98a4b2,
   ribbonPlan: 0.4,
   ribbonWalked: 1,
+  putaway: { route: 0x9a3412, routeOpacity: 0.85, target: 0x7c2d12, candidate: 0x4a3aa7 },
+  conveyor: {
+    frame: 0x5b6879,
+    leg: 0x6f7c8c,
+    belt: '#3a4453',
+    cleat: '#586576',
+    chute: '#8c98a7',
+  },
+  parcel: { carton: 0xc59355, tape: 0xe8dcc6 },
+  pack: {
+    packer: 0xeda100,
+    bench: 0x8b97a5,
+    beaconPacking: 0x0ca30c,
+    beaconIdle: 0xb8860b,
+    beaconBlocked: 0xd03b3b,
+    beaconClosed: 0x94a3b8,
+  },
   lights: {
     skyColor: 0xffffff,
     groundColor: 0xb4c0ce,
@@ -103,7 +156,6 @@ const DARK: SceneTheme = {
   rackDeck: 0x2a3442,
   dock: 0x243244,
   dockDoor: 0x2f7d8c,
-  pack: 0x2a3549,
   packTop: 0x3d7f6d,
   stagingEdge: 0x22d3ee,
   curb: 0x101620,
@@ -111,6 +163,23 @@ const DARK: SceneTheme = {
   binDone: 0x334155,
   ribbonPlan: 0.22,
   ribbonWalked: 0.95,
+  putaway: { route: 0xf59e0b, routeOpacity: 0.9, target: 0xfab219, candidate: 0x9085e9 },
+  conveyor: {
+    frame: 0x38445a,
+    leg: 0x2b3646,
+    belt: '#161d28',
+    cleat: '#2c3745',
+    chute: '#48566b',
+  },
+  parcel: { carton: 0xb07f45, tape: 0xd8ccb6 },
+  pack: {
+    packer: 0xc98500,
+    bench: 0x2a3549,
+    beaconPacking: 0x0ca30c,
+    beaconIdle: 0xfab219,
+    beaconBlocked: 0xe66767,
+    beaconClosed: 0x64748b,
+  },
   lights: {
     skyColor: 0xa8cbe8,
     groundColor: 0x161d27,
@@ -155,8 +224,8 @@ export function sceneTheme(mode: ThemeMode): SceneTheme {
  * legend always ships a visible tier label beside every swatch.
  */
 const VELOCITY: Record<ThemeMode, Record<VelocityTier, number>> = {
-  light: { fast: 0xeb6834, medium: 0x1baf7a, slow: 0x2a78d6 },
-  dark: { fast: 0xd95926, medium: 0x199e70, slow: 0x3987e5 },
+  light: { fast: 0x1baf7a, medium: 0xeb6834, slow: 0x2a78d6 },
+  dark: { fast: 0x199e70, medium: 0xd95926, slow: 0x3987e5 },
 }
 
 export function velocityColors(mode: ThemeMode): Record<VelocityTier, number> {
@@ -195,4 +264,43 @@ const ZONES: Record<ThemeMode, number[]> = {
 
 export function zoneColors(mode: ThemeMode): number[] {
   return ZONES[mode]
+}
+
+/**
+ * Sales channel colours, worn by the shipping label on each parcel and by the
+ * legend chips beside it.
+ *
+ * These are slots 1 / 3 / 4 / 8 of the same validated categorical orders used
+ * for zones, so no new hues are introduced. A carton stays cardboard-coloured
+ * and only its label is tinted — the relief rule is satisfied because every
+ * swatch in the dashboard ships its channel name beside it, and the parcel card
+ * names the channel in text.
+ */
+const CHANNELS: Record<ThemeMode, Record<Order['channel'], number>> = {
+  light: {
+    Ecommerce: 0x2a78d6,
+    'Click & Collect': 0x1baf7a,
+    'Store Replen': 0xeda100,
+    Wholesale: 0xe34948,
+  },
+  dark: {
+    Ecommerce: 0x3987e5,
+    'Click & Collect': 0x199e70,
+    'Store Replen': 0xc98500,
+    Wholesale: 0xe66767,
+  },
+}
+
+export function channelColors(mode: ThemeMode): Record<Order['channel'], number> {
+  return CHANNELS[mode]
+}
+
+export function channelHex(mode: ThemeMode): Record<Order['channel'], string> {
+  const c = CHANNELS[mode]
+  return {
+    Ecommerce: `#${c.Ecommerce.toString(16).padStart(6, '0')}`,
+    'Click & Collect': `#${c['Click & Collect'].toString(16).padStart(6, '0')}`,
+    'Store Replen': `#${c['Store Replen'].toString(16).padStart(6, '0')}`,
+    Wholesale: `#${c.Wholesale.toString(16).padStart(6, '0')}`,
+  }
 }

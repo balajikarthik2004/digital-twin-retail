@@ -3,11 +3,15 @@ import { buildRoute, createRoutingContext } from '../pathfinding/route'
 import { getStrategy } from '../pathfinding/strategies'
 import type { NodeId, Route, RouteStop, RoutingContext, Vec2 } from '../pathfinding/types'
 import type { WarehouseModel } from '../warehouse/types'
+import { PackLine } from './packLine'
 import { profileFor } from './pickerProfiles'
 import type {
   AgentMetrics,
   CompletedOrder,
   Order,
+  PackJob,
+  PackStation,
+  Parcel,
   PickerAgent,
   SimEvent,
   SimMetrics,
@@ -142,11 +146,17 @@ export class SimulationEngine {
   /** Cached per-order nearest-stop node lookups, for dispatch scoring. */
   private orderNodes = new Map<string, NodeId[]>()
   private palette: string[] = AGENT_COLORS
+  /** Pack-out, conveyor sortation and trailer loading. */
+  private packLine: PackLine
 
   constructor(model: WarehouseModel, settings: SimSettings) {
     this.model = model
     this.settings = settings
     this.ctx = createRoutingContext(model.graph, new ShortestPathOracle(model.graph))
+    this.packLine = new PackLine(model, settings, {
+      log: (kind, message) => this.log(kind, message),
+      complete: (record) => this.recordCompletion(record),
+    })
     this.spawnAgents(settings.agentCount)
   }
 
@@ -154,6 +164,24 @@ export class SimulationEngine {
 
   get routingContext(): RoutingContext {
     return this.ctx
+  }
+
+  /** Live parcels, for the 3D scene. */
+  get parcels(): Parcel[] {
+    return this.packLine.parcels
+  }
+
+  /** Live pack benches, for the 3D scene. */
+  get packStations(): PackStation[] {
+    return this.packLine.stations
+  }
+
+  /**
+   * Every order shipped this run, oldest first. `metrics().recent` is a short
+   * tail for the dashboard; the history view needs the whole log.
+   */
+  get completedOrders(): CompletedOrder[] {
+    return this.completed
   }
 
   getSettings(): SimSettings {
@@ -179,6 +207,22 @@ export class SimulationEngine {
     }
     if (patch.strategyId !== undefined && patch.strategyId !== before.strategyId) {
       this.log('info', `Routing strategy switched to ${getStrategy(patch.strategyId).name}`)
+    }
+
+    this.packLine.configure(this.settings)
+    if (patch.packStaff !== undefined && patch.packStaff !== before.packStaff) {
+      this.log('info', `Pack wall staffed to ${this.packLine.staffedCount} bench(es)`)
+    }
+    if (
+      patch.conveyorSortation !== undefined &&
+      patch.conveyorSortation !== before.conveyorSortation
+    ) {
+      this.log(
+        'info',
+        patch.conveyorSortation
+          ? 'Conveyor sortation online — parcels take the takeaway line to their door'
+          : 'Conveyor sortation offline — parcels are hand-trucked to the docks',
+      )
     }
   }
 
@@ -219,6 +263,7 @@ export class SimulationEngine {
     this.replenAlerts.clear()
     this.series = [{ t: 0, completed: 0, distance: 0 }]
     this.nextSeriesAt = SERIES_INTERVAL
+    this.packLine.reset()
     if (!opts.keepOrders) {
       this.orders = []
       this.ordersById.clear()
@@ -285,6 +330,8 @@ export class SimulationEngine {
       sinceBreak: 0,
       breakUntil: 0,
       blockedFor: 0,
+      pendingJobs: [],
+      packWaitTime: 0,
     }
   }
 
@@ -302,6 +349,13 @@ export class SimulationEngine {
         this.assignedIds.delete(order.id)
         this.queue.unshift(order)
       }
+      // Totes already picked go to pack regardless of the buffer limit — the
+      // work is done, and dropping it would silently lose an order.
+      for (const job of dropped.pendingJobs) {
+        this.packLine.induct(job, true)
+        this.assignedIds.delete(job.orderId)
+      }
+      dropped.pendingJobs = []
     }
   }
 
@@ -330,11 +384,17 @@ export class SimulationEngine {
     this.dispatch()
     const yields = this.resolveCongestion()
     for (const agent of this.agents) this.stepAgent(agent, dt, yields.get(agent.id) ?? 1)
+    // Pack-out runs on the same slice as the floor, so a 20x clock cannot let
+    // parcels tunnel through a merge point.
+    this.packLine.step(dt, this.time)
     this.sampleSeries()
 
     if (this.isDrained()) {
+      // Nothing else is coming, so part-full trailers ship rather than sitting
+      // on the dock forever.
+      this.packLine.stepTrailers(this.time, true)
       this.running = false
-      this.log('info', 'All released orders completed — simulation idle.')
+      this.log('info', 'Wave picked, packed and dispatched — simulation idle.')
     }
   }
 
@@ -342,7 +402,8 @@ export class SimulationEngine {
     return (
       this.releaseCursor >= this.orders.length &&
       this.queue.length === 0 &&
-      this.agents.every((a) => a.phase === 'idle')
+      this.agents.every((a) => a.phase === 'idle') &&
+      !this.packLine.busy
     )
   }
 
@@ -698,6 +759,10 @@ export class SimulationEngine {
         }
         return
 
+      case 'awaitPack':
+        this.tryHandover(agent, dt)
+        return
+
       case 'picking':
       case 'unloading': {
         agent.dwellRemaining -= dt
@@ -805,6 +870,11 @@ export class SimulationEngine {
     if (bin.sku.stock <= bin.sku.replenPoint) this.replenAlerts.add(bin.id)
   }
 
+  /**
+   * The picker's tour ends at the pack bench, but the order's journey does not:
+   * each picked order becomes a pack job, and the picker is only free once the
+   * pack line has actually accepted the totes.
+   */
   private finishTour(agent: PickerAgent): void {
     const route = agent.route
     const batch = agent.orders
@@ -816,42 +886,39 @@ export class SimulationEngine {
 
       for (const order of batch) {
         const share = order.lines.length / totalLines
-        const onTime = this.time <= order.dueAt
         agent.ordersDone++
         agent.totalOrderTime += duration
-        this.assignedIds.delete(order.id)
-        this.completed.push({
+        agent.pendingJobs.push({
           orderId: order.id,
           ref: order.ref,
+          channel: order.channel,
+          priority: order.priority,
+          lines: order.lines.length,
+          units: order.lines.reduce((s, l) => s + l.qty, 0),
           agentId: agent.id,
+          agentLabel: agent.label,
           strategyId: route.strategyId,
           tourId,
+          batchSize: batch.length,
           distance: actual * share,
           planned: agent.plannedDistance * share,
-          duration,
-          picks: order.lines.length,
-          shorts: 0,
-          finishedAt: this.time,
+          assignedAt: agent.orderStartedAt,
+          pickedAt: this.time,
           dueAt: order.dueAt,
-          onTime,
-          batchSize: batch.length,
         })
-        if (!onTime) {
-          this.log('late', `${order.ref} packed ${formatDuration(this.time - order.dueAt)} past SLA`)
-        }
       }
 
       const drift = actual - agent.plannedDistance
       this.think(
         agent,
         'done',
-        `Dropped ${batch.length} order(s) at pack — ${Math.round(actual)} m walked${
+        `Picked ${batch.length} order(s) — ${Math.round(actual)} m walked${
           Math.abs(drift) > 3 ? ` (${drift > 0 ? '+' : ''}${Math.round(drift)} m vs plan)` : ''
         }, ${formatDuration(duration)}`,
       )
       this.log(
-        'completed',
-        `${batch.map((o) => o.ref).join(' + ')} packed by ${agent.label} · ${actual.toFixed(0)} m · ${formatDuration(duration)}`,
+        'handoff',
+        `${batch.map((o) => o.ref).join(' + ')} picked by ${agent.label} · ${actual.toFixed(0)} m · ${formatDuration(duration)} → pack`,
       )
     }
 
@@ -861,8 +928,60 @@ export class SimulationEngine {
     agent.nextWaypoint = 0
     agent.currentBinId = null
     agent.linesLoaded = 0
+    agent.blockedFor = 0
+    agent.phase = 'awaitPack'
+    this.tryHandover(agent, 0)
+  }
 
-    // Decide whether to take a scheduled break before pulling the next order.
+  /**
+   * Move the picked totes onto the pack line.
+   *
+   * The induction buffer is finite on purpose: when packing cannot keep up, the
+   * picker stands at the bench holding totes instead of walking off for the next
+   * order. That back-pressure is the whole reason a pack bottleneck shows up in
+   * picker utilisation rather than hiding in an infinite queue.
+   */
+  private tryHandover(agent: PickerAgent, dt: number): void {
+    const accepted: PackJob[] = []
+    while (agent.pendingJobs.length > 0) {
+      const job = agent.pendingJobs[0]
+      if (!this.packLine.induct(job)) break
+      agent.pendingJobs.shift()
+      this.assignedIds.delete(job.orderId)
+      accepted.push(job)
+    }
+
+    if (accepted.length > 0) {
+      const lines = accepted.reduce((s, j) => s + j.lines, 0)
+      this.think(
+        agent,
+        'pack',
+        `Inducted ${accepted.length} order(s) / ${lines} lines at pack — buffer now ${this.packLine.bufferDepth}`,
+      )
+    }
+
+    if (agent.pendingJobs.length > 0) {
+      if (agent.blockedFor === 0) {
+        this.think(
+          agent,
+          'wait',
+          `Pack buffer full (${this.packLine.bufferDepth} totes) — holding ${agent.pendingJobs.length} order(s) at the bench`,
+        )
+        this.log('pack', `${agent.label} is blocked at pack — induction buffer full`)
+      }
+      agent.blockedFor += dt
+      agent.waitTime += dt
+      agent.packWaitTime += dt
+      agent.phase = 'awaitPack'
+      return
+    }
+
+    agent.blockedFor = 0
+    this.releasePicker(agent)
+  }
+
+  /** Break decision once the totes are gone and the picker is free again. */
+  private releasePicker(agent: PickerAgent): void {
     if (this.settings.restBreaks && agent.sinceBreak >= WORK_BEFORE_BREAK) {
       agent.phase = 'break'
       agent.breakUntil = this.time + BREAK_DURATION
@@ -875,6 +994,18 @@ export class SimulationEngine {
       return
     }
     agent.phase = 'idle'
+  }
+
+  /** A parcel reached its dock: the order is finally out of the building's hands. */
+  private recordCompletion(record: CompletedOrder): void {
+    this.completed.push(record)
+    this.log(
+      'completed',
+      `${record.ref} staged at ${record.dock} · ${record.cartons} carton${record.cartons > 1 ? 's' : ''} · ${formatDuration(record.duration)} end to end`,
+    )
+    if (!record.onTime) {
+      this.log('late', `${record.ref} shipped ${formatDuration(record.finishedAt - record.dueAt)} past SLA`)
+    }
   }
 
   private sampleSeries(): void {
@@ -931,6 +1062,8 @@ export class SimulationEngine {
       thoughts: a.thoughts.slice().reverse(),
     }))
 
+    const pack = this.packLine.metrics(elapsed)
+
     return {
       time: this.time,
       running: this.running,
@@ -942,8 +1075,31 @@ export class SimulationEngine {
       totalPicks,
       ordersCompleted,
       ordersPending: this.queue.length + (this.orders.length - this.releaseCursor),
-      ordersInProgress: this.assignedIds.size,
+      // Everything inside the four walls that is neither queued nor shipped:
+      // with a picker, on a bench, or riding the conveyor.
+      ordersInProgress:
+        this.assignedIds.size + pack.ordersAwaitingPack + pack.ordersPacking + pack.parcelsInTransit,
       ordersTotal: this.orders.length,
+      ordersPicked: pack.ordersPicked,
+      ordersAwaitingPack: pack.ordersAwaitingPack,
+      ordersPacking: pack.ordersPacking,
+      parcelsInTransit: pack.parcelsInTransit,
+      parcelsStaged: pack.parcelsStaged,
+      parcelsPacked: pack.parcelsPacked,
+      parcelsDispatched: pack.parcelsDispatched,
+      cartonsPacked: pack.cartonsPacked,
+      trailersSealed: pack.trailersSealed,
+      avgPackSec: pack.avgPackSec,
+      avgConveySec: pack.avgConveySec,
+      packUtilisation: pack.packUtilisation,
+      packBufferPeak: pack.packBufferPeak,
+      mergeBlocks: pack.mergeBlocks,
+      packWaitSeconds: this.agents.reduce((s, a) => s + a.packWaitTime, 0),
+      packStations: pack.stations,
+      docks: pack.docks,
+      // Snapshot, not the live array: React reads this while the engine keeps
+      // moving parcels every frame.
+      parcels: this.packLine.parcels.slice(),
       avgOrderTime: ordersCompleted > 0 ? totalOrderTime / ordersCompleted : 0,
       avgDistancePerOrder: ordersCompleted > 0 ? totalDistance / ordersCompleted : 0,
       congestionEvents: this.congestionTotal,

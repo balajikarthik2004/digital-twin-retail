@@ -34,7 +34,7 @@ export function ViewControls() {
           <p className="text-[9.5px] leading-relaxed text-ink-400">
             Drag to orbit · scroll to zoom · right-drag to pan
             <br />
-            Click a bin or picker to inspect it
+            Click a bin, picker or parcel to inspect it
           </p>
         </div>
       )}

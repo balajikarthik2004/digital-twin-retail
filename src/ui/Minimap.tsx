@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { sceneTheme, velocityHex } from '../scene/theme'
+import { channelHex, sceneTheme, velocityHex } from '../scene/theme'
 import { useAppStore } from '../store/useAppStore'
 import { cx } from './components/primitives'
 import type { ThemeMode } from './theme'
@@ -114,7 +114,35 @@ export function Minimap() {
         ctx.globalAlpha = 1
       }
 
+      // Conveyor loop: the takeaway trunk, its spurs and the dock chutes. Drawn
+      // before the live layers so parcels and pickers sit on top of it.
+      const conveyor = model.conveyor
+      const stroke = (points: { x: number; z: number }[], width: number, color: string) => {
+        if (points.length < 2) return
+        ctx.strokeStyle = color
+        ctx.lineWidth = width
+        ctx.beginPath()
+        points.forEach((p, i) => (i === 0 ? ctx.moveTo(px(p.x), py(p.z)) : ctx.lineTo(px(p.x), py(p.z))))
+        ctx.stroke()
+      }
+      ctx.lineCap = 'round'
+      stroke(conveyor.trunk.polyline, large ? 3.6 : 2.6, hex(T.conveyor.frame))
+      for (const spur of conveyor.spurs) stroke(spur.polyline, large ? 2 : 1.5, hex(T.conveyor.frame))
+      for (const chute of conveyor.chutes) {
+        stroke(chute.polyline, large ? 1.8 : 1.4, T.conveyor.chute)
+      }
+      ctx.lineCap = 'butt'
+
       if (!engine) return
+
+      // Parcels on the belt and stacked at the doors.
+      const CHANNEL = channelHex(theme)
+      for (const parcel of engine.parcels) {
+        if (parcel.stage === 'dispatched') continue
+        const size = large ? 3.4 : 2.4
+        ctx.fillStyle = parcel.blocked ? hex(T.pack.beaconBlocked) : CHANNEL[parcel.channel]
+        ctx.fillRect(px(parcel.pos.x) - size / 2, py(parcel.pos.z) - size / 2, size, size)
+      }
 
       // Paths, then pickers on top.
       for (const agent of engine.agents) {

@@ -1,9 +1,17 @@
 import { useEffect, useRef, type RefObject } from 'react'
 import type { WarehouseScene } from '../scene/WarehouseScene'
-import { VELOCITY_LABEL, velocityHex } from '../scene/theme'
+import { VELOCITY_LABEL, channelHex, velocityHex } from '../scene/theme'
 import { useAppStore } from '../store/useAppStore'
 import { Bar, cx } from './components/primitives'
-import { PHASE_LABEL, PHASE_TONE, metres, mmss, pct } from './format'
+import {
+  PARCEL_STAGE_LABEL,
+  PHASE_LABEL,
+  PHASE_TONE,
+  metres,
+  mmss,
+  pct,
+  shortDuration,
+} from './format'
 
 /**
  * Click-to-inspect popover.
@@ -20,7 +28,9 @@ export function Inspector({ sceneRef }: { sceneRef: RefObject<WarehouseScene | n
   const model = useAppStore((s) => s.model)
   const metrics = useAppStore((s) => s.metrics)
   const setSelection = useAppStore((s) => s.setSelection)
-  const VELOCITY_HEX = velocityHex(useAppStore((s) => s.theme))
+  const theme = useAppStore((s) => s.theme)
+  const VELOCITY_HEX = velocityHex(theme)
+  const CHANNEL_HEX = channelHex(theme)
 
   useEffect(() => {
     if (!selection) return
@@ -69,8 +79,13 @@ export function Inspector({ sceneRef }: { sceneRef: RefObject<WarehouseScene | n
 
   const bin = selection.kind === 'bin' ? model.binsById.get(selection.id) : null
   const agent = selection.kind === 'agent' ? metrics?.agents.find((a) => a.id === selection.id) : null
-  if (!bin && !agent) return null
+  const parcel =
+    selection.kind === 'parcel' ? metrics?.parcels.find((p) => p.id === selection.id) : null
+  if (!bin && !agent && !parcel) return null
   const needsReplen = bin ? bin.sku.stock <= bin.sku.replenPoint : false
+  const transit = parcel
+    ? (parcel.stage === 'staged' ? parcel.stagedAt : (metrics?.time ?? 0)) - parcel.packedAt
+    : 0
 
   return (
     <div
@@ -87,10 +102,10 @@ export function Inspector({ sceneRef }: { sceneRef: RefObject<WarehouseScene | n
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
               <div className="text-[10px] font-medium uppercase tracking-[0.12em] text-ink-400">
-                {bin ? 'Storage location' : 'Picker'}
+                {bin ? 'Storage location' : parcel ? 'Parcel' : 'Picker'}
               </div>
-              <div className="truncate font-mono text-sm font-semibold text-white">
-                {bin ? bin.code : agent!.label}
+              <div className="truncate font-mono text-sm font-semibold text-ink-100">
+                {bin ? bin.code : parcel ? parcel.ref : agent!.label}
               </div>
             </div>
             <button
@@ -152,6 +167,71 @@ export function Inspector({ sceneRef }: { sceneRef: RefObject<WarehouseScene | n
                   </div>
                 )}
               </div>
+            </div>
+          ) : parcel ? (
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <span
+                  className={cx(
+                    'text-xs font-semibold',
+                    parcel.blocked
+                      ? 'text-[var(--viz-critical)]'
+                      : parcel.stage === 'staged'
+                        ? 'text-[var(--viz-good)]'
+                        : 'text-[var(--viz-series-1)]',
+                  )}
+                >
+                  {parcel.blocked ? 'Held at merge' : PARCEL_STAGE_LABEL[parcel.stage]}
+                </span>
+                <span className="chip !text-[9px]">
+                  {parcel.manual ? 'Hand-trucked' : 'Conveyed'}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <span
+                  className="h-2 w-2 rounded-sm"
+                  style={{ background: CHANNEL_HEX[parcel.channel] }}
+                />
+                <span className="text-[10.5px] font-medium text-ink-200">{parcel.channel}</span>
+                {parcel.priority === 'express' && (
+                  <span className="chip !px-1 !py-0 !text-[8.5px] !text-[var(--viz-warning)]">
+                    express
+                  </span>
+                )}
+              </div>
+
+              <div>
+                <div className="mb-1 flex justify-between text-[10px] text-ink-400">
+                  <span>
+                    {parcel.stationLabel} → {parcel.dockLabel}
+                  </span>
+                  <span className="font-mono tabular-nums text-ink-200">
+                    {Math.round(parcel.arc)} / {Math.round(parcel.pathLength)} m
+                  </span>
+                </div>
+                <Bar
+                  value={parcel.pathLength > 0 ? parcel.arc / parcel.pathLength : 1}
+                  color={parcel.blocked ? '#d03b3b' : CHANNEL_HEX[parcel.channel]}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[10.5px]">
+                <Row label="Cartons" value={`${parcel.cartons}`} />
+                <Row label="Weight" value={`${parcel.weightKg} kg`} />
+                <Row label="Packed at" value={mmss(parcel.packedAt)} />
+                <Row
+                  label={parcel.stage === 'staged' ? 'Transit took' : 'In transit'}
+                  value={shortDuration(transit)}
+                />
+              </div>
+
+              {parcel.stage === 'staged' && (
+                <div className="rounded-md border border-ink-700 bg-ink-850/60 px-2 py-1.5 text-[10px] leading-snug text-ink-200">
+                  Stacked in slot {parcel.stackIndex + 1} at {parcel.dockLabel}, waiting for the
+                  trailer to seal.
+                </div>
+              )}
             </div>
           ) : (
             <div className="space-y-2.5">

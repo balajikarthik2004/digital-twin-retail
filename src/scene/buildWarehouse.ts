@@ -17,6 +17,12 @@ export interface WarehouseVisual {
   /** Temporarily tint a bin (route highlight); pass null to restore. */
   tintBin(binId: string, color: THREE.ColorRepresentation | null): void
   clearTints(): void
+  /**
+   * Re-read a bin's base colours from the model. Bin palettes are baked once at
+   * build time for speed, so a location that changes hands — an inbound putaway
+   * re-slotting an empty shelf — has to say so explicitly.
+   */
+  recolorBin(binId: string): void
   dispose(): void
 }
 
@@ -167,7 +173,38 @@ export function buildWarehouse(model: WarehouseModel, themeMode: ThemeMode = 'li
   // Gaps on all sides so individual slots stay readable at aisle level rather
   // than merging into one coloured slab.
   const binGeo = new THREE.BoxGeometry(binDepth, config.levelHeight * 0.5, slotWidth * 0.78)
-  const binMat = new THREE.MeshStandardMaterial({ roughness: 0.68, metalness: 0.06 })
+  
+  const binMat = new THREE.MeshPhysicalMaterial({ 
+    roughness: 0.15, 
+    metalness: 0.2,
+    clearcoat: 1.0,
+    clearcoatRoughness: 0.1,
+  })
+  
+  binMat.onBeforeCompile = (shader) => {
+    shader.vertexShader = shader.vertexShader.replace(
+      '#include <common>',
+      `#include <common>\n varying vec3 vLocalPos;`
+    )
+    shader.vertexShader = shader.vertexShader.replace(
+      '#include <begin_vertex>',
+      `#include <begin_vertex>\n vLocalPos = position;`
+    )
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <common>',
+      `#include <common>\n varying vec3 vLocalPos;`
+    )
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <color_fragment>',
+      `#include <color_fragment>
+       float localHalfHeight = ${(config.levelHeight * 0.25).toFixed(5)};
+       float normY = smoothstep(-localHalfHeight, localHalfHeight, vLocalPos.y);
+       vec3 gradientBottom = diffuseColor.rgb * 0.2;
+       vec3 gradientTop = diffuseColor.rgb * 1.5 + vec3(0.1);
+       diffuseColor.rgb = mix(gradientBottom, gradientTop, normY);`
+    )
+  }
+
   disposables.push(binGeo, binMat)
 
   const binOrder = model.bins
@@ -221,6 +258,13 @@ export function buildWarehouse(model: WarehouseModel, themeMode: ThemeMode = 'li
     arr[index * 3 + 2] = src[index * 3 + 2]
   }
 
+  const writePalette = (target: Float32Array, index: number, hex: number) => {
+    baseColor.setHex(hex)
+    target[index * 3] = baseColor.r
+    target[index * 3 + 1] = baseColor.g
+    target[index * 3 + 2] = baseColor.b
+  }
+
   const visual: WarehouseVisual = {
     group,
     binsMesh,
@@ -254,6 +298,18 @@ export function buildWarehouse(model: WarehouseModel, themeMode: ThemeMode = 'li
       for (const index of tinted) restore(index)
       tinted.clear()
       instanceColor.needsUpdate = true
+    },
+    recolorBin(binId) {
+      const index = binIndexById.get(binId)
+      if (index === undefined) return
+      const bin = binOrder[index]
+      writePalette(palettes.velocity, index, VELOCITY_COLOR[bin.sku.velocity])
+      writePalette(palettes.zone, index, ZONE_COLORS[bin.aisle % ZONE_COLORS.length])
+      // A tinted bin keeps its tint; the new base shows through once it clears.
+      if (!tinted.has(index)) {
+        restore(index)
+        instanceColor.needsUpdate = true
+      }
     },
     dispose() {
       binsMesh.dispose()

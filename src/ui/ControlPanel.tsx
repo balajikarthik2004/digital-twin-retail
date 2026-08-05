@@ -1,11 +1,9 @@
-import { useRef, useState } from 'react'
-import { SAMPLE_ORDERS_DOC } from '../data'
-import { ROUTING_STRATEGIES } from '../pathfinding/strategies'
 import { MAX_AGENTS } from '../simulation/engine'
 import { PICKER_KINDS, PICKER_PROFILES, profileFor } from '../simulation/pickerProfiles'
 import { useAppStore } from '../store/useAppStore'
-import { VELOCITY_LABEL, velocityHex } from '../scene/theme'
+import { VELOCITY_LABEL, channelHex, velocityHex } from '../scene/theme'
 import { Card, Segmented, Slider, Toggle, cx } from './components/primitives'
+import { shortDuration } from './format'
 
 const SHORT_KIND: Record<string, string> = {
   person: 'Person',
@@ -47,89 +45,48 @@ function PickerGlyph({ kind, active }: { kind: string; active: boolean }) {
   )
 }
 
+/**
+ * Operations section: how the shift is resourced and what the scene shows.
+ *
+ * Anything about the *goods* — waves in, orders out, what already happened —
+ * lives in the Inbound / Outbound / History sections instead.
+ */
 export function ControlPanel() {
   const settings = useAppStore((s) => s.settings)
-  const orderGen = useAppStore((s) => s.orderGen)
   const orders = useAppStore((s) => s.orders)
-  const metrics = useAppStore((s) => s.metrics)
   const binColorMode = useAppStore((s) => s.binColorMode)
   const showPaths = useAppStore((s) => s.showPaths)
   const showSequence = useAppStore((s) => s.showSequence)
+  const showParcels = useAppStore((s) => s.showParcels)
 
   const updateSettings = useAppStore((s) => s.updateSettings)
-  const setOrderGen = useAppStore((s) => s.setOrderGen)
-  const regenerateOrders = useAppStore((s) => s.regenerateOrders)
-  const loadSampleOrders = useAppStore((s) => s.loadSampleOrders)
-  const importOrdersJson = useAppStore((s) => s.importOrdersJson)
-  const clearOrders = useAppStore((s) => s.clearOrders)
   const setBinColorMode = useAppStore((s) => s.setBinColorMode)
   const toggle = useAppStore((s) => s.toggle)
 
-  const [importText, setImportText] = useState('')
-  const [importOpen, setImportOpen] = useState(false)
-  const fileRef = useRef<HTMLInputElement>(null)
-
   const totalLines = orders.reduce((s, o) => s + o.lines.length, 0)
   const profile = profileFor(settings.pickerKind)
-  const VELOCITY_HEX = velocityHex(useAppStore((s) => s.theme))
+  const theme = useAppStore((s) => s.theme)
+  const VELOCITY_HEX = velocityHex(theme)
+  const CHANNEL_HEX = channelHex(theme)
   const aisles = useAppStore((s) => s.model?.config.aisles ?? 0)
+  const benches = useAppStore((s) => s.model?.config.packStations ?? 1)
+  const conveyorMetres = useAppStore((s) => s.model?.conveyor.trunk.length ?? 0)
+  const metrics = useAppStore((s) => s.metrics)
+
+  // A representative order at the current settings, so the sliders read in the
+  // units an operator thinks in: seconds per parcel, not abstract factors.
+  const sampleLines = orders.length > 0 ? Math.round(totalLines / orders.length) : 5
+  const sampleUnits = sampleLines * 2
+  const sampleCartons = Math.max(1, Math.ceil(sampleUnits / settings.unitsPerCarton))
+  const samplePackSec =
+    settings.packSetupSec * (1 + (sampleCartons - 1) * 0.55) +
+    settings.packPerLineSec * sampleLines +
+    settings.packPerUnitSec * sampleUnits
   // How crowded the module is about to get, in the operator's own terms.
   const aislesPerPicker = aisles > 0 ? (aisles / settings.agentCount).toFixed(1) : '—'
 
-  const onFile = (file: File | undefined) => {
-    if (!file) return
-    file.text().then((text) => {
-      setImportText(text)
-      importOrdersJson(text)
-    })
-  }
-
   return (
     <div className="flex h-full flex-col gap-3 overflow-y-auto p-3">
-      <Card title="Routing strategy">
-        <div className="space-y-1.5">
-          {ROUTING_STRATEGIES.map((strategy) => {
-            const active = settings.strategyId === strategy.id
-            return (
-              <button
-                key={strategy.id}
-                type="button"
-                onClick={() => updateSettings({ strategyId: strategy.id })}
-                className={cx(
-                  'w-full rounded-lg border px-2.5 py-2 text-left transition-all duration-150',
-                  active
-                    ? 'option-active'
-                    : 'border-ink-700 bg-ink-850 hover:border-ink-600 hover:bg-ink-750',
-                )}
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span
-                    className={cx(
-                      'text-[11.5px] font-semibold',
-                      active ? 'text-accent-soft' : 'text-ink-100',
-                    )}
-                  >
-                    {strategy.name}
-                  </span>
-                  {active && (
-                    <span className="text-[9px] font-bold uppercase tracking-wider text-accent">
-                      active
-                    </span>
-                  )}
-                </div>
-                <p className="mt-0.5 text-[10px] leading-snug text-ink-400">{strategy.blurb}</p>
-              </button>
-            )
-          })}
-        </div>
-        {metrics?.running && (
-          <p className="mt-2 text-[10px] leading-snug text-ink-400">
-            In-flight routes keep their original plan — the new strategy applies to the next order
-            assigned.
-          </p>
-        )}
-      </Card>
-
       <Card
         title="Picker type"
         action={<span className="chip">{profile.capacityLines} lines / tour</span>}
@@ -174,7 +131,7 @@ export function ControlPanel() {
         <p className="mt-2 text-[10px] leading-snug text-ink-400">{profile.blurb}</p>
       </Card>
 
-      <Card title="Labour & fleet">
+      <Card title="Staff allocation">
         <div className="space-y-3.5">
           <Slider
             label="Pickers on the floor"
@@ -188,219 +145,128 @@ export function ControlPanel() {
                 : 'More pickers raise throughput but also aisle congestion.'
             }
           />
-          <Slider
-            label="Base walking speed"
-            value={settings.pickerSpeed}
-            min={0.6}
-            max={2.2}
-            step={0.05}
-            suffix=" m/s"
-            format={(v) => v.toFixed(2)}
-            onChange={(v) => updateSettings({ pickerSpeed: v })}
-            hint={`× ${profile.speedFactor.toFixed(2)} for ${SHORT_KIND[settings.pickerKind]} = ${(settings.pickerSpeed * profile.speedFactor).toFixed(2)} m/s`}
-          />
-          <Slider
-            label="Handling time per line"
-            value={settings.pickTimeSec}
-            min={3}
-            max={40}
-            step={1}
-            suffix=" s"
-            onChange={(v) => updateSettings({ pickTimeSec: v })}
-          />
-          <Slider
-            label="Time per unit"
-            value={settings.perUnitTimeSec}
-            min={0}
-            max={10}
-            step={0.1}
-            suffix=" s"
-            format={(v) => v.toFixed(1)}
-            onChange={(v) => updateSettings({ perUnitTimeSec: v })}
-          />
-          <Slider
-            label="Pack-out per order"
-            value={settings.unloadTimeSec}
-            min={0}
-            max={120}
-            step={5}
-            suffix=" s"
-            onChange={(v) => updateSettings({ unloadTimeSec: v })}
-          />
-          <Slider
-            label="Congestion radius"
-            value={settings.congestionRadius}
-            min={0.8}
-            max={6}
-            step={0.1}
-            suffix=" m"
-            format={(v) => v.toFixed(1)}
-            onChange={(v) => updateSettings({ congestionRadius: v })}
-            hint="Pickers this close yield to each other and log a congestion event."
-          />
         </div>
       </Card>
 
-      <Card title="Operating behaviour">
-        <p className="mb-2 text-[10px] leading-relaxed text-ink-400">
-          What the pickers are allowed to reason about. Turn one off to see what it was worth —
-          every switch shows up in the metrics.
-        </p>
-        <div className="space-y-1">
-          <Toggle
-            label="Smart dispatch"
-            checked={settings.smartDispatch}
-            onChange={(v) => updateSettings({ smartDispatch: v })}
-            hint="Weigh SLA urgency against walking distance instead of plain FIFO."
-          />
-          <Toggle
-            label="Batch picking"
-            checked={settings.batchOrders}
-            onChange={(v) => updateSettings({ batchOrders: v })}
-            hint={`Combine nearby orders up to ${profile.capacityLines} lines in one tour.`}
-          />
-          <Toggle
-            label="Congestion re-routing"
-            checked={settings.rerouting}
-            onChange={(v) => updateSettings({ rerouting: v })}
-            hint="Defer picks in a blocked aisle and come back, instead of waiting."
-          />
-          <Toggle
-            label="Stock depletion & shorts"
-            checked={settings.stockDepletion}
-            onChange={(v) => updateSettings({ stockDepletion: v })}
-            hint="On-hand falls as picks happen; empty locations short and flag replen."
-          />
-          <Toggle
-            label="Rest breaks & fatigue"
-            checked={settings.restBreaks}
-            onChange={(v) => updateSettings({ restBreaks: v })}
-            hint="A 5 min break every 55 min worked, plus mild pace decay."
-          />
-        </div>
-      </Card>
+
 
       <Card
-        title="Order generator"
+        title="Pack-out & conveyor"
         action={
           <span className="chip">
-            {orders.length} orders · {totalLines} lines
+            {settings.packStaff}/{benches} benches
           </span>
         }
       >
         <div className="space-y-3.5">
           <Slider
-            label="Batch size"
-            value={orderGen.count}
+            label="Packers on shift"
+            value={settings.packStaff}
             min={1}
-            max={120}
-            onChange={(v) => setOrderGen({ count: v })}
+            max={benches}
+            onChange={(v) => updateSettings({ packStaff: v })}
+            hint={
+              settings.packStaff < benches
+                ? `${benches - settings.packStaff} bench(es) closed — totes queue at induction and pickers eventually hold.`
+                : 'Every bench manned. Pack keeps up until the pick rate exceeds it.'
+            }
           />
+
+          <div className="divider !my-2" />
+
           <Slider
-            label="Lines per order (min)"
-            value={orderGen.minLines}
-            min={1}
-            max={Math.max(1, orderGen.maxLines)}
-            onChange={(v) => setOrderGen({ minLines: v })}
-          />
-          <Slider
-            label="Lines per order (max)"
-            value={orderGen.maxLines}
-            min={orderGen.minLines}
-            max={40}
-            onChange={(v) => setOrderGen({ maxLines: v })}
-          />
-          <Slider
-            label="Arrival rate"
-            value={orderGen.arrivalPerMin}
-            min={0.5}
+            label="Pack set-up per parcel"
+            value={settings.packSetupSec}
+            min={5}
             max={60}
+            step={1}
+            suffix="s"
+            onChange={(v) => updateSettings({ packSetupSec: v })}
+          />
+          <Slider
+            label="Check & wrap per line"
+            value={settings.packPerLineSec}
+            min={1}
+            max={20}
             step={0.5}
-            suffix=" /min"
-            format={(v) => v.toFixed(1)}
-            onChange={(v) => setOrderGen({ arrivalPerMin: v })}
-            hint="Poisson arrivals — orders release in realistic bursts."
+            suffix="s"
+            onChange={(v) => updateSettings({ packPerLineSec: v })}
+          />
+          <Slider
+            label="Units per carton"
+            value={settings.unitsPerCarton}
+            min={2}
+            max={40}
+            onChange={(v) => updateSettings({ unitsPerCarton: v })}
+            hint={`A typical ${sampleLines}-line order → ${sampleCartons} carton(s), about ${shortDuration(samplePackSec)} on the bench.`}
           />
 
-          <div className="flex gap-2">
-            <button type="button" onClick={regenerateOrders} className="btn btn-primary flex-1">
-              Generate batch
-            </button>
-            <button type="button" onClick={() => void loadSampleOrders()} className="btn">
-              Sample wave
-            </button>
-          </div>
+          <div className="divider !my-2" />
 
-          <button
-            type="button"
-            onClick={clearOrders}
-            className="btn w-full"
-            disabled={orders.length === 0}
-          >
-            Clear order queue
-          </button>
-        </div>
-      </Card>
-
-      <Card
-        title="Import real data"
-        action={
-          <button
-            type="button"
-            onClick={() => setImportOpen((v) => !v)}
-            className="btn btn-icon"
-            aria-expanded={importOpen}
-          >
-            {importOpen ? '−' : '+'}
-          </button>
-        }
-      >
-        {importOpen ? (
-          <div className="space-y-2">
-            <p className="text-[10px] leading-relaxed text-ink-400">
-              Paste a JSON array of orders, or upload a file. Locations accept an operator code
-              (<span className="font-mono text-ink-300">A03-R14-2B</span>), a bin id or a SKU id.
-            </p>
-            <textarea
-              value={importText}
-              onChange={(e) => setImportText(e.target.value)}
-              spellCheck={false}
-              placeholder={'[{ "ref": "SO-1001", "lines": [{ "location": "A03-R14-2B", "qty": 2 }] }]'}
-              className="h-28 w-full resize-y rounded-lg border border-ink-700 bg-ink-850 p-2 font-mono text-[10px] leading-relaxed text-ink-100 outline-none transition-colors placeholder:text-ink-500 focus:border-accent"
+          <Toggle
+            label="Conveyor sortation"
+            checked={settings.conveyorSortation}
+            onChange={(v) => updateSettings({ conveyorSortation: v })}
+            hint={
+              settings.conveyorSortation
+                ? `${Math.round(conveyorMetres)} m loop: takeaway line above the benches, sorter in front of the doors.`
+                : 'Off — parcels are hand-trucked across the apron to their door.'
+            }
+          />
+          {settings.conveyorSortation && (
+            <Slider
+              label="Belt speed"
+              value={settings.conveyorSpeed}
+              min={0.3}
+              max={2}
+              step={0.05}
+              format={(v) => v.toFixed(2)}
+              suffix=" m/s"
+              onChange={(v) => updateSettings({ conveyorSpeed: v })}
+              hint={
+                metrics && metrics.avgConveySec > 0
+                  ? `Transit is averaging ${shortDuration(metrics.avgConveySec)} bench to dock.`
+                  : 'Slower belts hold parcels longer and delay the SLA clock.'
+              }
             />
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => importOrdersJson(importText)}
-                className="btn btn-primary flex-1"
-                disabled={importText.trim().length === 0}
-              >
-                Load orders
-              </button>
-              <button type="button" onClick={() => fileRef.current?.click()} className="btn">
-                Upload .json
-              </button>
+          )}
+          <Slider
+            label="Induction buffer"
+            value={settings.packBufferLimit}
+            min={1}
+            max={40}
+            onChange={(v) => updateSettings({ packBufferLimit: v })}
+            hint="Totes that fit before pickers have to stand and hold their carts."
+          />
+
+          <div className="divider !my-2" />
+
+          <div className="space-y-1">
+            <div className="field-label mb-1">
+              <span>Sorter routing</span>
             </div>
-            <button
-              type="button"
-              onClick={() => setImportText(JSON.stringify(SAMPLE_ORDERS_DOC, null, 2))}
-              className="btn w-full"
-            >
-              Fill with sample format
-            </button>
-            <input
-              ref={fileRef}
-              type="file"
-              accept="application/json,.json"
-              className="hidden"
-              onChange={(e) => onFile(e.target.files?.[0])}
-            />
+            {(metrics?.docks ?? []).map((dock) => (
+              <div key={dock.id} className="flex items-center gap-1.5 text-[10px] text-ink-400">
+                <span className="w-14 shrink-0 font-mono text-ink-300">{dock.label}</span>
+                <span className="flex flex-wrap gap-1">
+                  {dock.channels.length === 0 ? (
+                    <span className="text-ink-500">no channel assigned</span>
+                  ) : (
+                    dock.channels.map((channel) => (
+                      <span key={channel} className="inline-flex items-center gap-1">
+                        <span
+                          className="h-2 w-2 rounded-sm"
+                          style={{ background: CHANNEL_HEX[channel] }}
+                        />
+                        {channel}
+                      </span>
+                    ))
+                  )}
+                </span>
+              </div>
+            ))}
           </div>
-        ) : (
-          <p className="text-[10px] leading-relaxed text-ink-400">
-            Drop in a WMS wave export to route real pick lists through the same engine.
-          </p>
-        )}
+        </div>
       </Card>
 
       <Card title="Scene options">
@@ -444,6 +310,12 @@ export function ControlPanel() {
             checked={showSequence}
             onChange={() => toggle('showSequence')}
             hint="Markers on the focused picker's route."
+          />
+          <Toggle
+            label="Parcels & conveyor motion"
+            checked={showParcels}
+            onChange={() => toggle('showParcels')}
+            hint="Cartons on the belt, stacked at the doors. Click one to inspect it."
           />
         </div>
       </Card>

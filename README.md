@@ -19,6 +19,13 @@ behind it — so you can see *why* a picker did something, not just watch it mov
 pallet truck, or an AMR — and the choice is physics, not a costume: each carries its own pace,
 capacity and aisle footprint.
 
+**Picking is only half the job.** A picked tote is not a shipment, so the twin models what
+happens next: totes queue at induction, a manned bench cartonises the order, the parcel merges
+onto an overhead takeaway conveyor, a sorter diverts it to the door its channel ships from, and
+it stacks there until a trailer seals. The induction buffer is finite and the belt is a shared
+resource, so an under-staffed pack wall pushes back on the pickers instead of hiding the problem
+in an infinite queue — which is how downstream capacity really ends up setting throughput.
+
 ---
 
 ## Quick start
@@ -37,7 +44,7 @@ start working the wave.
 | `npm run dev` | Dev server with HMR |
 | `npm run build` | Typecheck, then production build to `dist/` |
 | `npm run preview` | Serve the production build |
-| `npm test` | 56 unit tests (pathfinding, generation, simulation, decisions, comparison) |
+| `npm test` | 79 unit tests (pathfinding, generation, conveyor geometry, simulation, decisions, pack-out, comparison) |
 | `npm run typecheck` | `tsc --noEmit` |
 
 ### Try this first (90-second tour)
@@ -58,6 +65,13 @@ start working the wave.
    any picker** — its batch, load against capacity, and its last decision.
 7. Turn off **Batch picking** or **Smart dispatch** under *Operating behaviour* and re-run. Both
    cost you distance when disabled, which is the point of having them as switches.
+8. **Pack line** view (or `4`). Watch a bench close a carton, the parcel climb its spur onto the
+   overhead conveyor, run the length of the pack wall and divert down a chute to its door. Click
+   a parcel mid-flight to see where it is going and why.
+9. Drag **Packers on shift** down to 1 and re-run. The flow strip backs up at *Pack*, the
+   induction buffer fills, pickers start showing **Held at pack**, and the wave takes longer even
+   though picking never got slower — the bottleneck moved downstream, which is the whole point of
+   modelling the stage.
 
 Batching only fires when orders are actually queueing — with a fast fleet and a slow arrival
 rate the counter stays at 0 because there was never anything to combine. Raise **Arrival rate**
@@ -65,8 +79,8 @@ or drop **Pickers on the floor** to see it work.
 
 ### Keyboard
 
-`Space` run/pause · `1`–`4` camera presets · `[` `]` toggle panels · `m` plan view ·
-`t` light/dark theme · `Esc` close inspector
+`Space` run/pause · `1`–`5` camera presets (overview, top-down, aisle, pack line, dock) ·
+`[` `]` toggle panels · `m` plan view · `t` light/dark theme · `Esc` close inspector
 
 In dev builds only, `window.__pickTwin` exposes `{ scene, store }` for poking at the twin from
 the console — e.g. `__pickTwin.store.getState().metrics`.
@@ -82,9 +96,11 @@ src/
 │   ├── route.ts          buildRoute(): visiting order -> walkable polyline + arc lengths
 │   └── strategies/       serpentine · nearestNeighbour · tspTwoOpt · index.ts (registry)
 ├── warehouse/         Procedural model: racks, bins, SKU catalogue, nav graph
-│   └── generate.ts       WarehouseConfig -> WarehouseModel (geometry + graph + slotting)
+│   ├── generate.ts       WarehouseConfig -> WarehouseModel (geometry + graph + slotting)
+│   └── conveyor.ts       Bench -> takeaway -> sorter -> dock loop + arc sampling
 ├── simulation/        Engine, order generation/import, strategy comparison
 │   ├── engine.ts         Agent state machine, decisions, congestion, stock, metrics
+│   ├── packLine.ts       Pack benches, cartonisation, belt merges, trailer dispatch
 │   ├── pickerProfiles.ts The four embodiments and their physics
 │   ├── orderGenerator.ts Poisson arrivals, velocity-weighted demand, JSON importer
 │   ├── sla.ts            Due-time windows by priority
@@ -92,6 +108,7 @@ src/
 ├── scene/             Three.js only. Knows nothing about React or the store.
 │   ├── WarehouseScene.ts Renderer, camera, picking, trails, agent sync
 │   ├── buildWarehouse.ts Static geometry + 2,560-instance bin InstancedMesh
+│   ├── packLineMesh.ts   Animated belts, packers, andon beacons, instanced parcels
 │   └── ribbon.ts         Thick floor path lines (LineBasicMaterial.linewidth is a no-op)
 ├── store/             Zustand — the only thing both React and the scene talk to
 ├── ui/                React overlay: panels, charts, inspector, plan view
@@ -285,8 +302,9 @@ spinning lidar, and is exempt from fatigue.
 
 ## Simulation model
 
-Agents run a state machine — `idle → traveling → picking → returning → unloading → idle`, plus
-`blocked` and `break` — integrated in fixed 0.1 s slices, so `20×` time scale stays stable and
+Agents run a state machine — `idle → traveling → picking → returning → unloading → awaitPack →
+idle`, plus `blocked` and `break` — integrated in fixed 0.1 s slices (the pack line and conveyor
+step on the same slices), so `20×` time scale stays stable and
 identical to `1×` (asserted in the tests). Position is sampled by arc length along the route
 polyline and smoothed toward the mesh, so agents interpolate rather than teleport between nodes.
 
@@ -310,12 +328,44 @@ write to the reasoning trace.
 - **Rest breaks & fatigue** — a 5 min break every 55 min of productive work, taken after
   finishing the current tour, plus up to 12% pace decay across a stint.
 
+### Pack-out & dispatch
+
+The stage after picking, with its own controls under *Pack-out & conveyor* and its own cards in
+the dashboard (a five-stage flow strip: **Queued › Picking › Pack › Belt › Shipped**).
+
+- **Induction** — a picker's tour ends by handing its totes to a shared induction buffer. If the
+  buffer is full the picker *holds at the bench* (phase `awaitPack`), which is counted and shown.
+  This is the back-pressure that makes a pack bottleneck visible in picker utilisation.
+- **Benches** — the layout's pack stations, of which you staff as many as you like. Each has its
+  own pace (±7%), pulls express totes first, and carries an andon beacon in 3D: green packing,
+  amber starved, red held by the conveyor, dim when closed.
+- **Cartonisation** — `packSetupSec × (1 + 0.55 × extra cartons) + packPerLineSec × lines +
+  packPerUnitSec × units`, divided by the bench's pace. Cartons are `ceil(units ÷ unitsPerCarton)`,
+  and a bigger consignment is a visibly bigger box on the belt.
+- **The conveyor** — one unidirectional loop derived from the facility positions: a takeaway spur
+  rises from each bench to an overhead trunk, the trunk runs the length of the pack wall, crosses
+  over and declines into a low sorter that passes every door. That geometry is why a parcel from
+  any bench can reach any door without ever running backwards. Parcels hold at a merge point when
+  there is no 1.15 m gap on the trunk, which is counted as a merge block.
+- **Sortation** — each sales channel ships from its own door, so `Wholesale` and `Ecommerce`
+  parcels visibly divert to different chutes. Switch sortation off and parcels are hand-trucked
+  across the apron instead: no belt, no merge contention, different transit time.
+- **Dispatch** — parcels stack on the outbound pad until a trailer seals (16 parcels, or a
+  240 s dwell), and part-full trailers ship when the wave drains.
+- **The SLA clock now runs to the dock.** An order completes when its parcel is staged for
+  loading, so `duration` is the whole lifecycle and the completion record breaks it into pick,
+  pack and belt seconds. Picking faster no longer helps if packing cannot absorb it.
+
+Click any parcel in the 3D view — or in the **Parcels in the facility** list — to inspect its
+channel, cartons, weight, bench → door route and belt progress.
+
 ### Other mechanics
 
 - **SLA** — express orders are due 30 min after release, standard 120 min. The dashboard tracks
   on-time rate and late count; imported orders may supply an explicit `dueAt`.
 - **Pick time** — `(pickTimeSec + perUnitTimeSec × qty) × handlingFactor` per line, plus
-  `unloadTimeSec × unloadFactor` per tour. Each picker is assigned a pack station round-robin.
+  `unloadTimeSec × unloadFactor` to drop the totes at the bench. Each picker is assigned a pack
+  station round-robin; packing itself is a separate stage (above).
 - **Order arrivals** — exponential inter-arrival times (Poisson), so waves release in
   realistic bursts rather than a uniform drip.
 - **Demand** — weighted 60/30/10 across fast/medium/slow movers, matching real pick profiles.
@@ -350,6 +400,14 @@ Deliberate prototype scope:
 - **Batch metrics are apportioned.** Orders sharing a tour finish together, so each is credited
   its line-share of the tour's actual distance and the full tour duration. Per-order distance is
   an allocation, not a measurement.
+- **One parcel per order.** Multi-carton orders are modelled as one parcel carrying `n` cartons
+  (bigger box, longer pack cycle) rather than `n` items sorted independently. Splitting them would
+  need per-carton identity through the sorter and a consolidation step at the door.
+- **Merge contention only at the spurs.** Everything on the trunk moves at one belt speed, so
+  parcels cannot overtake and gaps are preserved by construction; the only place a parcel can be
+  held is joining the trunk. There is no accumulation-lane or chute-full model.
+- **Trailer loading is bookkeeping.** A door seals at 16 parcels or a 240 s dwell and the stack
+  clears. There is no dock scheduling, trailer capacity by volume, or carrier cut-off time.
 - **Re-routing snaps forward** to the next graph node (≤ one bay pitch) when it re-plans. That
   short walk is credited to the picker's distance so the books balance, but the mesh visibly
   catches up.

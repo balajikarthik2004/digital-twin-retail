@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import type { WarehouseModel } from '../warehouse/types'
 
-export type CameraPresetId = 'overview' | 'top' | 'aisle' | 'dock'
+export type CameraPresetId = 'overview' | 'top' | 'aisle' | 'pack' | 'dock'
 
 export interface CameraPreset {
   id: CameraPresetId
@@ -13,6 +13,7 @@ export const CAMERA_PRESETS: CameraPreset[] = [
   { id: 'overview', label: 'Overview', hint: 'Angled hero view of the whole module' },
   { id: 'top', label: 'Top-down', hint: 'Plan view — best for reading pick paths' },
   { id: 'aisle', label: 'Aisle level', hint: 'Operator eye height inside an aisle' },
+  { id: 'pack', label: 'Pack line', hint: 'Pack benches, takeaway conveyor and the sorter' },
   { id: 'dock', label: 'Dock view', hint: 'From the outbound dock towards the racks' },
 ]
 
@@ -47,6 +48,24 @@ export function poseFor(preset: CameraPresetId, model: WarehouseModel): CameraPo
       return {
         position: new THREE.Vector3(aisle, 1.72, z - 1.5),
         target: new THREE.Vector3(aisle, 1.35, bounds.maxZ),
+      }
+    }
+
+    case 'pack': {
+      // Three-quarter view down the pack wall, framed so the benches, the
+      // takeaway trunk above them and the dock chutes are all in shot.
+      const packs = model.facilities.filter((f) => f.kind === 'pack')
+      const packZ = packs[0]?.pos.y ?? bounds.minZ + depth * 0.1
+      const dockZ = model.facilities.find((f) => f.kind === 'dock')?.pos.y ?? bounds.minZ
+      const apron = Math.abs(packZ - dockZ)
+      const focusZ = (packZ + dockZ) / 2
+      return {
+        position: new THREE.Vector3(
+          centerX - width * 0.42,
+          Math.max(9, apron * 0.85),
+          focusZ - apron * 0.55,
+        ),
+        target: new THREE.Vector3(centerX, 1.6, focusZ),
       }
     }
 

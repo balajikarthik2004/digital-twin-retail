@@ -1,12 +1,13 @@
 import * as THREE from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import type { Route } from '../pathfinding/types'
-import type { PickerAgent } from '../simulation/types'
+import type { PackStation, Parcel, PickerAgent } from '../simulation/types'
 import type { Bin, WarehouseModel } from '../warehouse/types'
 import { buildWarehouse, type BinColorMode, type WarehouseVisual } from './buildWarehouse'
 import { CAMERA_PRESETS, CameraTween, poseFor, type CameraPresetId } from './cameraPresets'
 import { makeTextSprite } from './labels'
 import type { ThemeMode } from '../ui/theme'
+import { buildPackLine, type PackLineVisual } from './packLineMesh'
 import { aimBeam, animateGait, createPickerVisual, reachFor, type PickerVisual } from './pickerMesh'
 import { PathRibbon, polylineUpTo } from './ribbon'
 import { sceneTheme, type SceneTheme } from './theme'
@@ -14,11 +15,22 @@ import { sceneTheme, type SceneTheme } from './theme'
 export type SceneSelection =
   | { kind: 'bin'; id: string }
   | { kind: 'agent'; id: string }
+  | { kind: 'parcel'; id: string }
   | null
+
+/** Live pack-out state pushed in every frame, straight from the engine. */
+export interface PackLineFrame {
+  parcels: Parcel[]
+  stations: PackStation[]
+  /** Belt speed, m/s — drives the conveyor surface animation. */
+  speed: number
+}
 
 export interface SceneOptions {
   showPaths: boolean
   showSequence: boolean
+  /** Render parcels and animate the conveyor. */
+  showParcels: boolean
   binColorMode: BinColorMode
   /** Which agent's pick sequence is annotated with numbered markers. */
   focusAgentId: string | null
@@ -32,6 +44,7 @@ export interface SceneCallbacks {
 const DEFAULT_OPTIONS: SceneOptions = {
   showPaths: true,
   showSequence: true,
+  showParcels: true,
   binColorMode: 'velocity',
   focusAgentId: null,
 }
@@ -56,6 +69,7 @@ export class WarehouseScene {
 
   private model: WarehouseModel | null = null
   private visual: WarehouseVisual | null = null
+  private packLine: PackLineVisual | null = null
   private mode: ThemeMode
   private theme: SceneTheme
   private hemiLight: THREE.HemisphereLight
@@ -71,6 +85,11 @@ export class WarehouseScene {
 
   private markerPool: THREE.Sprite[] = []
   private markerGroup = new THREE.Group()
+
+  /** Inbound putaway roadmap: goods-in → the chosen free location. */
+  private putawayRibbon: PathRibbon | null = null
+  /** Bin tints owned by the putaway shortlist, re-applied after every agent pass. */
+  private putawayTints = new Map<string, number>()
 
   private selection: SceneSelection = null
   private selectionBox: THREE.LineSegments
@@ -106,6 +125,11 @@ export class WarehouseScene {
     this.renderer.shadowMap.type = THREE.PCFShadowMap
     this.renderer.domElement.style.display = 'block'
     this.renderer.domElement.style.outline = 'none'
+    this.renderer.domElement.style.position = 'absolute'
+    this.renderer.domElement.style.top = '0'
+    this.renderer.domElement.style.left = '0'
+    this.renderer.domElement.style.width = '100%'
+    this.renderer.domElement.style.height = '100%'
     container.appendChild(this.renderer.domElement)
 
     this.scene.background = new THREE.Color(this.theme.background)
@@ -200,10 +224,22 @@ export class WarehouseScene {
       this.visual.dispose()
       this.visual = null
     }
+    if (this.packLine) {
+      this.scene.remove(this.packLine.group)
+      this.packLine.dispose()
+      this.packLine = null
+    }
     if (!this.model) return
     this.visual = buildWarehouse(this.model, this.mode)
     this.visual.setColorMode(this.options.binColorMode)
     this.scene.add(this.visual.group)
+
+    this.packLine = buildPackLine(this.model, this.mode)
+    this.scene.add(this.packLine.group)
+
+    // A rebuilt visual starts untinted, so the putaway shortlist has to be
+    // stamped back on — the plan outlives a theme swap.
+    this.applyPutawayTints()
   }
 
   /**
@@ -277,6 +313,81 @@ export class WarehouseScene {
     }
   }
 
+  get parcelsVisible(): boolean {
+    return this.options.showParcels
+  }
+
+  // ── inbound putaway roadmap ───────────────────────────────────────────────
+
+  /**
+   * Draw (or clear) the walk from goods-in to a free location, plus the tints
+   * that mark the chosen shelf and its runners-up.
+   *
+   * This is deliberately independent of the agent route ribbons: a putaway is a
+   * plan, not something a picker is currently walking, and it has to stay on
+   * screen whether the simulation is running, paused or has never been started.
+   */
+  setPutawayRoute(
+    route: Route | null,
+    shortlist: { binId: string; chosen: boolean }[] = [],
+  ): void {
+    const P = this.theme.putaway
+
+    if (!route) {
+      this.putawayRibbon?.hide()
+      this.clearPutawayTints()
+      return
+    }
+
+    if (!this.putawayRibbon) {
+      this.putawayRibbon = new PathRibbon(P.route, 0.46, 1024, P.routeOpacity)
+      this.putawayRibbon.mesh.renderOrder = 6
+      this.scene.add(this.putawayRibbon.mesh)
+    }
+    this.putawayRibbon.setColor(P.route)
+    this.putawayRibbon.setOpacity(P.routeOpacity)
+    // Sits just above the pick-path ribbons so the roadmap stays readable when
+    // it happens to share an aisle with a picker's route.
+    this.putawayRibbon.setPath(route.polyline, 0.07)
+
+    const next = new Map<string, number>()
+    for (const entry of shortlist) {
+      next.set(entry.binId, entry.chosen ? P.target : P.candidate)
+    }
+    // Restore any bin that dropped off the shortlist before applying the new set.
+    for (const binId of this.putawayTints.keys()) {
+      if (!next.has(binId)) this.visual?.tintBin(binId, null)
+    }
+    this.putawayTints = next
+    this.applyPutawayTints()
+  }
+
+  /**
+   * Show the stock landing on the shelf: the roadmap comes down, the location
+   * takes on its new SKU's colour, and the camera drops to shelf level so the
+   * bin that just changed is the thing you are looking at.
+   */
+  markPlaced(binId: string): void {
+    this.visual?.recolorBin(binId)
+    this.putawayRibbon?.hide()
+    this.clearPutawayTints()
+    this.putawayTints.set(binId, this.theme.putaway.target)
+    this.applyPutawayTints()
+    this.setSelection({ kind: 'bin', id: binId })
+    this.focusSelection()
+  }
+
+  private applyPutawayTints(): void {
+    if (!this.visual) return
+    for (const [binId, color] of this.putawayTints) this.visual.tintBin(binId, color)
+  }
+
+  private clearPutawayTints(): void {
+    if (this.putawayTints.size === 0) return
+    for (const binId of this.putawayTints.keys()) this.visual?.tintBin(binId, null)
+    this.putawayTints.clear()
+  }
+
   // ── camera ────────────────────────────────────────────────────────────────
 
   get activePreset(): CameraPresetId {
@@ -297,6 +408,47 @@ export class WarehouseScene {
       { position: this.camera.position.clone(), target: this.controls.target.clone() },
       next,
       duration,
+    )
+  }
+
+  /**
+   * Fly to a framing that shows a whole route at once.
+   *
+   * `focusSelection` puts the camera an arm's length from one bin, which is the
+   * wrong shot for a roadmap — from inside an aisle you cannot see the walk you
+   * are being asked to take. This frames the route's own footprint instead.
+   */
+  frameRoute(route: Route): void {
+    if (route.polyline.length === 0 || !this.model) return
+
+    let minX = Infinity
+    let maxX = -Infinity
+    let minZ = Infinity
+    let maxZ = -Infinity
+    for (const p of route.polyline) {
+      minX = Math.min(minX, p.x)
+      maxX = Math.max(maxX, p.x)
+      minZ = Math.min(minZ, p.y)
+      maxZ = Math.max(maxZ, p.y)
+    }
+
+    const centerX = (minX + maxX) / 2
+    const centerZ = (minZ + maxZ) / 2
+    // A route down a single aisle is a thin sliver; the floor gives it a minimum
+    // so the camera does not end up pressed against the racking.
+    const span = Math.max(maxX - minX, maxZ - minZ, 18)
+
+    this.tween.start(
+      { position: this.camera.position.clone(), target: this.controls.target.clone() },
+      {
+        position: new THREE.Vector3(
+          centerX + span * 0.28,
+          Math.max(16, span * 0.82),
+          minZ - span * 0.62,
+        ),
+        target: new THREE.Vector3(centerX, 1.5, centerZ),
+      },
+      0.9,
     )
   }
 
@@ -359,6 +511,10 @@ export class WarehouseScene {
       const facing = bin.side === 'L' ? 1 : -1
       return new THREE.Vector3(bin.face.x + facing * 0.3, bin.face.y + 0.35, bin.face.z)
     }
+    if (this.selection.kind === 'parcel') {
+      const pos = this.packLine?.parcelPosition(this.selection.id)
+      return pos ? pos.setY(pos.y + 0.3) : null
+    }
     const picker = this.pickers.get(this.selection.id)
     if (!picker) return null
     return picker.group.position.clone().setY(2.25)
@@ -378,7 +534,7 @@ export class WarehouseScene {
 
   // ── per-frame update ──────────────────────────────────────────────────────
 
-  frame(dt: number, agents: PickerAgent[]): void {
+  frame(dt: number, agents: PickerAgent[], packLine: PackLineFrame | null = null): void {
     if (this.disposed) return
 
     const pose = this.tween.update(dt)
@@ -388,8 +544,24 @@ export class WarehouseScene {
     }
 
     this.syncAgents(agents, dt)
+    this.syncPackLine(packLine, dt)
     this.controls.update()
     this.renderer.render(this.scene, this.camera)
+  }
+
+  private syncPackLine(frame: PackLineFrame | null, dt: number): void {
+    const visual = this.packLine
+    if (!visual) return
+    if (!frame) {
+      visual.syncParcels([], false)
+      return
+    }
+    // The belt only crawls when it is actually carrying something — a conveyor
+    // running on an empty shift is a detail worth being honest about.
+    const running = frame.parcels.some((p) => p.stage === 'conveying' && !p.manual)
+    visual.tick(dt, running && this.options.showParcels ? frame.speed : 0)
+    visual.syncParcels(frame.parcels, this.options.showParcels)
+    visual.syncStations(frame.stations, dt)
   }
 
   private syncAgents(agents: PickerAgent[], dt: number): void {
@@ -480,6 +652,10 @@ export class WarehouseScene {
       this.syncRoute(agent, busy, focusId === agent.id, visual, tintsStale)
     }
 
+    // The agent pass owns `clearTints`, so the putaway shortlist is re-stamped
+    // on top of it — a location being planned into outranks a pick highlight.
+    if (tintsStale) this.applyPutawayTints()
+
     if (this.selection?.kind === 'agent') this.updateSelectionVisuals()
   }
 
@@ -556,6 +732,9 @@ export class WarehouseScene {
     this.planRibbonRoute.clear()
     this.tintSignature = ''
     this.hideMarkers()
+    // Bin ids are layout-scoped, so a plan cannot survive a model swap.
+    this.putawayRibbon?.hide()
+    this.putawayTints.clear()
   }
 
   // ── numbered pick-sequence markers ────────────────────────────────────────
@@ -618,10 +797,25 @@ export class WarehouseScene {
     const hitboxes = [...this.pickers.values()].map((p) => p.hitbox)
     const agentHits = this.raycaster.intersectObjects(hitboxes, false)
     const binHits = this.raycaster.intersectObject(this.visual.binsMesh, false)
+    const parcelMesh = this.packLine?.parcelsMesh
+    const parcelHits =
+      parcelMesh && parcelMesh.visible && parcelMesh.count > 0
+        ? this.raycaster.intersectObject(parcelMesh, false)
+        : []
 
     const agentHit = agentHits[0]
     const binHit = binHits[0]
+    const parcelHit = parcelHits[0]
 
+    // A parcel is small and always in front of whatever it is riding over, so it
+    // wins outright when the ray actually touches one.
+    if (parcelHit && parcelHit.instanceId !== undefined) {
+      const id = this.packLine?.parcelIdAt(parcelHit.instanceId)
+      const closer =
+        (!agentHit || parcelHit.distance < agentHit.distance) &&
+        (!binHit || parcelHit.distance < binHit.distance)
+      if (id && closer) return { kind: 'parcel', id }
+    }
     // Agents win ties within half a metre so a picker in front of a rack is clickable.
     if (agentHit && (!binHit || agentHit.distance < binHit.distance + 0.5)) {
       return { kind: 'agent', id: String(agentHit.object.userData.id) }
@@ -677,6 +871,11 @@ export class WarehouseScene {
     dom.removeEventListener('pointermove', this.handlePointerMove)
     this.controls.dispose()
     this.clearAllRoutes()
+    if (this.putawayRibbon) {
+      this.scene.remove(this.putawayRibbon.mesh)
+      this.putawayRibbon.dispose()
+      this.putawayRibbon = null
+    }
     for (const picker of this.pickers.values()) picker.dispose()
     this.pickers.clear()
     for (const sprite of this.markerPool) {
@@ -687,6 +886,7 @@ export class WarehouseScene {
     }
     this.markerPool = []
     this.visual?.dispose()
+    this.packLine?.dispose()
     this.selectionBox.geometry.dispose()
     ;(this.selectionBox.material as THREE.Material).dispose()
     this.renderer.dispose()

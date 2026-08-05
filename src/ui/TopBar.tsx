@@ -1,35 +1,20 @@
 import { getStrategy } from '../pathfinding/strategies'
-import { useAppStore, type TimeScale } from '../store/useAppStore'
-import { Segmented, cx } from './components/primitives'
-import { clock } from './format'
-
-const TIME_SCALES: { value: TimeScale; label: string }[] = [
-  { value: 1, label: '1×' },
-  { value: 5, label: '5×' },
-  { value: 20, label: '20×' },
-]
+import { useAppStore } from '../store/useAppStore'
+import { cx } from './components/primitives'
 
 export function TopBar() {
   const layouts = useAppStore((s) => s.layouts)
   const layoutId = useAppStore((s) => s.layoutId)
   const model = useAppStore((s) => s.model)
-  const metrics = useAppStore((s) => s.metrics)
   const settings = useAppStore((s) => s.settings)
-  const timeScale = useAppStore((s) => s.timeScale)
-  const orders = useAppStore((s) => s.orders)
   const leftOpen = useAppStore((s) => s.leftOpen)
   const rightOpen = useAppStore((s) => s.rightOpen)
   const theme = useAppStore((s) => s.theme)
   const setTheme = useAppStore((s) => s.setTheme)
 
-  const start = useAppStore((s) => s.start)
-  const pause = useAppStore((s) => s.pause)
-  const reset = useAppStore((s) => s.reset)
-  const setTimeScale = useAppStore((s) => s.setTimeScale)
   const selectLayout = useAppStore((s) => s.selectLayout)
   const toggle = useAppStore((s) => s.toggle)
 
-  const running = metrics?.running ?? false
   const strategy = getStrategy(settings.strategyId)
 
   return (
@@ -93,43 +78,6 @@ export function TopBar() {
       <div className="flex-1" />
 
       <div className="flex items-center gap-2">
-        <div className="hidden text-right leading-tight lg:block">
-          <div className="text-[9.5px] uppercase tracking-[0.12em] text-ink-400">Shift clock</div>
-          <div className="font-mono text-[13px] font-semibold tabular-nums text-ink-100">
-            {clock(metrics?.time ?? 0)}
-          </div>
-        </div>
-
-        <div
-          className={cx(
-            'hidden items-center gap-1.5 rounded-lg border px-2 py-1 text-[10px] font-medium md:flex',
-            running ? 'pill-good' : 'border-ink-600 bg-ink-800 text-ink-400',
-          )}
-        >
-          <span
-            className={cx('h-1.5 w-1.5 rounded-full', running ? 'animate-pulse bg-good' : 'bg-ink-500')}
-          />
-          {running ? 'Running' : orders.length === 0 ? 'No orders' : 'Paused'}
-        </div>
-
-        <Segmented value={timeScale} options={TIME_SCALES} onChange={setTimeScale} />
-
-        <button
-          type="button"
-          onClick={() => (running ? pause() : start())}
-          className={cx('btn min-w-[112px]', running ? '' : 'btn-primary')}
-          disabled={orders.length === 0}
-          title={orders.length === 0 ? 'Queue some orders first' : undefined}
-        >
-          {running ? '❙❙ Pause' : '▶ Run simulation'}
-        </button>
-
-        <button type="button" onClick={reset} className="btn" title="Reset clock, agents and metrics">
-          ↺ Reset
-        </button>
-
-        <div className="mx-0.5 h-7 w-px bg-ink-700" />
-
         <div className="hidden text-right leading-tight 2xl:block">
           <div className="text-[9.5px] uppercase tracking-[0.12em] text-ink-400">Routing</div>
           <div className="text-[11px] font-medium text-accent-soft">{strategy.name}</div>

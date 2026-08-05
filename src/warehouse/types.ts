@@ -1,4 +1,5 @@
 import type { NavGraph, NodeId, Vec2 } from '../pathfinding/types'
+import type { ConveyorNetwork } from './conveyor'
 
 export type VelocityTier = 'fast' | 'medium' | 'slow'
 
@@ -58,6 +59,12 @@ export interface Sku {
   unitsPerLine: number
   /** Retail price, purely cosmetic for the inspector card. */
   price: number
+  /**
+   * Litres one unit occupies. Together with the slot's clear volume this is what
+   * makes a location's capacity — and therefore its free space — a physical
+   * number rather than an arbitrary one.
+   */
+  unitVolume: number
 }
 
 /** A single storage location. */
@@ -78,6 +85,11 @@ export interface Bin {
   pickPoint: Vec2
   /** Nav graph node the picker routes to. */
   node: NodeId
+  /**
+   * Units of its SKU the location holds when full, from the slot's clear volume.
+   * `capacity - sku.stock` is the free space a putaway can be planned into.
+   */
+  capacity: number
   sku: Sku
 }
 
@@ -112,10 +124,16 @@ export interface WarehouseModel {
   binsById: Map<string, Bin>
   /** Bins grouped by the nav node the picker stands at. */
   binsByNode: Map<NodeId, Bin[]>
+  /** Home location of each SKU — slotting is fixed, so exactly one bin per SKU. */
+  binBySku: Map<string, Bin>
   racks: RackRun[]
   facilities: Facility[]
   /** Default route start/end node (the outbound staging lane). */
   depot: NodeId
+  /** Goods-in lane every putaway route starts from. */
+  receiving: NodeId
+  /** Pack-out → dock conveyor loop, derived from the facility positions. */
+  conveyor: ConveyorNetwork
   graph: NavGraph
   /** Aisle centreline x positions, indexed by aisle. */
   aisleX: number[]

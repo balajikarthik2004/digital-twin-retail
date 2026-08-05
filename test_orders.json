@@ -1,0 +1,37 @@
+[
+  {
+    "id": "test-ord-1",
+    "ref": "SO-TEST01",
+    "channel": "Ecommerce",
+    "priority": "express",
+    "releasedAt": 0,
+    "lines": [
+      { "location": "A01-L02-2A", "qty": 1 },
+      { "location": "A02-R05-2B", "qty": 2 },
+      { "location": "A03-R01-2A", "qty": 1 }
+    ]
+  },
+  {
+    "id": "test-ord-2",
+    "ref": "SO-TEST02",
+    "channel": "Store Replen",
+    "priority": "standard",
+    "releasedAt": 5,
+    "lines": [
+      { "location": "A04-L09-1A", "qty": 10 },
+      { "location": "A06-R03-2A", "qty": 5 },
+      { "location": "A07-L15-3B", "qty": 2 }
+    ]
+  },
+  {
+    "id": "test-ord-3",
+    "ref": "SO-TEST03",
+    "channel": "B2B",
+    "priority": "low",
+    "releasedAt": 10,
+    "lines": [
+      { "location": "A01-L02-2A", "qty": 4 },
+      { "location": "A07-L15-3B", "qty": 1 }
+    ]
+  }
+]

@@ -1,6 +1,7 @@
 import { NavGraphBuilder } from '../pathfinding/graph'
 import type { NodeId } from '../pathfinding/types'
 import { makeCatalogEntry } from './catalog'
+import { buildConveyorNetwork } from './conveyor'
 import { createRng } from './random'
 import type {
   Bin,
@@ -16,6 +17,35 @@ const X_TOLERANCE = 0.01
 
 /** Share of storage locations assigned to each velocity tier (ABC slotting). */
 const TIER_SPLIT: Record<VelocityTier, number> = { fast: 0.2, medium: 0.3, slow: 0.5 }
+
+/**
+ * Fraction of a slot's clear volume that is actually usable once cases are
+ * stacked with real-world gaps and overhang. Nobody fills a location to 100%.
+ */
+const PACKING_EFFICIENCY = 0.62
+
+/** Litres per unit, by tier — fast movers are typically the smaller lines. */
+const UNIT_VOLUME: Record<VelocityTier, [number, number]> = {
+  fast: [0.4, 3.5],
+  medium: [0.8, 6],
+  slow: [1.5, 14],
+}
+
+/** Opening on-hand as a share of capacity, so free space is a real number. */
+const OPENING_FILL: Record<VelocityTier, [number, number]> = {
+  fast: [0.45, 0.92],
+  medium: [0.3, 0.85],
+  slow: [0.08, 0.7],
+}
+
+/** Below this share of capacity the location is flagged for replenishment. */
+const REPLEN_SHARE: Record<VelocityTier, number> = { fast: 0.2, medium: 0.14, slow: 0.08 }
+
+/**
+ * Share of locations left genuinely empty. Real facilities run with slack — and
+ * without it there would be nowhere to put an inbound delivery of a new line.
+ */
+const EMPTY_SHARE = 0.11
 
 /**
  * Build the entire warehouse — geometry descriptors, storage locations, SKU
@@ -101,7 +131,10 @@ export function generateWarehouse(config: WarehouseConfig): WarehouseModel {
     Array.from({ length: count }, (_, i) => offsetX + totalWidth * ((i + 0.5) / count))
   const dockXs = spread(config.dockDoors)
   const packXs = spread(config.packStations)
-  facilityXs.push(...dockXs, ...packXs, 0)
+  // Goods-in sits at the far end of the apron from outbound staging, so inbound
+  // pallets never cross the outbound flow.
+  const receivingX = offsetX + totalWidth * 0.12
+  facilityXs.push(...dockXs, ...packXs, receivingX, 0)
 
   /** nodeId lookup for a lane, keyed by aisle index. */
   const crossNodeByAisle: Map<number, NodeId>[] = []
@@ -180,7 +213,21 @@ export function generateWarehouse(config: WarehouseConfig): WarehouseModel {
 
   dockXs.forEach((x, i) => addFacility('dock', `Dock ${String(i + 1).padStart(2, '0')}`, x, dockZ, 3.4, 1.0))
   packXs.forEach((x, i) => addFacility('pack', `Pack ${String(i + 1).padStart(2, '0')}`, x, packZ, 3.0, 2.2))
+  const receiving = addFacility('staging', 'Inbound Receiving', receivingX, stagingZ, 7, 4)
   const depot = addFacility('staging', 'Outbound Staging', 0, stagingZ, 8, 4)
+
+  // ── Outbound conveyor: pack benches → overhead takeaway → dock sorter ──────
+  const conveyor = buildConveyorNetwork({
+    packStations: facilities
+      .filter((f) => f.kind === 'pack')
+      .map((f) => ({ id: f.id, label: f.label, x: f.pos.x, z: f.pos.y, depth: f.depth })),
+    docks: facilities
+      .filter((f) => f.kind === 'dock')
+      .map((f) => ({ id: f.id, label: f.label, x: f.pos.x, z: f.pos.y })),
+    bounds: { minX: offsetX - 2, maxX: offsetX + totalWidth + 2 },
+    storageMinZ,
+    apronDepth,
+  })
 
   // ── Storage locations ─────────────────────────────────────────────────────
   const racks: RackRun[] = []
@@ -191,7 +238,8 @@ export function generateWarehouse(config: WarehouseConfig): WarehouseModel {
 
   // Scored first, tiered afterwards, so the fast/medium/slow mix is exact and
   // fast movers land in the golden zone near the front — realistic slotting.
-  const scored: { bin: Omit<Bin, 'sku'>; score: number }[] = []
+  // Capacity is not known yet: it depends on how big the SKU's units turn out.
+  const scored: { bin: Omit<Bin, 'sku' | 'capacity'>; score: number }[] = []
 
   for (let a = 0; a < aisles; a++) {
     for (const side of ['L', 'R'] as const) {
@@ -259,12 +307,26 @@ export function generateWarehouse(config: WarehouseConfig): WarehouseModel {
     tierOf.set(entry.bin.id, i < fastCut ? 'fast' : i < mediumCut ? 'medium' : 'slow')
   })
 
+  // Clear volume of one storage location, in litres. The height allowance is the
+  // shelf pitch less the deck and the lift clearance a picker actually needs.
+  const slotLitres = slotWidth * config.rackDepth * (levelHeight * 0.78) * 1000
+
   let skuSeq = 1
   for (const entry of scored) {
     const velocity = tierOf.get(entry.bin.id)!
     const { name, category } = makeCatalogEntry(rng)
-    const stock =
-      velocity === 'fast' ? rng.int(120, 900) : velocity === 'medium' ? rng.int(40, 260) : rng.int(4, 70)
+
+    const [vMin, vMax] = UNIT_VOLUME[velocity]
+    const unitVolume = Math.round(rng.float(vMin, vMax) * 10) / 10
+    const capacity = Math.max(24, Math.round((slotLitres * PACKING_EFFICIENCY) / unitVolume))
+
+    // An empty location still belongs to its SKU — slotting is fixed, the shelf
+    // is simply cleared out. That is exactly what a putaway is looking for.
+    const [fMin, fMax] = OPENING_FILL[velocity]
+    const stock = rng.bool(EMPTY_SHARE)
+      ? 0
+      : Math.min(capacity, Math.max(8, Math.round(capacity * rng.float(fMin, fMax))))
+
     const sku: Sku = {
       id: `SKU-${String(skuSeq++).padStart(6, '0')}`,
       name,
@@ -273,14 +335,16 @@ export function generateWarehouse(config: WarehouseConfig): WarehouseModel {
       stock,
       stockInitial: stock,
       // Fast movers are replenished far more aggressively than long-tail lines.
-      replenPoint: Math.max(2, Math.round(stock * (velocity === 'fast' ? 0.22 : velocity === 'medium' ? 0.15 : 0.1))),
+      replenPoint: Math.max(2, Math.round(capacity * REPLEN_SHARE[velocity])),
       unitsPerLine: velocity === 'fast' ? rng.int(1, 6) : velocity === 'medium' ? rng.int(1, 3) : rng.int(1, 2),
       price: Math.round(rng.float(1.2, 89) * 100) / 100,
+      unitVolume,
     }
-    bins.push({ ...entry.bin, sku })
+    bins.push({ ...entry.bin, capacity, sku })
   }
 
   const binsById = new Map(bins.map((b) => [b.id, b]))
+  const binBySku = new Map(bins.map((b) => [b.sku.id, b]))
   const binsByNode = new Map<NodeId, Bin[]>()
   for (const bin of bins) {
     const list = binsByNode.get(bin.node)
@@ -300,9 +364,12 @@ export function generateWarehouse(config: WarehouseConfig): WarehouseModel {
     bins,
     binsById,
     binsByNode,
+    binBySku,
     racks,
     facilities,
     depot,
+    receiving,
+    conveyor,
     graph: g.build(),
     aisleX,
     crossZ,

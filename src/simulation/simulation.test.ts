@@ -33,6 +33,16 @@ const settings: SimSettings = {
   rerouting: false,
   restBreaks: false,
   stockDepletion: false,
+  // Pack-out is staffed generously in the baseline so the assertions below are
+  // about picking; the pack-line suite constrains it deliberately.
+  packStaff: config.packStations,
+  packSetupSec: 22,
+  packPerLineSec: 5.5,
+  packPerUnitSec: 0.9,
+  unitsPerCarton: 14,
+  conveyorSpeed: 0.85,
+  conveyorSortation: true,
+  packBufferLimit: 10,
 }
 
 /** Run the engine to completion (or until a step budget is exhausted). */
@@ -495,6 +505,152 @@ describe('SLA and breaks', () => {
       if (engine.agents.some((a) => a.phase === 'break')) sawBreak = true
     }
     expect(sawBreak).toBe(true)
+  })
+})
+
+describe('pack-out & dispatch', () => {
+  it('turns every picked order into a parcel and ships it', () => {
+    const engine = new SimulationEngine(model, settings)
+    const orders = generateOrders(model, { count: 8, minLines: 3, maxLines: 6, arrivalPerMin: 120, seed: 91 })
+    engine.setOrders(orders)
+    runToCompletion(engine)
+
+    const m = engine.metrics()
+    expect(m.ordersPicked).toBe(orders.length)
+    expect(m.parcelsPacked).toBe(orders.length)
+    expect(m.ordersCompleted).toBe(orders.length)
+    // Cartonisation never produces fewer cartons than parcels.
+    expect(m.cartonsPacked).toBeGreaterThanOrEqual(m.parcelsPacked)
+    // The wave drains through the docks: nothing left on a bench, a belt or a bay.
+    expect(m.ordersAwaitingPack).toBe(0)
+    expect(m.ordersPacking).toBe(0)
+    expect(m.parcelsInTransit).toBe(0)
+    expect(m.parcelsStaged).toBe(0)
+    expect(m.parcelsDispatched).toBe(orders.length)
+    expect(m.trailersSealed).toBeGreaterThan(0)
+    expect(m.docks.reduce((s, d) => s + d.dispatched, 0)).toBe(orders.length)
+  })
+
+  it('reports the whole lifecycle, not just the walking', () => {
+    const engine = new SimulationEngine(model, settings)
+    engine.setOrders(generateOrders(model, { count: 6, minLines: 3, maxLines: 6, arrivalPerMin: 120, seed: 92 }))
+    runToCompletion(engine)
+
+    const m = engine.metrics()
+    expect(m.avgPackSec).toBeGreaterThan(0)
+    expect(m.avgConveySec).toBeGreaterThan(0)
+    for (const c of m.recent) {
+      expect(c.packSeconds).toBeGreaterThan(0)
+      expect(c.conveySeconds).toBeGreaterThan(0)
+      expect(c.cartons).toBeGreaterThanOrEqual(1)
+      expect(c.packStation).toMatch(/^Pack /)
+      expect(c.dock).toMatch(/^Dock /)
+      // Queue time at induction is the remainder, so the parts can only under-fill.
+      expect(c.pickSeconds + c.packSeconds + c.conveySeconds).toBeLessThanOrEqual(c.duration + 1e-6)
+      // An order is not done until it is on the dock, so it outlives its pick.
+      expect(c.duration).toBeGreaterThan(c.pickSeconds)
+    }
+  })
+
+  it('sorts every channel to its own door', () => {
+    const engine = new SimulationEngine(model, settings)
+    const orders = generateOrders(model, { count: 8, minLines: 2, maxLines: 4, arrivalPerMin: 600, seed: 93 })
+    engine.setOrders(orders)
+    runToCompletion(engine)
+
+    const channelOf = new Map(orders.map((o) => [o.ref, o.channel]))
+    const doorFor = new Map<string, string>()
+    for (const c of engine.metrics().recent) {
+      const channel = channelOf.get(c.ref)!
+      const seen = doorFor.get(channel)
+      if (seen) expect(c.dock).toBe(seen)
+      else doorFor.set(channel, c.dock)
+    }
+    expect(doorFor.size).toBeGreaterThan(1)
+  })
+
+  it('an under-staffed pack wall becomes the bottleneck', () => {
+    const wave = () =>
+      generateOrders(model, { count: 18, minLines: 4, maxLines: 8, arrivalPerMin: 600, seed: 94 })
+    const runWith = (packStaff: number) => {
+      const engine = new SimulationEngine(model, { ...settings, packStaff, agentCount: 4 })
+      engine.setOrders(wave())
+      runToCompletion(engine)
+      return engine.metrics()
+    }
+    const thin = runWith(1)
+    const full = runWith(3)
+
+    expect(thin.ordersCompleted).toBe(full.ordersCompleted)
+    expect(thin.time).toBeGreaterThan(full.time)
+    // One bench doing all the work is busier and forms a queue behind it.
+    expect(thin.packUtilisation).toBeGreaterThan(full.packUtilisation)
+    expect(thin.packBufferPeak).toBeGreaterThan(full.packBufferPeak)
+  })
+
+  it('a full induction buffer pushes back on the pickers', () => {
+    const engine = new SimulationEngine(model, {
+      ...settings,
+      packStaff: 1,
+      packBufferLimit: 1,
+      agentCount: 5,
+    })
+    engine.setOrders(
+      generateOrders(model, { count: 16, minLines: 2, maxLines: 4, arrivalPerMin: 600, seed: 95 }),
+    )
+    engine.start()
+    let sawHold = false
+    for (let i = 0; i < 20000 && engine.running; i++) {
+      engine.step(0.25)
+      if (engine.agents.some((a) => a.phase === 'awaitPack')) sawHold = true
+    }
+    expect(sawHold).toBe(true)
+    const m = engine.metrics()
+    expect(m.packWaitSeconds).toBeGreaterThan(0)
+    // Back-pressure must not lose work: everything still ships.
+    expect(m.ordersCompleted).toBe(16)
+  })
+
+  it('belt speed changes how long transit takes', () => {
+    const runWith = (conveyorSpeed: number) => {
+      const engine = new SimulationEngine(model, { ...settings, conveyorSpeed })
+      engine.setOrders(generateOrders(model, { count: 6, minLines: 3, maxLines: 5, arrivalPerMin: 600, seed: 96 }))
+      runToCompletion(engine)
+      return engine.metrics()
+    }
+    const slow = runWith(0.4)
+    const quick = runWith(1.6)
+    expect(slow.ordersCompleted).toBe(quick.ordersCompleted)
+    expect(slow.avgConveySec).toBeGreaterThan(quick.avgConveySec * 1.5)
+  })
+
+  it('still dispatches with conveyor sortation switched off', () => {
+    const engine = new SimulationEngine(model, { ...settings, conveyorSortation: false })
+    const orders = generateOrders(model, { count: 8, minLines: 3, maxLines: 5, arrivalPerMin: 600, seed: 97 })
+    engine.setOrders(orders)
+    runToCompletion(engine)
+
+    const m = engine.metrics()
+    expect(m.ordersCompleted).toBe(orders.length)
+    // Hand-trucked parcels never merge onto a belt, so nothing can be held there.
+    expect(m.mergeBlocks).toBe(0)
+    expect(m.avgConveySec).toBeGreaterThan(0)
+  })
+
+  it('reset clears the pack line as well as the floor', () => {
+    const engine = new SimulationEngine(model, settings)
+    engine.setOrders(generateOrders(model, { count: 6, minLines: 3, maxLines: 5, arrivalPerMin: 600, seed: 98 }))
+    runToCompletion(engine)
+    expect(engine.metrics().parcelsPacked).toBeGreaterThan(0)
+
+    engine.reset({ keepOrders: true })
+    const m = engine.metrics()
+    expect(m.parcelsPacked).toBe(0)
+    expect(m.parcelsDispatched).toBe(0)
+    expect(m.ordersPicked).toBe(0)
+    expect(m.parcels).toHaveLength(0)
+    expect(m.packStations.every((s) => s.ordersPacked === 0)).toBe(true)
+    expect(m.docks.every((d) => d.dispatched === 0 && d.staged === 0)).toBe(true)
   })
 })
 

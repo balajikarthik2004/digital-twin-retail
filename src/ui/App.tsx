@@ -1,9 +1,14 @@
 import { useEffect } from 'react'
 import { useAppStore } from '../store/useAppStore'
 import { ControlPanel } from './ControlPanel'
+import { HistoryPanel } from './HistoryPanel'
+import { InboundPanel } from './InboundPanel'
 import { MetricsPanel } from './MetricsPanel'
 import { Minimap } from './Minimap'
+import { OutboundPanel } from './OutboundPanel'
 import { SceneView } from './SceneView'
+import { SectionNav } from './SectionNav'
+import { SimulationControls } from './SimulationControls'
 import { Toasts } from './Toasts'
 import { TopBar } from './TopBar'
 import { ViewControls } from './ViewControls'
@@ -18,6 +23,7 @@ export function App() {
   const rightOpen = useAppStore((s) => s.rightOpen)
   const toggle = useAppStore((s) => s.toggle)
   const theme = useAppStore((s) => s.theme)
+  const section = useAppStore((s) => s.section)
 
   useEffect(() => {
     void boot()
@@ -43,7 +49,8 @@ export function App() {
       else if (e.key === '1') state.setCameraPreset('overview')
       else if (e.key === '2') state.setCameraPreset('top')
       else if (e.key === '3') state.setCameraPreset('aisle')
-      else if (e.key === '4') state.setCameraPreset('dock')
+      else if (e.key === '4') state.setCameraPreset('pack')
+      else if (e.key === '5') state.setCameraPreset('dock')
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -68,15 +75,28 @@ export function App() {
       <TopBar />
 
       <div className="relative flex min-h-0 flex-1">
-        {/* Left: warehouse & simulation controls */}
+        {/* Left: transport, then the four workspace sections */}
         <aside
           className={cx(
             'relative z-20 shrink-0 overflow-hidden border-r border-ink-700 bg-ink-950 transition-[width] duration-300 ease-out',
-            leftOpen ? 'w-[306px]' : 'w-0',
+            leftOpen ? 'w-[340px]' : 'w-0',
           )}
         >
-          <div className="h-full w-[306px]">
-            <ControlPanel />
+          <div className="flex h-full w-[340px] flex-col">
+            {/* Both stay put while the section below them scrolls. */}
+            <SimulationControls />
+            <SectionNav />
+            <div className="min-h-0 flex-1">
+              {section === 'inbound' ? (
+                <InboundPanel />
+              ) : section === 'outbound' ? (
+                <OutboundPanel />
+              ) : section === 'history' ? (
+                <HistoryPanel />
+              ) : (
+                <ControlPanel />
+              )}
+            </div>
           </div>
         </aside>
 
