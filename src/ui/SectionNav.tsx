@@ -19,8 +19,9 @@ export function SectionNav() {
   const setSection = useAppStore((s) => s.setSection)
 
   // Badges: work waiting in each section, so a tab is never a blind alley.
+  // Inbound counts delivery lines still to count in or put away.
   const pendingLines = useAppStore((s) =>
-    s.receipts.reduce((t, r) => t + r.lines.filter((l) => l.status === 'pending').length, 0),
+    s.receipts.reduce((t, r) => t + r.lines.filter((l) => l.status !== 'stored').length, 0),
   )
   const queued = useAppStore((s) => s.metrics?.ordersPending ?? 0)
 

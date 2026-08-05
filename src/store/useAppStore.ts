@@ -5,11 +5,18 @@ import {
   createManualReceipt,
   generateReceipts,
   receiptSequence,
+  receiveLine as receiveCount,
   resetReceiptSequence,
   restoreReceiptSequence,
   type ManualReceiptInput,
 } from '../inbound/receipts'
-import type { Movement, Placement, PutawayPlan, Receipt } from '../inbound/types'
+import {
+  outstandingUnits,
+  type Movement,
+  type Placement,
+  type PutawayPlan,
+  type Receipt,
+} from '../inbound/types'
 import type { WalkerState } from '../inbound/walker'
 import {
   applyOverrides,
@@ -158,6 +165,12 @@ interface AppState {
 
   regenerateReceipts(): void
   bookInProduct(input: Omit<ManualReceiptInput, 'at'>): void
+  /** Open a delivery line off the inbound list, ready to be counted in. */
+  selectLine(receiptId: string, lineId: string): void
+  /** Accept a count against the advice note, then plan the putaway. */
+  receiveLine(receiptId: string, lineId: string, countedQty: number): void
+  /** Reverse a goods receipt so the line can be counted again. */
+  recountLine(): void
   planLine(receiptId: string, lineId: string): void
   setLocationMode(mode: LocationMode): void
   chooseLocation(binId: string): void
@@ -635,23 +648,98 @@ export const useAppStore = create<AppState>((set, get) => ({
     get().planLine(receipt.id, receipt.lines[0].id)
   },
 
+  selectLine(receiptId, lineId) {
+    const receipt = get().receipts.find((r) => r.id === receiptId)
+    const line = receipt?.lines.find((l) => l.id === lineId)
+    if (!receipt || !line) return
+
+    if (line.status === 'stored') {
+      // Nothing left to decide — just show where it went.
+      set({ selection: line.storedBinId ? { kind: 'bin', id: line.storedBinId } : null })
+      get().notify({
+        tone: 'info',
+        message: `${line.name} is already put away`,
+        detail: `${line.storedQty} units at ${line.storedCode}`,
+      })
+      return
+    }
+
+    set({ activeLine: { receiptId, lineId }, ...IDLE_FLOW })
+    // Already counted in (an unplanned receipt, or a part-stored line): skip
+    // straight to the putaway rather than asking for the count again.
+    if (line.status === 'received') get().planLine(receiptId, lineId)
+  },
+
+  receiveLine(receiptId, lineId, countedQty) {
+    const receipt = get().receipts.find((r) => r.id === receiptId)
+    const line = receipt?.lines.find((l) => l.id === lineId)
+    if (!receipt || !line) return
+
+    const at = get().metrics?.time ?? 0
+    receiveCount(line, countedQty, at)
+    set({
+      // Re-created so React sees the line's new status; `receiveCount` mutated
+      // the line object itself.
+      receipts: get().receipts.map((r) => (r.id === receipt.id ? { ...r, lines: [...r.lines] } : r)),
+      activeLine: { receiptId, lineId },
+    })
+    persistInbound(get())
+
+    const off = line.receivedQty - line.expectedQty
+    if (off !== 0) {
+      get().notify({
+        tone: 'warn',
+        message: `${line.name} counted ${off > 0 ? 'over' : 'short'}`,
+        detail: `${line.receivedQty} received against ${line.expectedQty} advised — ${Math.abs(off)} ${off > 0 ? 'over' : 'short'}.`,
+      })
+    }
+
+    if (line.receivedQty === 0) {
+      get().notify({
+        tone: 'warn',
+        message: 'Nothing received on that line',
+        detail: 'Counted as zero, so there is nothing to put away.',
+      })
+      return
+    }
+    get().planLine(receiptId, lineId)
+  },
+
+  recountLine() {
+    const active = get().activeLine
+    if (!active) return
+    const receipt = get().receipts.find((r) => r.id === active.receiptId)
+    const line = receipt?.lines.find((l) => l.id === active.lineId)
+    if (!receipt || !line) return
+
+    // Once any of it is on a shelf the receipt is history — reversing the count
+    // would leave the stock and the paperwork disagreeing.
+    if (line.storedQty > 0) {
+      get().notify({
+        tone: 'warn',
+        message: 'Already part put away',
+        detail: `${line.storedQty} units are on a shelf, so this count can no longer be reversed.`,
+      })
+      return
+    }
+
+    line.status = 'expected'
+    line.receivedQty = 0
+    line.receivedAt = null
+    set({
+      receipts: get().receipts.map((r) => (r.id === receipt.id ? { ...r, lines: [...r.lines] } : r)),
+      ...IDLE_FLOW,
+      activeLine: active,
+    })
+    persistInbound(get())
+  },
+
   planLine(receiptId, lineId) {
     const { model, engine } = get()
     if (!model || !engine) return
     const receipt = get().receipts.find((r) => r.id === receiptId)
     const line = receipt?.lines.find((l) => l.id === lineId)
     if (!receipt || !line) return
-
-    if (line.status === 'stored') {
-      // Nothing to decide — just show where it went.
-      set({ selection: line.storedBinId ? { kind: 'bin', id: line.storedBinId } : null })
-      get().notify({
-        tone: 'info',
-        message: `${line.name} is already stored`,
-        detail: `${line.storedQty} units at ${line.storedCode}`,
-      })
-      return
-    }
 
     const plan = planPutaway(model, engine.routingContext, receipt, line, {
       speed: get().settings.pickerSpeed,
@@ -666,14 +754,18 @@ export const useAppStore = create<AppState>((set, get) => ({
     })
 
     if (!plan) {
-      get().notify({
-        tone: 'warn',
-        message: 'No legal location for this line',
-        detail:
-          line.skuId === null
-            ? 'Every location is occupied — clear one before re-slotting a new line.'
-            : 'Its home location is full and there are no empty locations left.',
-      })
+      // An uncounted line has nothing to plan yet — that is the Receive step's
+      // job, not an error, so it is not reported as one.
+      if (line.status !== 'expected') {
+        get().notify({
+          tone: 'warn',
+          message: 'No legal location for this line',
+          detail:
+            line.skuId === null
+              ? 'Every location is occupied — clear one before re-slotting a new line.'
+              : 'Its home location is full and there are no empty locations left.',
+        })
+      }
       return
     }
     set({ selection: { kind: 'bin', id: plan.chosenBinId } })
@@ -732,7 +824,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         receiptId: receipt.id,
         lineId: line.id,
         name: line.name,
-        qty: candidate?.fits ?? line.qty - line.storedQty,
+        qty: candidate?.fits ?? outstandingUnits(line),
         phase: 'walking',
         progress: 0,
       },

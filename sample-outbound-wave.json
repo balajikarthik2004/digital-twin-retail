@@ -1,0 +1,283 @@
+[
+  {
+    "ref": "SO-500101",
+    "channel": "Ecommerce",
+    "priority": "express",
+    "releasedAt": 0,
+    "lines": [
+      {
+        "location": "A01-L01-1A",
+        "qty": 3
+      },
+      {
+        "location": "A02-L02-1B",
+        "qty": 2
+      },
+      {
+        "location": "A03-L03-3A",
+        "qty": 3
+      }
+    ]
+  },
+  {
+    "ref": "SO-500102",
+    "channel": "Click & Collect",
+    "priority": "express",
+    "releasedAt": 30,
+    "lines": [
+      {
+        "location": "A04-L05-1B",
+        "qty": 2
+      },
+      {
+        "location": "A05-L06-2B",
+        "qty": 5
+      }
+    ]
+  },
+  {
+    "ref": "SO-500103",
+    "channel": "Ecommerce",
+    "priority": "standard",
+    "releasedAt": 75,
+    "lines": [
+      {
+        "location": "A06-L07-3B",
+        "qty": 1
+      },
+      {
+        "location": "A07-L08-3B",
+        "qty": 3
+      },
+      {
+        "location": "A08-L10-2B",
+        "qty": 3
+      },
+      {
+        "location": "A01-L11-2A",
+        "qty": 1
+      },
+      {
+        "location": "A02-L12-3A",
+        "qty": 2
+      }
+    ]
+  },
+  {
+    "ref": "SO-500104",
+    "channel": "Store Replen",
+    "priority": "standard",
+    "releasedAt": 120,
+    "lines": [
+      {
+        "location": "A03-L14-2B",
+        "qty": 3
+      },
+      {
+        "location": "A04-L16-3A",
+        "qty": 1
+      },
+      {
+        "location": "A05-L17-1A",
+        "qty": 2
+      },
+      {
+        "location": "A06-L18-3B",
+        "qty": 1
+      },
+      {
+        "location": "A07-L19-2A",
+        "qty": 1
+      },
+      {
+        "location": "A08-R02-3B",
+        "qty": 1
+      },
+      {
+        "location": "A01-R02-2A",
+        "qty": 2
+      },
+      {
+        "location": "A02-R04-3A",
+        "qty": 3
+      }
+    ]
+  },
+  {
+    "ref": "SO-500105",
+    "channel": "Wholesale",
+    "priority": "standard",
+    "releasedAt": 180,
+    "lines": [
+      {
+        "location": "A03-R05-1A",
+        "qty": 1
+      },
+      {
+        "location": "A04-R07-2B",
+        "qty": 2
+      },
+      {
+        "location": "A05-R08-1A",
+        "qty": 3
+      },
+      {
+        "location": "A06-R09-1B",
+        "qty": 2
+      },
+      {
+        "location": "A07-R10-2A",
+        "qty": 1
+      },
+      {
+        "location": "A08-R13-3B",
+        "qty": 2
+      },
+      {
+        "location": "A01-R13-2A",
+        "qty": 2
+      },
+      {
+        "location": "A02-R15-2B",
+        "qty": 2
+      },
+      {
+        "location": "A03-R16-2A",
+        "qty": 2
+      },
+      {
+        "location": "A04-R18-3A",
+        "qty": 1
+      }
+    ]
+  },
+  {
+    "ref": "SO-500106",
+    "channel": "Ecommerce",
+    "priority": "express",
+    "releasedAt": 240,
+    "lines": [
+      {
+        "location": "A05-R19-3A",
+        "qty": 1
+      },
+      {
+        "location": "A06-R19-2A",
+        "qty": 1
+      }
+    ]
+  },
+  {
+    "ref": "SO-500107",
+    "channel": "Click & Collect",
+    "priority": "standard",
+    "releasedAt": 300,
+    "lines": [
+      {
+        "location": "A07-L02-1B",
+        "qty": 3
+      },
+      {
+        "location": "A08-L04-2A",
+        "qty": 3
+      },
+      {
+        "location": "A01-L04-2A",
+        "qty": 1
+      },
+      {
+        "location": "A02-L06-1A",
+        "qty": 1
+      }
+    ]
+  },
+  {
+    "ref": "SO-500108",
+    "channel": "Store Replen",
+    "priority": "standard",
+    "releasedAt": 420,
+    "lines": [
+      {
+        "location": "A03-L07-1B",
+        "qty": 5
+      },
+      {
+        "location": "A04-L09-2B",
+        "qty": 3
+      },
+      {
+        "location": "A05-L10-3B",
+        "qty": 1
+      },
+      {
+        "location": "A06-L10-3A",
+        "qty": 2
+      },
+      {
+        "location": "A07-L12-1A",
+        "qty": 2
+      },
+      {
+        "location": "A08-L15-2A",
+        "qty": 1
+      }
+    ]
+  },
+  {
+    "ref": "SO-500109",
+    "channel": "Wholesale",
+    "priority": "standard",
+    "releasedAt": 540,
+    "dueAt": 5400,
+    "lines": [
+      {
+        "location": "A01-L14-1B",
+        "qty": 2
+      },
+      {
+        "location": "A02-L16-3B",
+        "qty": 1
+      },
+      {
+        "location": "A03-L18-1B",
+        "qty": 1
+      },
+      {
+        "location": "A04-L20-3B",
+        "qty": 1
+      },
+      {
+        "location": "A05-R01-3B",
+        "qty": 1
+      },
+      {
+        "location": "A06-R01-3A",
+        "qty": 1
+      },
+      {
+        "location": "A07-R02-3B",
+        "qty": 3
+      }
+    ]
+  },
+  {
+    "ref": "SO-500110",
+    "channel": "Ecommerce",
+    "priority": "express",
+    "releasedAt": 600,
+    "lines": [
+      {
+        "location": "A08-R07-3A",
+        "qty": 2
+      },
+      {
+        "location": "A01-R06-1A",
+        "qty": 3
+      },
+      {
+        "location": "A02-R08-2B",
+        "qty": 1
+      }
+    ]
+  }
+]

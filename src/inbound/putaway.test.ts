@@ -7,8 +7,28 @@ import { describeRoute } from './directions'
 import { binFree, isEmpty, summariseFreeSpace } from './freeSpace'
 import { applyPutaway, planPutaway } from './plan'
 import { listAvailable, rankLocations } from './putaway'
-import { createManualReceipt, generateReceipts, resetReceiptSequence } from './receipts'
-import type { Receipt } from './types'
+import {
+  createManualReceipt,
+  generateReceipts,
+  receiveLine,
+  resetReceiptSequence,
+} from './receipts'
+import {
+  outstandingUnits,
+  receiptStatus,
+  variance,
+  type Receipt,
+  type ReceiptLine,
+} from './types'
+
+/**
+ * Count a line in at the advised quantity. Nothing can be put away before it has
+ * been received, so every putaway test has to go through the goods receipt first.
+ */
+function received(line: ReceiptLine): ReceiptLine {
+  receiveLine(line, line.expectedQty, 0)
+  return line
+}
 
 const configs = (layoutsDoc as unknown as { layouts: WarehouseConfig[] }).layouts
 const config = configs.find((c) => c.id === 'dc-north')!
@@ -143,7 +163,7 @@ describe('putaway routing and directions', () => {
   it('routes from goods-in to the chosen location on the pickers own graph', () => {
     const ctx = createRoutingContext(model.graph)
     const receipt = receipts[0]
-    const plan = planPutaway(model, ctx, receipt, receipt.lines[0])!
+    const plan = planPutaway(model, ctx, receipt, received(receipt.lines[0]))!
 
     expect(plan).not.toBeNull()
     expect(plan.route.nodePath[0]).toBe(model.receiving)
@@ -156,7 +176,7 @@ describe('putaway routing and directions', () => {
   it('produces directions that add up to the route length', () => {
     const ctx = createRoutingContext(model.graph)
     const receipt = receipts[1]
-    const plan = planPutaway(model, ctx, receipt, receipt.lines[0])!
+    const plan = planPutaway(model, ctx, receipt, received(receipt.lines[0]))!
     const chosen = model.binsById.get(plan.chosenBinId)!
 
     const walked = plan.directions.reduce((t, s) => t + s.metres, 0)
@@ -169,7 +189,7 @@ describe('putaway routing and directions', () => {
   it('honours an explicitly chosen location', () => {
     const ctx = createRoutingContext(model.graph)
     const receipt = receipts[2]
-    const line = receipt.lines[0]
+    const line = received(receipt.lines[0])
     const options = planPutaway(model, ctx, receipt, line)!
     const alternative = options.candidates[options.candidates.length - 1]
 
@@ -186,12 +206,12 @@ describe('putaway routing and directions', () => {
   it('routes to a chosen location far outside the shortlist', () => {
     const ctx = createRoutingContext(model.graph)
     const receipt = receipts[3]
-    const line = receipt.lines[0]
+    const line = received(receipt.lines[0])
 
     const everything = listAvailable(model, ctx, {
       skuId: line.skuId,
       velocity: line.velocity,
-      qty: line.qty - line.storedQty,
+      qty: outstandingUnits(line),
       unitVolume: line.unitVolume,
     })
     expect(everything.length).toBeGreaterThan(50)
@@ -213,7 +233,7 @@ describe('putaway routing and directions', () => {
   it('refuses a chosen location that is not legal for the line', () => {
     const ctx = createRoutingContext(model.graph)
     const receipt = receipts[4]
-    const line = receipt.lines[0]
+    const line = received(receipt.lines[0])
     // Occupied by some other SKU — never a legal target.
     const occupied = model.bins.find((b) => b.sku.stock > 0 && b.sku.id !== line.skuId)!
 
@@ -269,7 +289,7 @@ describe('confirming a putaway', () => {
     const stored = applyPutaway(model, line, first.chosenBinId, 60)!
 
     expect(stored.remaining).toBeGreaterThan(0)
-    expect(line.status).toBe('pending')
+    expect(line.status).toBe('received')
 
     // The remainder re-plans onto a different location.
     const second = planPutaway(model, ctx, receipt, line)!
@@ -295,6 +315,115 @@ describe('confirming a putaway', () => {
   })
 })
 
+describe('goods receipt', () => {
+  it('will not put away a line that has not been counted in', () => {
+    const model = freshModel()
+    const ctx = createRoutingContext(model.graph)
+    resetReceiptSequence()
+    const receipt = generateReceipts(model, { count: 1, seed: 5 })[0]
+    const line = receipt.lines[0]
+
+    // Advised only: the quantity is still the supplier's claim.
+    expect(line.status).toBe('expected')
+    expect(planPutaway(model, ctx, receipt, line)).toBeNull()
+    expect(applyPutaway(model, line, model.bins.find(isEmpty)!.id, 0)).toBeNull()
+
+    // Counted in, and now there is work to plan.
+    receiveLine(line, line.expectedQty, 90)
+    expect(line.status).toBe('received')
+    expect(line.receivedAt).toBe(90)
+    expect(planPutaway(model, ctx, receipt, line)).not.toBeNull()
+  })
+
+  it('accepts a short count and puts away only what turned up', () => {
+    const model = freshModel()
+    const ctx = createRoutingContext(model.graph)
+    resetReceiptSequence()
+    const receipt = generateReceipts(model, { count: 1, seed: 11 })[0]
+    const line = receipt.lines[0]
+    const short = Math.max(1, Math.floor(line.expectedQty / 3))
+
+    receiveLine(line, short, 30)
+    expect(variance(line)).toBe(short - line.expectedQty)
+    expect(variance(line)).toBeLessThan(0)
+    expect(outstandingUnits(line)).toBe(short)
+
+    // The plan is sized to the count, not to the advice note.
+    const plan = planPutaway(model, ctx, receipt, line)!
+    const chosen = plan.candidates.find((c) => c.binId === plan.chosenBinId)!
+    expect(chosen.fits).toBeLessThanOrEqual(short)
+
+    const result = applyPutaway(model, line, plan.chosenBinId, 40)!
+    expect(result.qty).toBe(short)
+    expect(line.status).toBe('stored')
+    // A shortfall does not leave putaway work behind.
+    expect(outstandingUnits(line)).toBe(0)
+  })
+
+  it('accepts an over-count and puts the surplus away too', () => {
+    const model = freshModel()
+    const ctx = createRoutingContext(model.graph)
+    resetReceiptSequence()
+    const receipt = generateReceipts(model, { count: 1, seed: 12 })[0]
+    const line = receipt.lines[0]
+    const over = line.expectedQty + 7
+
+    receiveLine(line, over, 30)
+    expect(variance(line)).toBe(7)
+    expect(outstandingUnits(line)).toBe(over)
+    expect(planPutaway(model, ctx, receipt, line)).not.toBeNull()
+  })
+
+  it('a zero count leaves nothing to put away', () => {
+    const model = freshModel()
+    const ctx = createRoutingContext(model.graph)
+    resetReceiptSequence()
+    const receipt = generateReceipts(model, { count: 1, seed: 13 })[0]
+    const line = receipt.lines[0]
+
+    receiveLine(line, 0, 30)
+    expect(line.status).toBe('received')
+    expect(outstandingUnits(line)).toBe(0)
+    expect(planPutaway(model, ctx, receipt, line)).toBeNull()
+  })
+
+  it('rolls a delivery up through expected → receiving → received → stored', () => {
+    const model = freshModel()
+    resetReceiptSequence()
+    // A two-line delivery, so the part-received state is reachable.
+    const receipt = generateReceipts(model, { count: 12, seed: 21 }).find((r) => r.lines.length >= 2)!
+
+    expect(receiptStatus(receipt)).toBe('expected')
+    receiveLine(receipt.lines[0], receipt.lines[0].expectedQty, 10)
+    expect(receiptStatus(receipt)).toBe('receiving')
+    for (const l of receipt.lines) receiveLine(l, l.expectedQty, 10)
+    expect(receiptStatus(receipt)).toBe('received')
+    for (const l of receipt.lines) l.status = 'stored'
+    expect(receiptStatus(receipt)).toBe('stored')
+  })
+
+  it('an unplanned delivery is received the moment it is booked in', () => {
+    resetReceiptSequence()
+    const receipt = createManualReceipt({
+      name: 'Turned Up Unannounced',
+      skuId: null,
+      category: 'Pantry',
+      velocity: 'medium',
+      qty: 42,
+      unitVolume: 2,
+      at: 75,
+    })
+    const line = receipt.lines[0]
+    expect(receipt.unplanned).toBe(true)
+    expect(line.status).toBe('received')
+    expect(line.expectedQty).toBe(42)
+    expect(line.receivedQty).toBe(42)
+    expect(line.receivedAt).toBe(75)
+    expect(variance(line)).toBe(0)
+    expect(receiptStatus(receipt)).toBe('received')
+  })
+})
+
 describe('inbound receipt generation', () => {
   it('books in a realistic mix of top-ups and new lines', () => {
     const model = freshModel()
@@ -307,12 +436,15 @@ describe('inbound receipt generation', () => {
     expect(lines.some((l) => l.skuId === null)).toBe(true)
 
     for (const line of lines) {
-      expect(line.qty).toBeGreaterThan(0)
-      expect(line.status).toBe('pending')
-      // A top-up never books in more than its home location could hold.
+      expect(line.expectedQty).toBeGreaterThan(0)
+      // Advised, not counted: nothing is received until an operator says so.
+      expect(line.status).toBe('expected')
+      expect(line.receivedQty).toBe(0)
+      expect(line.receivedAt).toBeNull()
+      // A top-up is never advised beyond what its home location could hold.
       if (line.skuId) {
         const bin = model.binBySku.get(line.skuId)!
-        expect(line.qty).toBeLessThanOrEqual(bin.capacity)
+        expect(line.expectedQty).toBeLessThanOrEqual(bin.capacity)
       }
     }
     // Arrivals are ordered along the shift clock.

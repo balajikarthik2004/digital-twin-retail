@@ -14,7 +14,17 @@ import type { Bin, VelocityTier } from '../warehouse/types'
  * pure functions over the warehouse model and the nav graph.
  */
 
-export type ReceiptLineStatus = 'pending' | 'stored'
+/**
+ * A delivery line's lifecycle, which is the receiving process itself:
+ *
+ *   expected  the advice note says it is coming; nothing has been counted
+ *   received  counted in at the door — this is the goods receipt
+ *   stored    put away into a location
+ *
+ * Nothing may be put away before it has been received, because until someone
+ * counts it the quantity is a supplier's claim rather than a fact.
+ */
+export type ReceiptLineStatus = 'expected' | 'received' | 'stored'
 
 export interface ReceiptLine {
   id: string
@@ -26,11 +36,15 @@ export interface ReceiptLine {
   name: string
   category: string
   velocity: VelocityTier
-  /** Units on the pallet. */
-  qty: number
+  /** Units the advice note says are coming. */
+  expectedQty: number
+  /** Units actually counted in at the door. 0 until the line is received. */
+  receivedQty: number
   /** Litres per unit — decides how much of a location the delivery consumes. */
   unitVolume: number
   status: ReceiptLineStatus
+  /** Sim seconds the count was accepted. */
+  receivedAt: number | null
   /** Location the units went to, once put away. */
   storedBinId: string | null
   storedCode: string | null
@@ -44,10 +58,38 @@ export interface Receipt {
   id: string
   /** Goods-received note reference. */
   ref: string
+  /** Purchase order the delivery is against. */
+  po: string
   supplier: string
   /** Sim seconds the trailer hit the goods-in door. */
   arrivedAt: number
+  /**
+   * True for stock that turned up without an advice note. It skips the expected
+   * state — you are holding it, so it is received by definition.
+   */
+  unplanned: boolean
   lines: ReceiptLine[]
+}
+
+/** Where a delivery has got to, rolled up from its lines. */
+export type ReceiptStatus = 'expected' | 'receiving' | 'received' | 'stored'
+
+export function receiptStatus(receipt: Receipt): ReceiptStatus {
+  const lines = receipt.lines
+  if (lines.every((l) => l.status === 'stored')) return 'stored'
+  if (lines.every((l) => l.status === 'expected')) return 'expected'
+  if (lines.some((l) => l.status === 'expected')) return 'receiving'
+  return 'received'
+}
+
+/** Units still to put away on a line. */
+export function outstandingUnits(line: ReceiptLine): number {
+  return Math.max(0, line.receivedQty - line.storedQty)
+}
+
+/** Counted short or over against the advice note. Negative is short. */
+export function variance(line: ReceiptLine): number {
+  return line.status === 'expected' ? 0 : line.receivedQty - line.expectedQty
 }
 
 /** Why a location is legal for this delivery. Mixed-SKU locations are not. */

@@ -1,4 +1,4 @@
-import { useEffect, useRef, type RefObject } from 'react'
+import { useCallback, useEffect, useRef, useState, type PointerEvent, type RefObject } from 'react'
 import type { WarehouseScene } from '../scene/WarehouseScene'
 import { VELOCITY_LABEL, channelHex, velocityHex } from '../scene/theme'
 import { useAppStore } from '../store/useAppStore'
@@ -13,17 +13,35 @@ import {
   shortDuration,
 } from './format'
 
+/** Keeps a dragged card from being pushed off the edge of the viewport. */
+const EDGE_MARGIN = 8
+
 /**
  * Click-to-inspect popover.
  *
- * The card tracks the projected screen position of the selected object by
- * writing a CSS transform inside an animation frame — never through React
- * state — so following a moving picker costs nothing per frame.
+ * By default the card tracks the projected screen position of the selected
+ * object by writing a CSS transform inside an animation frame — never through
+ * React state — so following a moving picker costs nothing per frame.
+ *
+ * Drag it and it detaches: it stays where you put it, a dashed leader keeps
+ * pointing at whatever it is describing, and the position survives clicking
+ * from one object to the next. Handy when the card would otherwise sit on top
+ * of the thing you are trying to look at.
  */
 export function Inspector({ sceneRef }: { sceneRef: RefObject<WarehouseScene | null> }) {
   const cardRef = useRef<HTMLDivElement>(null)
   const innerRef = useRef<HTMLDivElement>(null)
   const leaderRef = useRef<HTMLDivElement>(null)
+  const lineRef = useRef<SVGLineElement>(null)
+  const haloRef = useRef<SVGLineElement>(null)
+  const dotRef = useRef<SVGCircleElement>(null)
+  /**
+   * Detached position in container pixels. A ref, not state: the frame loop
+   * reads it every frame and a drag must not re-render the card 60 times a second.
+   */
+  const posRef = useRef<{ x: number; y: number } | null>(null)
+  const dragRef = useRef<{ dx: number; dy: number } | null>(null)
+  const [detached, setDetached] = useState(false)
   const selection = useAppStore((s) => s.selection)
   const model = useAppStore((s) => s.model)
   const metrics = useAppStore((s) => s.metrics)
@@ -39,31 +57,133 @@ export function Inspector({ sceneRef }: { sceneRef: RefObject<WarehouseScene | n
       raf = requestAnimationFrame(track)
       const scene = sceneRef.current
       const card = cardRef.current
-      if (!scene || !card) return
+      const inner = innerRef.current
+      if (!scene || !card || !inner) return
+
       const world = scene.selectionWorldPosition()
-      if (!world) {
+      const anchor = world ? scene.project(world) : null
+      const free = posRef.current
+
+      if (free) {
+        // Parked by the operator: stay put, and let the leader do the pointing.
+        card.style.opacity = '1'
+        card.style.transform = `translate3d(${Math.round(free.x)}px, ${Math.round(free.y)}px, 0)`
+        inner.style.transform = 'none'
+        if (leaderRef.current) leaderRef.current.style.display = 'none'
+        drawLink(anchor, free, inner)
+        return
+      }
+
+      if (leaderRef.current) leaderRef.current.style.display = ''
+      hideLink()
+      if (!anchor) {
         card.style.opacity = '0'
         return
       }
-      const p = scene.project(world)
-      card.style.opacity = p.visible ? '1' : '0'
-      card.style.transform = `translate3d(${Math.round(p.x)}px, ${Math.round(p.y)}px, 0)`
+      card.style.opacity = anchor.visible ? '1' : '0'
+      card.style.transform = `translate3d(${Math.round(anchor.x)}px, ${Math.round(anchor.y)}px, 0)`
 
       // Flip below the anchor when there isn't room above, so a bin near the
       // top of the viewport never pushes its card off-screen.
-      const inner = innerRef.current
-      if (inner) {
-        const height = inner.offsetHeight
-        const below = p.y < height + 24
-        inner.style.transform = below
-          ? 'translate(-50%, 18px)'
-          : `translate(-50%, calc(-100% - 14px))`
-        if (leaderRef.current) leaderRef.current.style.order = below ? '-1' : '1'
+      const height = inner.offsetHeight
+      const below = anchor.y < height + 24
+      inner.style.transform = below ? 'translate(-50%, 18px)' : `translate(-50%, calc(-100% - 14px))`
+      if (leaderRef.current) leaderRef.current.style.order = below ? '-1' : '1'
+    }
+
+    /** Dashed connector from the parked card back to the object it describes. */
+    const drawLink = (
+      anchor: { x: number; y: number; visible: boolean } | null,
+      free: { x: number; y: number },
+      inner: HTMLElement,
+    ) => {
+      const line = lineRef.current
+      const halo = haloRef.current
+      const dot = dotRef.current
+      if (!line || !halo || !dot) return
+      if (!anchor || !anchor.visible) {
+        hideLink()
+        return
+      }
+      const x1 = free.x + inner.offsetWidth / 2
+      const y1 = free.y + inner.offsetHeight / 2
+      for (const el of [halo, line]) {
+        el.style.display = ''
+        el.setAttribute('x1', String(x1))
+        el.setAttribute('y1', String(y1))
+        el.setAttribute('x2', String(anchor.x))
+        el.setAttribute('y2', String(anchor.y))
+      }
+      dot.style.display = ''
+      dot.setAttribute('cx', String(anchor.x))
+      dot.setAttribute('cy', String(anchor.y))
+    }
+
+    const hideLink = () => {
+      for (const el of [haloRef.current, lineRef.current, dotRef.current]) {
+        if (el) el.style.display = 'none'
       }
     }
+
     raf = requestAnimationFrame(track)
     return () => cancelAnimationFrame(raf)
   }, [selection, sceneRef])
+
+  // ── dragging ────────────────────────────────────────────────────────────────
+
+  const onDragMove = useCallback((event: globalThis.PointerEvent) => {
+    const grab = dragRef.current
+    const card = cardRef.current
+    const inner = innerRef.current
+    const container = card?.parentElement
+    if (!grab || !card || !inner || !container) return
+
+    const rect = container.getBoundingClientRect()
+    const maxX = rect.width - inner.offsetWidth - EDGE_MARGIN
+    const maxY = rect.height - inner.offsetHeight - EDGE_MARGIN
+    posRef.current = {
+      x: Math.min(Math.max(EDGE_MARGIN, event.clientX - rect.left - grab.dx), Math.max(EDGE_MARGIN, maxX)),
+      y: Math.min(Math.max(EDGE_MARGIN, event.clientY - rect.top - grab.dy), Math.max(EDGE_MARGIN, maxY)),
+    }
+  }, [])
+
+  const onDragEnd = useCallback(() => {
+    dragRef.current = null
+    window.removeEventListener('pointermove', onDragMove)
+    window.removeEventListener('pointerup', onDragEnd)
+    window.removeEventListener('pointercancel', onDragEnd)
+  }, [onDragMove])
+
+  const onDragStart = (event: PointerEvent<HTMLDivElement>) => {
+    // Buttons inside the card keep working; only the card body is a handle.
+    if ((event.target as HTMLElement).closest('button')) return
+    const inner = innerRef.current
+    const container = cardRef.current?.parentElement
+    if (!inner || !container) return
+    event.preventDefault()
+
+    const rect = container.getBoundingClientRect()
+    const card = inner.getBoundingClientRect()
+    // Grabbing an anchored card converts its current on-screen spot into a
+    // free position, so it does not jump when the drag starts.
+    posRef.current = { x: card.left - rect.left, y: card.top - rect.top }
+    dragRef.current = { dx: event.clientX - card.left, dy: event.clientY - card.top }
+    setDetached(true)
+    // Capture so the release lands on the card, never on the canvas underneath —
+    // otherwise finishing a drag over the scene can re-pick whatever is there.
+    event.currentTarget.setPointerCapture?.(event.pointerId)
+
+    window.addEventListener('pointermove', onDragMove)
+    window.addEventListener('pointerup', onDragEnd)
+    window.addEventListener('pointercancel', onDragEnd)
+  }
+
+  useEffect(() => onDragEnd, [onDragEnd])
+
+  const reattach = () => {
+    posRef.current = null
+    setDetached(false)
+  }
 
   // Escape clears the selection — expected behaviour for an overlay card.
   useEffect(() => {
@@ -88,232 +208,286 @@ export function Inspector({ sceneRef }: { sceneRef: RefObject<WarehouseScene | n
     : 0
 
   return (
-    <div
-      ref={cardRef}
-      className="pointer-events-none absolute left-0 top-0 z-20 transition-opacity duration-150"
-      style={{ opacity: 0 }}
-    >
+    <>
+      {/*
+        Leader from a parked card back to whatever it is describing.
+
+        Drawn twice: a wide stroke in the chrome colour, then the accent line on
+        top. The halo is what makes it readable — a thin line on its own vanishes
+        against a wall of multicoloured bins. Dashed on purpose, so it can never
+        be mistaken for a pick path or a putaway route, which are solid ribbons
+        on the floor.
+      */}
+      <svg className="pointer-events-none absolute inset-0 z-10 h-full w-full" aria-hidden>
+        <line
+          ref={haloRef}
+          stroke="rgb(var(--ink-900))"
+          strokeWidth="4.5"
+          strokeLinecap="round"
+          opacity="0.85"
+          style={{ display: 'none' }}
+        />
+        <line
+          ref={lineRef}
+          stroke="rgb(var(--accent))"
+          strokeWidth="2"
+          strokeDasharray="5 4"
+          strokeLinecap="round"
+          style={{ display: 'none' }}
+        />
+        <circle
+          ref={dotRef}
+          r="4"
+          fill="rgb(var(--accent))"
+          stroke="rgb(var(--ink-900))"
+          strokeWidth="1.5"
+          style={{ display: 'none' }}
+        />
+      </svg>
+
       <div
-        ref={innerRef}
-        className="pointer-events-auto flex flex-col"
-        style={{ transform: 'translate(-50%, calc(-100% - 14px))' }}
+        ref={cardRef}
+        className="pointer-events-none absolute left-0 top-0 z-20 transition-opacity duration-150"
+        style={{ opacity: 0 }}
       >
-        <div className="panel-float w-[248px] animate-fade-in p-3">
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0">
-              <div className="text-[10px] font-medium uppercase tracking-[0.12em] text-ink-400">
-                {bin ? 'Storage location' : parcel ? 'Parcel' : 'Picker'}
-              </div>
-              <div className="truncate font-mono text-sm font-semibold text-ink-100">
-                {bin ? bin.code : parcel ? parcel.ref : agent!.label}
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => setSelection(null)}
-              className="btn btn-icon shrink-0 text-ink-400"
-              aria-label="Close inspector"
-            >
-              ✕
-            </button>
-          </div>
-
-          <div className="divider" />
-
-          {bin ? (
-            <div className="space-y-2.5">
-              <div>
-                <div className="text-xs font-medium leading-snug text-ink-100">{bin.sku.name}</div>
-                <div className="mt-0.5 flex items-center gap-1.5 text-[10px] text-ink-400">
-                  <span className="font-mono">{bin.sku.id}</span>
-                  <span className="text-ink-600">·</span>
-                  <span>{bin.sku.category}</span>
+        <div
+          ref={innerRef}
+          className="pointer-events-auto flex flex-col"
+          style={{ transform: 'translate(-50%, calc(-100% - 14px))' }}
+        >
+          <div
+            onPointerDown={onDragStart}
+            className="panel-float w-[248px] animate-fade-in cursor-grab select-none p-3 active:cursor-grabbing"
+          >
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <div className="text-[10px] font-medium uppercase tracking-[0.12em] text-ink-400">
+                  {bin ? 'Storage location' : parcel ? 'Parcel' : 'Picker'}
+                </div>
+                <div className="truncate font-mono text-sm font-semibold text-ink-100">
+                  {bin ? bin.code : parcel ? parcel.ref : agent!.label}
                 </div>
               </div>
-
-              <div className="flex items-center gap-1.5">
-                <span
-                  className="h-2 w-2 rounded-sm"
-                  style={{ background: VELOCITY_HEX[bin.sku.velocity] }}
-                />
-                <span className="text-[10.5px] font-medium text-ink-200">
-                  {VELOCITY_LABEL[bin.sku.velocity]}
-                </span>
-              </div>
-
-              <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[10.5px]">
-                <Row label="On hand" value={`${bin.sku.stock.toLocaleString()} ea`} />
-                <Row label="Replen point" value={`${bin.sku.replenPoint.toLocaleString()} ea`} />
-                <Row label="Aisle" value={`A${String(bin.aisle + 1).padStart(2, '0')} · ${bin.side === 'L' ? 'left' : 'right'}`} />
-                <Row label="Bay / level" value={`${bin.bay + 1} / L${bin.level + 1}`} />
-                <Row label="Typical qty" value={`${bin.sku.unitsPerLine} per line`} />
-                <Row label="Unit price" value={`$${bin.sku.price.toFixed(2)}`} />
-              </div>
-
-              <div>
-                <div className="mb-1 flex justify-between text-[10px] text-ink-400">
-                  <span>Stock vs opening</span>
-                  <span className="font-mono tabular-nums text-ink-200">
-                    {bin.sku.stock.toLocaleString()} / {bin.sku.stockInitial.toLocaleString()}
-                  </span>
-                </div>
-                <Bar
-                  value={bin.sku.stockInitial > 0 ? bin.sku.stock / bin.sku.stockInitial : 0}
-                  color={needsReplen ? '#d03b3b' : VELOCITY_HEX[bin.sku.velocity]}
-                />
-                {needsReplen && (
-                  <div className="mt-1.5 rounded-md border border-crit/45 bg-crit/10 px-1.5 py-1 text-[9.5px] font-medium text-crit">
-                    ! At or below replen point — flagged for top-up
-                  </div>
+              <div className="flex shrink-0 items-center gap-1">
+                {detached && (
+                  <button
+                    type="button"
+                    onClick={reattach}
+                    className="btn btn-icon text-ink-400"
+                    title="Snap back to the object"
+                    aria-label="Snap card back to the object"
+                  >
+                    ⇱
+                  </button>
                 )}
-              </div>
-            </div>
-          ) : parcel ? (
-            <div className="space-y-2.5">
-              <div className="flex items-center justify-between gap-2">
-                <span
-                  className={cx(
-                    'text-xs font-semibold',
-                    parcel.blocked
-                      ? 'text-[var(--viz-critical)]'
-                      : parcel.stage === 'staged'
-                        ? 'text-[var(--viz-good)]'
-                        : 'text-[var(--viz-series-1)]',
-                  )}
+                <button
+                  type="button"
+                  onClick={() => setSelection(null)}
+                  className="btn btn-icon text-ink-400"
+                  aria-label="Close inspector"
                 >
-                  {parcel.blocked ? 'Held at merge' : PARCEL_STAGE_LABEL[parcel.stage]}
-                </span>
-                <span className="chip !text-[9px]">
-                  {parcel.manual ? 'Hand-trucked' : 'Conveyed'}
-                </span>
+                  ✕
+                </button>
               </div>
-
-              <div className="flex items-center gap-1.5">
-                <span
-                  className="h-2 w-2 rounded-sm"
-                  style={{ background: CHANNEL_HEX[parcel.channel] }}
-                />
-                <span className="text-[10.5px] font-medium text-ink-200">{parcel.channel}</span>
-                {parcel.priority === 'express' && (
-                  <span className="chip !px-1 !py-0 !text-[8.5px] !text-[var(--viz-warning)]">
-                    express
-                  </span>
-                )}
-              </div>
-
-              <div>
-                <div className="mb-1 flex justify-between text-[10px] text-ink-400">
-                  <span>
-                    {parcel.stationLabel} → {parcel.dockLabel}
-                  </span>
-                  <span className="font-mono tabular-nums text-ink-200">
-                    {Math.round(parcel.arc)} / {Math.round(parcel.pathLength)} m
-                  </span>
-                </div>
-                <Bar
-                  value={parcel.pathLength > 0 ? parcel.arc / parcel.pathLength : 1}
-                  color={parcel.blocked ? '#d03b3b' : CHANNEL_HEX[parcel.channel]}
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[10.5px]">
-                <Row label="Cartons" value={`${parcel.cartons}`} />
-                <Row label="Weight" value={`${parcel.weightKg} kg`} />
-                <Row label="Packed at" value={mmss(parcel.packedAt)} />
-                <Row
-                  label={parcel.stage === 'staged' ? 'Transit took' : 'In transit'}
-                  value={shortDuration(transit)}
-                />
-              </div>
-
-              {parcel.stage === 'staged' && (
-                <div className="rounded-md border border-ink-700 bg-ink-850/60 px-2 py-1.5 text-[10px] leading-snug text-ink-200">
-                  Stacked in slot {parcel.stackIndex + 1} at {parcel.dockLabel}, waiting for the
-                  trailer to seal.
-                </div>
-              )}
             </div>
-          ) : (
-            <div className="space-y-2.5">
-              <div className="flex items-center justify-between gap-2">
-                <span className={cx('text-xs font-semibold', PHASE_TONE[agent!.phase])}>
-                  {PHASE_LABEL[agent!.phase]}
-                </span>
-                <span className="chip !text-[9px]">{KIND_LABEL[agent!.kind]}</span>
-              </div>
 
-              <div className="flex flex-wrap gap-1">
-                {agent!.orderRefs.length > 0 ? (
-                  agent!.orderRefs.map((ref) => (
-                    <span
-                      key={ref}
-                      className="chip font-mono"
-                      style={{ color: agent!.color, borderColor: `${agent!.color}55` }}
-                    >
-                      {ref}
-                    </span>
-                  ))
-                ) : (
-                  <span className="chip">unassigned</span>
-                )}
-              </div>
+            <div className="divider" />
 
-              <div>
-                <div className="mb-1 flex justify-between text-[10px] text-ink-400">
-                  <span>Load</span>
-                  <span className="font-mono tabular-nums text-ink-200">
-                    {agent!.linesLoaded}/{agent!.capacityLines} lines
+            {bin ? (
+              <div className="space-y-2.5">
+                <div>
+                  <div className="text-xs font-medium leading-snug text-ink-100">{bin.sku.name}</div>
+                  <div className="mt-0.5 flex items-center gap-1.5 text-[10px] text-ink-400">
+                    <span className="font-mono">{bin.sku.id}</span>
+                    <span className="text-ink-600">·</span>
+                    <span>{bin.sku.category}</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <span
+                    className="h-2 w-2 rounded-sm"
+                    style={{ background: VELOCITY_HEX[bin.sku.velocity] }}
+                  />
+                  <span className="text-[10.5px] font-medium text-ink-200">
+                    {VELOCITY_LABEL[bin.sku.velocity]}
                   </span>
                 </div>
-                <Bar
-                  value={agent!.capacityLines > 0 ? agent!.linesLoaded / agent!.capacityLines : 0}
-                  color={agent!.color}
-                />
-              </div>
 
-              {agent!.routeStops > 0 && (
+                <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[10.5px]">
+                  <Row label="On hand" value={`${bin.sku.stock.toLocaleString()} ea`} />
+                  <Row label="Replen point" value={`${bin.sku.replenPoint.toLocaleString()} ea`} />
+                  <Row label="Aisle" value={`A${String(bin.aisle + 1).padStart(2, '0')} · ${bin.side === 'L' ? 'left' : 'right'}`} />
+                  <Row label="Bay / level" value={`${bin.bay + 1} / L${bin.level + 1}`} />
+                  <Row label="Typical qty" value={`${bin.sku.unitsPerLine} per line`} />
+                  <Row label="Unit price" value={`$${bin.sku.price.toFixed(2)}`} />
+                </div>
+
+                <div>
+                  <div className="mb-1 flex justify-between text-[10px] text-ink-400">
+                    <span>Stock vs opening</span>
+                    <span className="font-mono tabular-nums text-ink-200">
+                      {bin.sku.stock.toLocaleString()} / {bin.sku.stockInitial.toLocaleString()}
+                    </span>
+                  </div>
+                  <Bar
+                    value={bin.sku.stockInitial > 0 ? bin.sku.stock / bin.sku.stockInitial : 0}
+                    color={needsReplen ? '#d03b3b' : VELOCITY_HEX[bin.sku.velocity]}
+                  />
+                  {needsReplen && (
+                    <div className="mt-1.5 rounded-md border border-crit/45 bg-crit/10 px-1.5 py-1 text-[9.5px] font-medium text-crit">
+                      ! At or below replen point — flagged for top-up
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : parcel ? (
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span
+                    className={cx(
+                      'text-xs font-semibold',
+                      parcel.blocked
+                        ? 'text-[var(--viz-critical)]'
+                        : parcel.stage === 'staged'
+                          ? 'text-[var(--viz-good)]'
+                          : 'text-[var(--viz-series-1)]',
+                    )}
+                  >
+                    {parcel.blocked ? 'Held at merge' : PARCEL_STAGE_LABEL[parcel.stage]}
+                  </span>
+                  <span className="chip !text-[9px]">
+                    {parcel.manual ? 'Hand-trucked' : 'Conveyed'}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <span
+                    className="h-2 w-2 rounded-sm"
+                    style={{ background: CHANNEL_HEX[parcel.channel] }}
+                  />
+                  <span className="text-[10.5px] font-medium text-ink-200">{parcel.channel}</span>
+                  {parcel.priority === 'express' && (
+                    <span className="chip !px-1 !py-0 !text-[8.5px] !text-[var(--viz-warning)]">
+                      express
+                    </span>
+                  )}
+                </div>
+
                 <div>
                   <div className="mb-1 flex justify-between text-[10px] text-ink-400">
                     <span>
-                      Pick {agent!.stopsDone} of {agent!.routeStops}
+                      {parcel.stationLabel} → {parcel.dockLabel}
                     </span>
-                    <span className="font-mono tabular-nums">{pct(agent!.progress)} of route</span>
+                    <span className="font-mono tabular-nums text-ink-200">
+                      {Math.round(parcel.arc)} / {Math.round(parcel.pathLength)} m
+                    </span>
                   </div>
-                  <Bar value={agent!.progress} color={agent!.color} />
+                  <Bar
+                    value={parcel.pathLength > 0 ? parcel.arc / parcel.pathLength : 1}
+                    color={parcel.blocked ? '#d03b3b' : CHANNEL_HEX[parcel.channel]}
+                  />
                 </div>
-              )}
 
-              <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[10.5px]">
-                <Row label="Distance" value={metres(agent!.distance)} />
-                <Row label="Lines picked" value={String(agent!.picks)} />
-                <Row label="Orders done" value={String(agent!.orders)} />
-                <Row label="Avg / order" value={agent!.orders > 0 ? mmss(agent!.avgOrderTime) : '—'} />
-                <Row label="Utilisation" value={pct(agent!.utilisation)} />
-                <Row label="Congestion" value={String(agent!.congestionEvents)} />
-                <Row label="Re-routes" value={String(agent!.reroutes)} />
-                <Row label="Short picks" value={String(agent!.shortPicks)} />
+                <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[10.5px]">
+                  <Row label="Cartons" value={`${parcel.cartons}`} />
+                  <Row label="Weight" value={`${parcel.weightKg} kg`} />
+                  <Row label="Packed at" value={mmss(parcel.packedAt)} />
+                  <Row
+                    label={parcel.stage === 'staged' ? 'Transit took' : 'In transit'}
+                    value={shortDuration(transit)}
+                  />
+                </div>
+
+                {parcel.stage === 'staged' && (
+                  <div className="rounded-md border border-ink-700 bg-ink-850/60 px-2 py-1.5 text-[10px] leading-snug text-ink-200">
+                    Stacked in slot {parcel.stackIndex + 1} at {parcel.dockLabel}, waiting for the
+                    trailer to seal.
+                  </div>
+                )}
               </div>
-
-              {agent!.thoughts[0] && (
-                <div className="rounded-md border border-ink-700 bg-ink-850/60 px-2 py-1.5">
-                  <div className="text-[9px] font-semibold uppercase tracking-wider text-ink-400">
-                    Last decision
-                  </div>
-                  <p className="mt-0.5 text-[10px] leading-snug text-ink-200">
-                    {agent!.thoughts[0].text}
-                  </p>
+            ) : (
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className={cx('text-xs font-semibold', PHASE_TONE[agent!.phase])}>
+                    {PHASE_LABEL[agent!.phase]}
+                  </span>
+                  <span className="chip !text-[9px]">{KIND_LABEL[agent!.kind]}</span>
                 </div>
-              )}
-            </div>
-          )}
+
+                <div className="flex flex-wrap gap-1">
+                  {agent!.orderRefs.length > 0 ? (
+                    agent!.orderRefs.map((ref) => (
+                      <span
+                        key={ref}
+                        className="chip font-mono"
+                        style={{ color: agent!.color, borderColor: `${agent!.color}55` }}
+                      >
+                        {ref}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="chip">unassigned</span>
+                  )}
+                </div>
+
+                <div>
+                  <div className="mb-1 flex justify-between text-[10px] text-ink-400">
+                    <span>Load</span>
+                    <span className="font-mono tabular-nums text-ink-200">
+                      {agent!.linesLoaded}/{agent!.capacityLines} lines
+                    </span>
+                  </div>
+                  <Bar
+                    value={agent!.capacityLines > 0 ? agent!.linesLoaded / agent!.capacityLines : 0}
+                    color={agent!.color}
+                  />
+                </div>
+
+                {agent!.routeStops > 0 && (
+                  <div>
+                    <div className="mb-1 flex justify-between text-[10px] text-ink-400">
+                      <span>
+                        Pick {agent!.stopsDone} of {agent!.routeStops}
+                      </span>
+                      <span className="font-mono tabular-nums">{pct(agent!.progress)} of route</span>
+                    </div>
+                    <Bar value={agent!.progress} color={agent!.color} />
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[10.5px]">
+                  <Row label="Distance" value={metres(agent!.distance)} />
+                  <Row label="Lines picked" value={String(agent!.picks)} />
+                  <Row label="Orders done" value={String(agent!.orders)} />
+                  <Row label="Avg / order" value={agent!.orders > 0 ? mmss(agent!.avgOrderTime) : '—'} />
+                  <Row label="Utilisation" value={pct(agent!.utilisation)} />
+                  <Row label="Congestion" value={String(agent!.congestionEvents)} />
+                  <Row label="Re-routes" value={String(agent!.reroutes)} />
+                  <Row label="Short picks" value={String(agent!.shortPicks)} />
+                </div>
+
+                {agent!.thoughts[0] && (
+                  <div className="rounded-md border border-ink-700 bg-ink-850/60 px-2 py-1.5">
+                    <div className="text-[9px] font-semibold uppercase tracking-wider text-ink-400">
+                      Last decision
+                    </div>
+                    <p className="mt-0.5 text-[10px] leading-snug text-ink-200">
+                      {agent!.thoughts[0].text}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+          {/* Short stub leader, used only while the card is anchored. */}
+          <div
+            ref={leaderRef}
+            className="mx-auto h-4 w-px shrink-0 bg-gradient-to-b from-ink-500 to-transparent"
+          />
         </div>
-        {/* Leader pointing at the object. */}
-        <div
-          ref={leaderRef}
-          className="mx-auto h-4 w-px shrink-0 bg-gradient-to-b from-ink-500 to-transparent"
-        />
       </div>
-    </div>
+    </>
   )
 }
 

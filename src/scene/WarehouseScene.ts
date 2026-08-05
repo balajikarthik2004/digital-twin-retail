@@ -42,6 +42,62 @@ export interface SceneCallbacks {
   onHoverChange(hovering: boolean): void
 }
 
+/**
+ * Continuous camera drive — arrow keys / WASD, or the on-screen pad.
+ *
+ * Each axis is a signed intent held for as long as the key or button is down,
+ * integrated per frame, so movement is smooth rather than stepped.
+ */
+export interface MoveAxes {
+  /** +1 towards where the camera is looking, -1 away. */
+  forward: number
+  /** +1 right of the view direction, -1 left. */
+  right: number
+  /** +1 rises, -1 drops. */
+  up: number
+  sprint: boolean
+}
+
+const ZERO_AXES: MoveAxes = { forward: 0, right: 0, up: 0, sprint: false }
+
+/**
+ * Physical-key layout, games-style: `code` not `key`, so the keys stay in the
+ * same place on a non-QWERTY keyboard and are unaffected by modifiers.
+ */
+const MOVE_KEYS: Record<string, Partial<MoveAxes>> = {
+  ArrowUp: { forward: 1 },
+  KeyW: { forward: 1 },
+  ArrowDown: { forward: -1 },
+  KeyS: { forward: -1 },
+  ArrowLeft: { right: -1 },
+  KeyA: { right: -1 },
+  ArrowRight: { right: 1 },
+  KeyD: { right: 1 },
+  PageUp: { up: 1 },
+  KeyE: { up: 1 },
+  PageDown: { up: -1 },
+  KeyQ: { up: -1 },
+}
+
+/**
+ * Simulated seconds a pad tap is guaranteed, so a single click always moves you.
+ *
+ * Measured in integrated `dt`, not wall-clock: on a slow machine a 200 ms press
+ * can be under one rendered frame, and a button that does nothing on a laptop
+ * with weak graphics is a broken button.
+ */
+const PAD_MIN_HOLD = 0.22
+
+/** Metres per second, as a share of how far out the camera is sitting. */
+const MOVE_RATE = 0.55
+const MIN_SPEED = 3.5
+const MAX_SPEED = 55
+const SPRINT = 2.6
+/** Eye height floor, so you cannot drive the camera under the slab. */
+const MIN_EYE = 1.4
+/** How far outside the building you may roam. */
+const ROAM_MARGIN = 14
+
 const DEFAULT_OPTIONS: SceneOptions = {
   showPaths: true,
   showSequence: true,
@@ -100,6 +156,15 @@ export class WarehouseScene {
 
   private tween = new CameraTween()
   private preset: CameraPresetId = 'overview'
+
+  /** Keys currently held, and the axes they add up to. */
+  private heldKeys = new Set<string>()
+  private keyAxes: MoveAxes = { ...ZERO_AXES }
+  /** Axes driven by the on-screen pad, merged with the keyboard's. */
+  private padAxes: MoveAxes = { ...ZERO_AXES }
+  /** Last non-zero pad input, kept alive for {@link PAD_MIN_HOLD} after release. */
+  private padLatched: MoveAxes = { ...ZERO_AXES }
+  private padHoldLeft = 0
 
   private raycaster = new THREE.Raycaster()
   private pointer = new THREE.Vector2()
@@ -184,6 +249,12 @@ export class WarehouseScene {
     dom.addEventListener('pointerdown', this.handlePointerDown)
     dom.addEventListener('pointerup', this.handlePointerUp)
     dom.addEventListener('pointermove', this.handlePointerMove)
+
+    // Movement is bound to the window, not the canvas: you should be able to
+    // walk the floor without first clicking into the 3D view.
+    window.addEventListener('keydown', this.handleKeyDown)
+    window.addEventListener('keyup', this.handleKeyUp)
+    window.addEventListener('blur', this.handleBlur)
 
     this.resizeObserver = new ResizeObserver(() => this.resize())
     this.resizeObserver.observe(container)
@@ -511,6 +582,145 @@ export class WarehouseScene {
     )
   }
 
+  // ── walking the floor ─────────────────────────────────────────────────────
+
+  /**
+   * Drive the camera from the on-screen pad. Held for as long as the button is
+   * down; the caller zeroes the axis on release, and a short tap is topped up
+   * to {@link PAD_MIN_HOLD} so it still registers as a step.
+   */
+  setPadAxes(patch: Partial<MoveAxes>): void {
+    const next = { ...this.padAxes, ...patch }
+    if (axesActive(next)) {
+      this.padLatched = next
+      this.padHoldLeft = PAD_MIN_HOLD
+    }
+    this.padAxes = next
+  }
+
+  /** Pad input, or the tail of a tap that has not had its time yet. */
+  private effectivePadAxes(dt: number): MoveAxes {
+    if (axesActive(this.padAxes)) return this.padAxes
+    if (this.padHoldLeft <= 0) return ZERO_AXES
+    this.padHoldLeft -= dt
+    return this.padLatched
+  }
+
+  private combinedAxes(dt: number): MoveAxes {
+    const pad = this.effectivePadAxes(dt)
+    return {
+      // Clamped so holding a key and the pad together is not double speed.
+      forward: clampAxis(this.keyAxes.forward + pad.forward),
+      right: clampAxis(this.keyAxes.right + pad.right),
+      up: clampAxis(this.keyAxes.up + pad.up),
+      sprint: this.keyAxes.sprint || pad.sprint,
+    }
+  }
+
+  /**
+   * Walk the camera across the floor.
+   *
+   * Forward is where you are looking, flattened onto the floor plane — pressing
+   * forward from an angled view should take you down the aisle, not bury the
+   * camera in the concrete. Position and target move together, so orbiting
+   * still works normally from wherever you stop.
+   */
+  private drive(dt: number): void {
+    const { forward, right, up, sprint } = this.combinedAxes(dt)
+    if (forward === 0 && right === 0 && up === 0) return
+    // A preset fly-in would otherwise fight the input for the same camera.
+    this.tween.cancel()
+
+    const cam = this.camera.position
+    const target = this.controls.target
+
+    const fwd = this.tmpA.subVectors(target, cam)
+    fwd.y = 0
+    if (fwd.lengthSq() < 1e-6) fwd.set(0, 0, 1)
+    fwd.normalize()
+    // Right-hand normal in the floor plane: forward × up.
+    const side = this.tmpB.set(-fwd.z, 0, fwd.x)
+
+    // Pace scales with how far out you are, so the same keys feel right at both
+    // aisle level and the overview.
+    const distance = cam.distanceTo(target)
+    const speed =
+      Math.min(MAX_SPEED, Math.max(MIN_SPEED, distance * MOVE_RATE)) * (sprint ? SPRINT : 1) * dt
+
+    const dx = (fwd.x * forward + side.x * right) * speed
+    const dz = (fwd.z * forward + side.z * right) * speed
+
+    // Keep the point of interest inside the building (plus an apron), so the
+    // warehouse can never be driven off the edge of the world.
+    const bounds = this.model?.bounds
+    let nx = target.x + dx
+    let nz = target.z + dz
+    if (bounds) {
+      nx = clamp(nx, bounds.minX - ROAM_MARGIN, bounds.maxX + ROAM_MARGIN)
+      nz = clamp(nz, bounds.minZ - ROAM_MARGIN, bounds.maxZ + ROAM_MARGIN)
+    }
+    const movedX = nx - target.x
+    const movedZ = nz - target.z
+    target.x = nx
+    target.z = nz
+    cam.x += movedX
+    cam.z += movedZ
+
+    if (up !== 0) {
+      const ceiling = bounds
+        ? Math.max(40, Math.max(bounds.maxX - bounds.minX, bounds.maxZ - bounds.minZ) * 1.7)
+        : 200
+      const ny = clamp(cam.y + up * speed, MIN_EYE, ceiling)
+      const movedY = ny - cam.y
+      cam.y = ny
+      // Target rises with the camera so the pitch you set is preserved.
+      target.y = Math.max(0, target.y + movedY)
+    }
+  }
+
+  private handleKeyDown = (event: KeyboardEvent) => {
+    if (event.repeat || isTypingInto(event.target)) return
+    if (event.ctrlKey || event.metaKey || event.altKey) return
+    if (event.code === 'ShiftLeft' || event.code === 'ShiftRight') {
+      this.keyAxes.sprint = true
+      return
+    }
+    if (!(event.code in MOVE_KEYS)) return
+    // Arrow keys would otherwise scroll whichever panel has focus.
+    event.preventDefault()
+    this.heldKeys.add(event.code)
+    this.recomputeKeyAxes()
+  }
+
+  private handleKeyUp = (event: KeyboardEvent) => {
+    if (event.code === 'ShiftLeft' || event.code === 'ShiftRight') {
+      this.keyAxes.sprint = false
+      return
+    }
+    if (!this.heldKeys.delete(event.code)) return
+    this.recomputeKeyAxes()
+  }
+
+  /** Alt-tabbing away must not leave the camera coasting forever. */
+  private handleBlur = () => {
+    this.heldKeys.clear()
+    this.keyAxes = { ...ZERO_AXES }
+    this.padAxes = { ...ZERO_AXES }
+    this.padHoldLeft = 0
+  }
+
+  private recomputeKeyAxes(): void {
+    const next: MoveAxes = { ...ZERO_AXES, sprint: this.keyAxes.sprint }
+    for (const code of this.heldKeys) {
+      const axis = MOVE_KEYS[code]
+      // Opposite keys held together cancel, exactly as they do in a game.
+      if (axis.forward) next.forward = clampAxis(next.forward + axis.forward)
+      if (axis.right) next.right = clampAxis(next.right + axis.right)
+      if (axis.up) next.up = clampAxis(next.up + axis.up)
+    }
+    this.keyAxes = next
+  }
+
   /** Fly the camera to look at the current selection. */
   focusSelection(): void {
     const focus = this.selectionWorldPosition()
@@ -601,6 +811,8 @@ export class WarehouseScene {
       this.camera.position.copy(pose.position)
       this.controls.target.copy(pose.target)
     }
+    // After the tween, so driving always wins over a preset still flying in.
+    this.drive(dt)
 
     this.syncAgents(agents, dt)
     this.syncPackLine(packLine, dt)
@@ -928,6 +1140,9 @@ export class WarehouseScene {
     dom.removeEventListener('pointerdown', this.handlePointerDown)
     dom.removeEventListener('pointerup', this.handlePointerUp)
     dom.removeEventListener('pointermove', this.handlePointerMove)
+    window.removeEventListener('keydown', this.handleKeyDown)
+    window.removeEventListener('keyup', this.handleKeyUp)
+    window.removeEventListener('blur', this.handleBlur)
     this.controls.dispose()
     this.clearAllRoutes()
     this.walker?.dispose()
@@ -957,6 +1172,31 @@ export class WarehouseScene {
 
 function hexString(value: number): string {
   return `#${value.toString(16).padStart(6, '0')}`
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return value < min ? min : value > max ? max : value
+}
+
+/** Axes are intents, not magnitudes — two sources never add up past full tilt. */
+function clampAxis(value: number): number {
+  return clamp(value, -1, 1)
+}
+
+function axesActive(axes: MoveAxes): boolean {
+  return axes.forward !== 0 || axes.right !== 0 || axes.up !== 0
+}
+
+/**
+ * Movement keys must never steal a keystroke from a form. The inbound panel is
+ * full of text inputs, and arrow keys have to move the caret there.
+ */
+function isTypingInto(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false
+  const tag = target.tagName
+  return (
+    tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target.isContentEditable
+  )
 }
 
 function lerpAngle(from: number, to: number, t: number): number {

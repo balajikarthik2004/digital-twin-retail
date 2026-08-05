@@ -95,8 +95,10 @@ export function generateReceipts(model: WarehouseModel, options: ReceiptGenOptio
     receipts.push({
       id: `grn-${receiptSeq}`,
       ref: `GRN-${String(100000 + receiptSeq).slice(1)}`,
+      po: `PO-${String(400000 + receiptSeq * 7).slice(1)}`,
       supplier: rng.pick(SUPPLIERS),
       arrivedAt: Math.max(0, at),
+      unplanned: false,
       lines,
     })
     receiptSeq++
@@ -106,21 +108,18 @@ export function generateReceipts(model: WarehouseModel, options: ReceiptGenOptio
   return receipts
 }
 
-/** A replenishment of a line the facility already holds. */
-function topUpLine(rng: Rng, bin: Bin): ReceiptLine {
-  const [min, max] = DROP_SIZE[bin.sku.velocity]
-  // Never book in more than the home location could ever take — a delivery that
-  // cannot land anywhere is a data-entry bug, not an interesting decision.
-  const qty = Math.max(1, Math.min(binFree(bin), rng.int(min, max)))
+/** A line on the advice note — expected, not yet counted. */
+function expectedLine(
+  fields: Pick<ReceiptLine, 'skuId' | 'name' | 'category' | 'velocity' | 'unitVolume'>,
+  expectedQty: number,
+): ReceiptLine {
   return {
     id: `rl-${lineSeq++}`,
-    skuId: bin.sku.id,
-    name: bin.sku.name,
-    category: bin.sku.category,
-    velocity: bin.sku.velocity,
-    qty,
-    unitVolume: bin.sku.unitVolume,
-    status: 'pending',
+    ...fields,
+    expectedQty,
+    receivedQty: 0,
+    status: 'expected',
+    receivedAt: null,
     storedBinId: null,
     storedCode: null,
     storedAt: null,
@@ -128,25 +127,39 @@ function topUpLine(rng: Rng, bin: Bin): ReceiptLine {
   }
 }
 
+/** A replenishment of a line the facility already holds. */
+function topUpLine(rng: Rng, bin: Bin): ReceiptLine {
+  const [min, max] = DROP_SIZE[bin.sku.velocity]
+  // Never advise more than the home location could ever take — a delivery that
+  // cannot land anywhere is a data-entry bug, not an interesting decision.
+  const qty = Math.max(1, Math.min(binFree(bin), rng.int(min, max)))
+  return expectedLine(
+    {
+      skuId: bin.sku.id,
+      name: bin.sku.name,
+      category: bin.sku.category,
+      velocity: bin.sku.velocity,
+      unitVolume: bin.sku.unitVolume,
+    },
+    qty,
+  )
+}
+
 /** A line new to the facility — it has no home location yet. */
 function newLine(rng: Rng): ReceiptLine {
   const { name, category } = makeCatalogEntry(rng)
   const velocity: VelocityTier = rng.weighted(['fast', 'medium', 'slow'] as const, [0.25, 0.4, 0.35])
   const [min, max] = DROP_SIZE[velocity]
-  return {
-    id: `rl-${lineSeq++}`,
-    skuId: null,
-    name,
-    category,
-    velocity,
-    qty: rng.int(min, max),
-    unitVolume: Math.round(rng.float(0.5, 9) * 10) / 10,
-    status: 'pending',
-    storedBinId: null,
-    storedCode: null,
-    storedAt: null,
-    storedQty: 0,
-  }
+  return expectedLine(
+    {
+      skuId: null,
+      name,
+      category,
+      velocity,
+      unitVolume: Math.round(rng.float(0.5, 9) * 10) / 10,
+    },
+    rng.int(min, max),
+  )
 }
 
 export interface ManualReceiptInput {
@@ -162,19 +175,25 @@ export interface ManualReceiptInput {
 }
 
 /**
- * Book a single line in by hand — the "I have some product, where does it go?"
- * entry point, as opposed to a trailer that was already on the schedule.
+ * An unplanned receipt — stock at the door with no advice note against it.
+ *
+ * It skips the expected state: the operator is standing there holding it and has
+ * just typed the count, so it is received the moment it is booked in.
  */
 export function createManualReceipt(input: ManualReceiptInput): Receipt {
+  const qty = Math.max(1, Math.round(input.qty))
+  const at = Math.max(0, input.at ?? 0)
   const line: ReceiptLine = {
     id: `rl-${lineSeq++}`,
     skuId: input.skuId,
     name: input.name,
     category: input.category,
     velocity: input.velocity,
-    qty: Math.max(1, Math.round(input.qty)),
+    expectedQty: qty,
+    receivedQty: qty,
     unitVolume: Math.max(0.1, input.unitVolume),
-    status: 'pending',
+    status: 'received',
+    receivedAt: at,
     storedBinId: null,
     storedCode: null,
     storedAt: null,
@@ -183,10 +202,22 @@ export function createManualReceipt(input: ManualReceiptInput): Receipt {
   const receipt: Receipt = {
     id: `grn-${receiptSeq}`,
     ref: `GRN-${String(100000 + receiptSeq).slice(1)}`,
-    supplier: input.supplier?.trim() || 'Booked in at the door',
-    arrivedAt: Math.max(0, input.at ?? 0),
+    po: 'no advice note',
+    supplier: input.supplier?.trim() || 'Unplanned — booked in at the door',
+    arrivedAt: at,
+    unplanned: true,
     lines: [line],
   }
   receiptSeq++
   return receipt
+}
+
+/**
+ * Accept a count against an advice-note line. This is the goods receipt: before
+ * it the quantity is the supplier's claim, after it it is the facility's.
+ */
+export function receiveLine(line: ReceiptLine, countedQty: number, at: number): void {
+  line.receivedQty = Math.max(0, Math.round(countedQty))
+  line.receivedAt = at
+  line.status = 'received'
 }

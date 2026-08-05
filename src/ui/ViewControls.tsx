@@ -32,6 +32,12 @@ export function ViewControls() {
       {model && (
         <div className="panel-float px-2.5 py-1.5">
           <p className="text-[9.5px] leading-relaxed text-ink-400">
+            <span className="text-ink-300">Arrow keys</span> or{' '}
+            <span className="text-ink-300">WASD</span> to walk the floor · hold{' '}
+            <span className="text-ink-300">Shift</span> to run ·{' '}
+            <span className="text-ink-300">Q</span>/<span className="text-ink-300">E</span> for
+            height
+            <br />
             Drag to orbit · scroll to zoom · right-drag to pan
             <br />
             Click a bin, picker or parcel to inspect it

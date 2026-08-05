@@ -4,7 +4,7 @@ import type { WarehouseModel } from '../warehouse/types'
 import { describeRoute, estimatePutawaySec } from './directions'
 import { binFree } from './freeSpace'
 import { rankLocations } from './putaway'
-import type { PutawayPlan, Receipt, ReceiptLine } from './types'
+import { outstandingUnits, type PutawayPlan, type Receipt, type ReceiptLine } from './types'
 
 /**
  * One destination, so there is no ordering decision to make — but the walk is
@@ -50,13 +50,18 @@ export function planPutaway(
   line: ReceiptLine,
   options: PlanOptions = {},
 ): PutawayPlan | null {
+  // Nothing may be put away before it has been counted in — until then the
+  // quantity is the supplier's claim, and there is no work to plan.
+  const outstanding = outstandingUnits(line)
+  if (line.status === 'expected' || outstanding === 0) return null
+
   const ranked = rankLocations(
     model,
     ctx,
     {
       skuId: line.skuId,
       velocity: line.velocity,
-      qty: line.qty - line.storedQty,
+      qty: outstanding,
       unitVolume: line.unitVolume,
     },
     { limit: Infinity, all: true, from: options.from },
@@ -125,8 +130,10 @@ export function applyPutaway(
 ): PutawayResult | null {
   const bin = model.binsById.get(binId)
   if (!bin) return null
+  // Uncounted stock cannot be put away — see `planPutaway`.
+  if (line.status === 'expected') return null
 
-  const outstanding = Math.max(0, line.qty - line.storedQty)
+  const outstanding = outstandingUnits(line)
   if (outstanding === 0) return null
 
   const sameSku = bin.sku.id === line.skuId
@@ -154,13 +161,13 @@ export function applyPutaway(
   line.storedBinId = binId
   line.storedCode = bin.code
   line.storedAt = at
-  line.status = line.storedQty >= line.qty ? 'stored' : 'pending'
+  line.status = line.storedQty >= line.receivedQty ? 'stored' : 'received'
 
   return {
     binId,
     code: bin.code,
     qty,
-    remaining: Math.max(0, line.qty - line.storedQty),
+    remaining: outstandingUnits(line),
     distance,
   }
 }

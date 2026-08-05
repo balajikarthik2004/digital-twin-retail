@@ -15,8 +15,13 @@ import type { VelocityTier, WarehouseModel } from '../warehouse/types'
  * without the history.
  */
 
-const KEY = 'picktwin.inbound.v1'
-const VERSION = 1
+/**
+ * Bumped whenever the persisted shape changes. A version mismatch is discarded
+ * rather than migrated — this is demo state, and a half-migrated receipt would
+ * be worse than a clean start.
+ */
+const KEY = 'picktwin.inbound.v2'
+const VERSION = 2
 /** Keeps the saved document small enough to never bump the ~5 MB quota. */
 const MAX_LOG = 250
 
