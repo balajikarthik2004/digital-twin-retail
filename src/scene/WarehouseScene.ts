@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
+import type { WalkerState } from '../inbound/walker'
 import type { Route } from '../pathfinding/types'
 import type { PackStation, Parcel, PickerAgent } from '../simulation/types'
 import type { Bin, WarehouseModel } from '../warehouse/types'
@@ -90,6 +91,8 @@ export class WarehouseScene {
   private putawayRibbon: PathRibbon | null = null
   /** Bin tints owned by the putaway shortlist, re-applied after every agent pass. */
   private putawayTints = new Map<string, number>()
+  /** The operator physically walking a putaway, when one is in flight. */
+  private walker: PickerVisual | null = null
 
   private selection: SceneSelection = null
   private selectionBox: THREE.LineSegments
@@ -360,6 +363,62 @@ export class WarehouseScene {
     }
     this.putawayTints = next
     this.applyPutawayTints()
+  }
+
+  /**
+   * Drive the putaway operator.
+   *
+   * They are drawn with the same mesh, gait and pick beam as the picking fleet —
+   * a putaway is the same physical act in reverse, and showing it any other way
+   * would imply it costs the floor nothing.
+   *
+   * @param state  Pose from the walker, or null when no putaway is in flight.
+   */
+  syncPutawayWalker(state: WalkerState | null, dt: number, targetBinId?: string): void {
+    if (!state || state.phase === 'done') {
+      if (this.walker) {
+        this.agentGroup.remove(this.walker.group)
+        this.walker.dispose()
+        this.walker = null
+      }
+      return
+    }
+
+    const color = hexString(this.theme.putaway.route)
+    if (this.walker && this.walker.color !== color) {
+      this.agentGroup.remove(this.walker.group)
+      this.walker.dispose()
+      this.walker = null
+    }
+    if (!this.walker) {
+      // A pallet truck: this is a pallet of stock, not a tote.
+      this.walker = createPickerVisual('putaway', 'IN', color, 'palletJack')
+      this.agentGroup.add(this.walker.group)
+    }
+
+    const walker = this.walker
+    const target = this.tmpTarget.set(state.pos.x, 0, state.pos.y)
+    const lerp = Math.min(1, dt * 14)
+    const groundSpeed = dt > 1e-5 ? walker.group.position.distanceTo(target) / dt : 0
+    walker.group.position.lerp(target, lerp)
+    walker.group.rotation.y = lerpAngle(walker.group.rotation.y, state.heading, lerp)
+
+    const moving = state.phase === 'walking' || state.phase === 'returning'
+    animateGait(walker, dt, moving ? Math.min(groundSpeed, 2.2) : 0)
+    ;(walker.ring.material as THREE.MeshBasicMaterial).color.set(color)
+    ;(walker.ring.material as THREE.MeshBasicMaterial).opacity = moving ? 0.5 : 0.95
+
+    // Lifting the stock onto the shelf — same beam the pickers use to take it off.
+    const bin = state.phase === 'placing' && targetBinId ? this.model?.binsById.get(targetBinId) : null
+    if (bin) {
+      this.tmpA.set(walker.group.position.x, 1.25, walker.group.position.z)
+      this.tmpB.set(bin.face.x, bin.face.y, bin.face.z)
+      aimBeam(walker.beam, this.tmpA, this.tmpB)
+      reachFor(walker, true)
+    } else {
+      walker.beam.visible = false
+      reachFor(walker, false)
+    }
   }
 
   /**
@@ -871,6 +930,8 @@ export class WarehouseScene {
     dom.removeEventListener('pointermove', this.handlePointerMove)
     this.controls.dispose()
     this.clearAllRoutes()
+    this.walker?.dispose()
+    this.walker = null
     if (this.putawayRibbon) {
       this.scene.remove(this.putawayRibbon.mesh)
       this.putawayRibbon.dispose()
@@ -892,6 +953,10 @@ export class WarehouseScene {
     this.renderer.dispose()
     if (dom.parentElement === this.container) this.container.removeChild(dom)
   }
+}
+
+function hexString(value: number): string {
+  return `#${value.toString(16).padStart(6, '0')}`
 }
 
 function lerpAngle(from: number, to: number, t: number): number {

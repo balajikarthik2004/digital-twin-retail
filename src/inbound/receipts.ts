@@ -32,6 +32,17 @@ export function resetReceiptSequence(): void {
   lineSeq = 1
 }
 
+/** Current counters, for persisting across a reload. */
+export function receiptSequence(): { receipt: number; line: number } {
+  return { receipt: receiptSeq, line: lineSeq }
+}
+
+/** Resume the counters so restored references are never re-issued. */
+export function restoreReceiptSequence(seq: { receipt: number; line: number }): void {
+  receiptSeq = Math.max(1, Math.floor(seq.receipt) || 1)
+  lineSeq = Math.max(1, Math.floor(seq.line) || 1)
+}
+
 export interface ReceiptGenOptions {
   /** Trailers to book in. */
   count: number

@@ -1,9 +1,9 @@
 import { buildRoute } from '../pathfinding/route'
-import type { RoutingContext, RoutingStrategy } from '../pathfinding/types'
+import type { NodeId, RoutingContext, RoutingStrategy } from '../pathfinding/types'
 import type { WarehouseModel } from '../warehouse/types'
 import { describeRoute, estimatePutawaySec } from './directions'
 import { binFree } from './freeSpace'
-import { rankLocations, type RankOptions } from './putaway'
+import { rankLocations } from './putaway'
 import type { PutawayPlan, Receipt, ReceiptLine } from './types'
 
 /**
@@ -18,18 +18,30 @@ const DIRECT: RoutingStrategy = {
   sequence: (_ctx, stops) => stops,
 }
 
-export interface PlanOptions extends RankOptions {
+export interface PlanOptions {
   /** Force a specific location instead of the top-ranked one. */
   chosenBinId?: string
   /** Walking pace for the time estimate, m/s. */
   speed?: number
+  /** Node the walk starts from. Defaults to the goods-in lane. */
+  from?: NodeId
+  /** How many alternatives the plan carries. */
+  shortlist?: number
 }
+
+/** Alternatives shown beside the recommendation, and tinted in the 3D scene. */
+const SHORTLIST = 6
 
 /**
  * Rank the free space for a receipt line and draw the walk to the winner.
  *
- * Returns `null` only when the delivery genuinely has nowhere legal to go — a
- * full facility, or a new line with no empty locations left.
+ * The ranking always covers EVERY legal location, not a shortlist. The manual
+ * picker lets an operator choose any of the several hundred free locations, and
+ * a plan that could not find the one they picked used to fall back to the
+ * recommendation — silently drawing the route to a different shelf.
+ *
+ * Returns `null` when the delivery has nowhere legal to go, or when a named
+ * location is not one of the places this line may be put.
  */
 export function planPutaway(
   model: WarehouseModel,
@@ -38,7 +50,7 @@ export function planPutaway(
   line: ReceiptLine,
   options: PlanOptions = {},
 ): PutawayPlan | null {
-  const candidates = rankLocations(
+  const ranked = rankLocations(
     model,
     ctx,
     {
@@ -47,12 +59,24 @@ export function planPutaway(
       qty: line.qty - line.storedQty,
       unitVolume: line.unitVolume,
     },
-    options,
+    { limit: Infinity, all: true, from: options.from },
   )
-  if (candidates.length === 0) return null
+  if (ranked.length === 0) return null
 
-  const chosen =
-    candidates.find((c) => c.binId === options.chosenBinId) ?? candidates[0]
+  const chosen = options.chosenBinId
+    ? ranked.find((c) => c.binId === options.chosenBinId)
+    : ranked[0]
+  // A named location that is not legal is an error to report, never something
+  // to quietly substitute.
+  if (!chosen) return null
+
+  const size = Math.max(1, options.shortlist ?? SHORTLIST)
+  const top = ranked.slice(0, size)
+  // The chosen location is always on the plan — the scene highlights `candidates`
+  // and the panel looks the selection up in it.
+  const candidates = top.some((c) => c.binId === chosen.binId)
+    ? top
+    : [chosen, ...top.slice(0, size - 1)]
 
   const route = buildRoute(
     ctx,

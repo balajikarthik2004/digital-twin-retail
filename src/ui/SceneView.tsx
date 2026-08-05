@@ -1,7 +1,11 @@
 import { useEffect, useRef } from 'react'
+import { PutawayWalker } from '../inbound/walker'
 import { WarehouseScene } from '../scene/WarehouseScene'
 import { useAppStore } from '../store/useAppStore'
 import { Inspector } from './Inspector'
+
+/** Pushing a loaded pallet is slower than walking a pick round. */
+const PUTAWAY_PACE = 0.78
 
 /**
  * Hosts the WebGL canvas and owns the single animation frame loop.
@@ -39,6 +43,13 @@ export function SceneView() {
     let raf = 0
     let last = performance.now()
     let metricsAccumulator = 0
+    /**
+     * The putaway operator lives outside the engine on purpose: inbound work is
+     * commissioned by hand and has to run on a paused twin too. It is ticked
+     * here so it shares the render clock with everything else on the floor.
+     */
+    let walker: PutawayWalker | null = null
+    let walkerBinId: string | null = null
 
     const loop = (now: number) => {
       raf = requestAnimationFrame(loop)
@@ -46,6 +57,29 @@ export function SceneView() {
       last = now
 
       const state = useAppStore.getState()
+
+      const run = state.placementRun
+      if (run && !walker) {
+        walkerBinId = run.plan.chosenBinId
+        walker = new PutawayWalker(run.plan.route, {
+          speed: state.settings.pickerSpeed * PUTAWAY_PACE,
+          // Long enough to read as work being done, short enough not to stall.
+          handleSec: 6,
+          onArrive: () => useAppStore.getState().completePlacement(),
+          onFinish: () => useAppStore.getState().endPlacementRun(),
+        })
+      } else if (!run && walker) {
+        walker = null
+        walkerBinId = null
+      }
+
+      if (walker) {
+        walker.advance(dt * state.timeScale)
+        scene.syncPutawayWalker(walker.state, dt, walkerBinId ?? undefined)
+      } else {
+        scene.syncPutawayWalker(null, dt)
+      }
+
       const engine = state.engine
       if (engine) {
         engine.advance(dt, state.timeScale)
@@ -55,14 +89,18 @@ export function SceneView() {
           speed: state.settings.conveyorSpeed,
         })
 
-        // Publish metrics at ~8 Hz; enough for a live dashboard, cheap for React.
-        metricsAccumulator += dt
-        if (metricsAccumulator >= 0.125) {
-          metricsAccumulator = 0
-          state.publishMetrics()
-        }
       } else {
         scene.frame(dt, [])
+      }
+
+      // Publish at ~8 Hz; enough for a live dashboard, cheap for React. The
+      // walker rides the same tick so the progress bar never drives a re-render
+      // per frame.
+      metricsAccumulator += dt
+      if (metricsAccumulator >= 0.125) {
+        metricsAccumulator = 0
+        if (engine) state.publishMetrics()
+        if (walker) state.publishWalker(walker.state)
       }
     }
     raf = requestAnimationFrame(loop)

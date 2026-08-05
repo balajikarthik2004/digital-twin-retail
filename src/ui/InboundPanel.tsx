@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { summariseFreeSpace, type SpaceBucket } from '../inbound/freeSpace'
+import { listAvailable } from '../inbound/putaway'
 import type { PutawayCandidate, Receipt, ReceiptLine } from '../inbound/types'
 import { VELOCITY_LABEL, velocityHex } from '../scene/theme'
 import { useAppStore } from '../store/useAppStore'
@@ -9,53 +10,54 @@ import { compact, metres, mmss, pct, shortDuration } from './format'
 import { chartPalette } from './theme'
 
 /**
- * Inbound section — a three-step flow, in the order the work actually happens:
+ * Inbound section — four steps, in the order the work actually happens:
  *
  *   1. Tell me what you have.
- *   2. Here is the free space for it, and the walk to get there.
- *   3. Proceed — it is on the shelf.
+ *   2. Here is the free space. Take the recommendation, or pick it yourself.
+ *   3. Here is the walk to it.
+ *   4. Place it — an operator carries it there in the simulation.
  *
- * The step is derived from store state rather than held separately, so the
- * panel can never disagree with what the 3D scene is drawing.
+ * The step is derived from store state rather than held separately, so the panel
+ * can never disagree with what the 3D scene is drawing.
  */
 export function InboundPanel() {
   const plan = useAppStore((s) => s.putawayPlan)
+  const confirmed = useAppStore((s) => s.locationConfirmed)
+  const run = useAppStore((s) => s.placementRun)
   const placement = useAppStore((s) => s.lastPlacement)
   const activeLine = useAppStore((s) => s.activeLine)
 
-  const step: 1 | 2 | 3 = placement ? 3 : plan ? 2 : 1
+  const step: 1 | 2 | 3 | 4 =
+    run || placement ? 4 : plan && confirmed ? 3 : plan ? 2 : 1
 
   return (
     <div className="flex h-full flex-col gap-3 overflow-y-auto p-3">
       <Stepper step={step} />
 
-      {step === 1 && <ProductDetailsStep noSpace={activeLine !== null} />}
-      {step === 2 && (
-        <>
-          <FreeSpaceFoundStep />
-          <RoadmapCard />
-        </>
-      )}
-      {step === 3 && <PlacedStep />}
+      {step === 1 && <ProductStep noSpace={activeLine !== null} />}
+      {step === 2 && <LocationStep />}
+      {step === 3 && <RouteStep />}
+      {step === 4 && <PlaceStep />}
 
       <FreeSpaceSummaryCard />
+      <StorageFooter />
     </div>
   )
 }
 
 // ── stepper ───────────────────────────────────────────────────────────────────
 
-const STEPS = ['Product', 'Free space', 'Placed'] as const
+const STEPS = ['Product', 'Location', 'Route', 'Place'] as const
 
-function Stepper({ step }: { step: 1 | 2 | 3 }) {
+function Stepper({ step }: { step: 1 | 2 | 3 | 4 }) {
   return (
     <ol className="flex items-center gap-1" aria-label="Inbound progress">
       {STEPS.map((label, i) => {
-        const n = (i + 1) as 1 | 2 | 3
+        const n = i + 1
         const done = n < step
         const active = n === step
         return (
-          <li key={label} className="flex flex-1 items-center gap-1.5">
+          <li key={label} className="flex flex-1 items-center gap-1">
             <span
               className={cx(
                 'grid h-5 w-5 shrink-0 place-items-center rounded-full font-mono text-[10px] font-bold',
@@ -71,7 +73,7 @@ function Stepper({ step }: { step: 1 | 2 | 3 }) {
             </span>
             <span
               className={cx(
-                'truncate text-[10px] font-medium',
+                'truncate text-[9.5px] font-medium',
                 active ? 'text-accent-soft' : done ? 'text-ink-300' : 'text-ink-500',
               )}
             >
@@ -93,17 +95,16 @@ const INPUT =
   'w-full rounded-lg border border-ink-700 bg-ink-850 px-2 py-1.5 text-[11px] text-ink-100 outline-none transition-colors placeholder:text-ink-500 focus:border-accent'
 
 /**
- * The entry point: nothing is suggested until the product is described.
+ * Nothing is suggested until the product is described.
  *
  * Typing a location code or SKU id switches the form into a top-up — the
  * catalogue already knows that line's size and velocity, so those stop being
  * guesses and the ranker can offer the SKU's own home location.
  */
-function ProductDetailsStep({ noSpace }: { noSpace: boolean }) {
+function ProductStep({ noSpace }: { noSpace: boolean }) {
   const model = useAppStore((s) => s.model)
   const bookInProduct = useAppStore((s) => s.bookInProduct)
-  const theme = useAppStore((s) => s.theme)
-  const VELOCITY_HEX = velocityHex(theme)
+  const VELOCITY_HEX = velocityHex(useAppStore((s) => s.theme))
 
   const [lookup, setLookup] = useState('')
   const [name, setName] = useState('')
@@ -251,29 +252,70 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
   )
 }
 
-// ── step 2: here is the space, and the walk to it ─────────────────────────────
+// ── step 2: auto or manual ────────────────────────────────────────────────────
 
-function FreeSpaceFoundStep() {
+type SortBy = 'score' | 'distance'
+
+/** Rows rendered before the list asks you to narrow the search. */
+const MAX_ROWS = 80
+
+function LocationStep() {
+  const model = useAppStore((s) => s.model)
+  const engine = useAppStore((s) => s.engine)
   const plan = useAppStore((s) => s.putawayPlan)!
-  const chooseLocation = useAppStore((s) => s.chooseLocation)
-  const confirmPutaway = useAppStore((s) => s.confirmPutaway)
-  const cancelPutaway = useAppStore((s) => s.cancelPutaway)
-  const setSelection = useAppStore((s) => s.setSelection)
   const receipts = useAppStore((s) => s.receipts)
+  const mode = useAppStore((s) => s.locationMode)
+  const stockVersion = useAppStore((s) => s.stockVersion)
+  const setLocationMode = useAppStore((s) => s.setLocationMode)
+  const chooseLocation = useAppStore((s) => s.chooseLocation)
+  const confirmLocation = useAppStore((s) => s.confirmLocation)
+  const cancelPutaway = useAppStore((s) => s.cancelPutaway)
 
-  const chosen = plan.candidates.find((c) => c.binId === plan.chosenBinId)!
-  const alternatives = plan.candidates.filter((c) => c.binId !== plan.chosenBinId)
+  const [search, setSearch] = useState('')
+  const [aisle, setAisle] = useState('all')
+  const [sortBy, setSortBy] = useState<SortBy>('score')
 
   const line = receipts
     .find((r) => r.id === plan.receiptId)
     ?.lines.find((l) => l.id === plan.lineId)
-  const outstanding = line ? line.qty - line.storedQty : chosen.fits
+  const outstanding = line ? line.qty - line.storedQty : 0
+
+  // Every legal location, not just the shortlist — the manual picker has to be
+  // able to see all of the free space, which is the whole point of choosing.
+  const all = useMemo(() => {
+    if (!model || !engine || !line) return []
+    return listAvailable(model, engine.routingContext, {
+      skuId: line.skuId,
+      velocity: line.velocity,
+      qty: outstanding,
+      unitVolume: line.unitVolume,
+    })
+    // `stockVersion` invalidates after a putaway changes what is free.
+  }, [model, engine, line, outstanding, stockVersion])
+
+  const aisles = useMemo(
+    () => [...new Set(all.map((c) => c.bin.aisle))].sort((a, b) => a - b),
+    [all],
+  )
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toUpperCase()
+    const rows = all.filter(
+      (c) =>
+        (aisle === 'all' || c.bin.aisle === Number(aisle)) &&
+        (q === '' || c.code.toUpperCase().includes(q)),
+    )
+    return sortBy === 'distance' ? [...rows].sort((a, b) => a.distance - b.distance) : rows
+  }, [all, search, aisle, sortBy])
+
+  const chosen = plan.candidates.find((c) => c.binId === plan.chosenBinId)
+  const emptyCount = all.filter((c) => c.fit === 'empty').length
 
   return (
     <Card
-      title="Free space found"
+      title="Where should it go?"
       dense
-      action={<span className="chip">score {chosen.score}</span>}
+      action={<span className="chip">{all.length} available</span>}
     >
       {line && (
         <div className="mb-2 flex items-baseline justify-between gap-2">
@@ -284,28 +326,142 @@ function FreeSpaceFoundStep() {
         </div>
       )}
 
+      <Segmented
+        value={mode}
+        options={[
+          { value: 'auto' as const, label: 'Auto — best match' },
+          { value: 'manual' as const, label: 'Choose myself' },
+        ]}
+        onChange={setLocationMode}
+      />
+
+      {mode === 'auto' ? (
+        chosen && <RecommendedLocation candidate={chosen} />
+      ) : (
+        <div className="mt-2 space-y-2">
+          <p className="text-[9.5px] leading-snug text-ink-400">
+            {emptyCount} empty location{emptyCount === 1 ? '' : 's'}
+            {all.length > emptyCount ? ' plus its home location' : ''} can take this line. Pick one
+            — the scene highlights it as you go.
+          </p>
+
+          <div className="flex gap-1.5">
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Filter by code…"
+              spellCheck={false}
+              className={INPUT}
+            />
+            <select
+              value={aisle}
+              onChange={(e) => setAisle(e.target.value)}
+              className={cx(INPUT, '!w-auto shrink-0')}
+              aria-label="Filter by aisle"
+            >
+              <option value="all">All aisles</option>
+              {aisles.map((a) => (
+                <option key={a} value={a}>
+                  A{String(a + 1).padStart(2, '0')}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[9.5px] text-ink-500">
+              {filtered.length} match{filtered.length === 1 ? '' : 'es'}
+            </span>
+            <Segmented
+              value={sortBy}
+              size="sm"
+              options={[
+                { value: 'score' as const, label: 'Best' },
+                { value: 'distance' as const, label: 'Nearest' },
+              ]}
+              onChange={setSortBy}
+            />
+          </div>
+
+          {filtered.length === 0 ? (
+            <EmptyState title="Nothing matches" body="Widen the filter or clear the aisle." />
+          ) : (
+            <div className="max-h-[280px] space-y-1 overflow-y-auto pr-0.5">
+              {filtered.slice(0, MAX_ROWS).map((c) => (
+                <LocationRow
+                  key={c.binId}
+                  candidate={c}
+                  selected={c.binId === plan.chosenBinId}
+                  onSelect={() => chooseLocation(c.binId)}
+                />
+              ))}
+              {filtered.length > MAX_ROWS && (
+                <p className="pt-1 text-center text-[9.5px] text-ink-500">
+                  +{filtered.length - MAX_ROWS} more — filter by code or aisle.
+                </p>
+              )}
+            </div>
+          )}
+
+          {chosen && (
+            <div className="rounded-md border border-accent/40 bg-accent/5 px-2 py-1.5">
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="font-mono text-[12px] font-semibold text-accent-soft">
+                  {chosen.code}
+                </span>
+                <span className="font-mono text-[9.5px] tabular-nums text-ink-400">
+                  {chosen.fits} ea · {Math.round(chosen.distance)} m
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="mt-2.5 flex gap-2">
+        <button
+          type="button"
+          onClick={confirmLocation}
+          disabled={!chosen}
+          className="btn btn-primary flex-1"
+        >
+          Show me the route →
+        </button>
+        <button type="button" onClick={cancelPutaway} className="btn" title="Back to product">
+          ←
+        </button>
+      </div>
+    </Card>
+  )
+}
+
+function RecommendedLocation({ candidate }: { candidate: PutawayCandidate }) {
+  return (
+    <div className="mt-2">
       <div className="rounded-lg border border-accent/40 bg-accent/5 p-2.5">
         <div className="flex items-baseline justify-between gap-2">
-          <span className="font-mono text-[15px] font-semibold text-accent-soft">{chosen.code}</span>
+          <span className="font-mono text-[15px] font-semibold text-accent-soft">
+            {candidate.code}
+          </span>
           <span className="chip !text-[8.5px]">
-            {chosen.fit === 'topUp' ? 'top-up' : 'empty location'}
+            {candidate.fit === 'topUp' ? 'top-up' : 'empty location'}
           </span>
         </div>
         <div className="mt-1.5 grid grid-cols-3 gap-2 text-[10px]">
-          <Metric label="Will place" value={`${chosen.fits} ea`} />
-          <Metric label="Walk" value={metres(plan.route.distance)} />
-          <Metric label="Takes about" value={shortDuration(plan.estimateSec)} />
+          <Metric label="Will place" value={`${candidate.fits} ea`} />
+          <Metric label="Walk" value={`${Math.round(candidate.distance)} m`} />
+          <Metric label="Score" value={String(candidate.score)} />
         </div>
       </div>
 
       <ul className="mt-2 space-y-1">
-        {chosen.reasons.map((reason) => (
+        {candidate.reasons.map((reason) => (
           <li key={reason} className="flex gap-1.5 text-[10px] leading-snug text-ink-300">
             <span className="shrink-0 text-[var(--viz-good)]">✓</span>
             <span>{reason}</span>
           </li>
         ))}
-        {chosen.warnings.map((warning) => (
+        {candidate.warnings.map((warning) => (
           <li
             key={warning}
             className="flex gap-1.5 text-[10px] leading-snug text-[var(--viz-warning)]"
@@ -315,34 +471,268 @@ function FreeSpaceFoundStep() {
           </li>
         ))}
       </ul>
+    </div>
+  )
+}
 
-      <div className="mt-2.5 flex gap-2">
-        <button type="button" onClick={confirmPutaway} className="btn btn-primary flex-1">
-          Proceed — place it here
-        </button>
-        <button type="button" onClick={cancelPutaway} className="btn" title="Back to product details">
-          ←
-        </button>
+function LocationRow({
+  candidate,
+  selected,
+  onSelect,
+}: {
+  candidate: PutawayCandidate
+  selected: boolean
+  onSelect: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      aria-pressed={selected}
+      className={cx(
+        'flex w-full items-center gap-2 rounded-md border px-2 py-1.5 text-left transition-all duration-150',
+        selected
+          ? 'option-active'
+          : 'border-ink-700/70 bg-ink-850/50 hover:border-ink-600 hover:bg-ink-750',
+      )}
+    >
+      <div className="min-w-0 flex-1">
+        <div
+          className={cx(
+            'truncate font-mono text-[10.5px]',
+            selected ? 'text-accent-soft' : 'text-ink-100',
+          )}
+        >
+          {candidate.code}
+        </div>
+        <div className="truncate text-[9px] text-ink-400">
+          {candidate.fit === 'topUp' ? 'top-up' : 'empty'} · holds {candidate.fits} ea · L
+          {candidate.bin.level + 1}
+        </div>
+      </div>
+      <span className="shrink-0 font-mono text-[9.5px] tabular-nums text-ink-400">
+        {Math.round(candidate.distance)} m
+      </span>
+      <span
+        className={cx(
+          'w-6 shrink-0 text-right font-mono text-[10px] tabular-nums',
+          selected ? 'text-accent-soft' : 'text-ink-500',
+        )}
+      >
+        {candidate.score}
+      </span>
+    </button>
+  )
+}
+
+// ── step 3: the walk ──────────────────────────────────────────────────────────
+
+function RouteStep() {
+  const plan = useAppStore((s) => s.putawayPlan)!
+  const reopenLocation = useAppStore((s) => s.reopenLocation)
+  const beginPlacement = useAppStore((s) => s.beginPlacement)
+  const setCameraPreset = useAppStore((s) => s.setCameraPreset)
+  const cardRef = useRef<HTMLDivElement>(null)
+
+  const chosen = plan.candidates.find((c) => c.binId === plan.chosenBinId)!
+
+  useEffect(() => {
+    cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [plan.chosenBinId])
+
+  return (
+    <div ref={cardRef} className="scroll-mt-3">
+      <Card
+        title="Route to the location"
+        dense
+        action={<span className="chip">{metres(plan.route.distance)}</span>}
+      >
+        <div className="rounded-lg border border-accent/40 bg-accent/5 p-2.5">
+          <div className="flex items-baseline justify-between gap-2">
+            <span className="font-mono text-[15px] font-semibold text-accent-soft">
+              {chosen.code}
+            </span>
+            <span className="chip !text-[8.5px]">
+              {chosen.fit === 'topUp' ? 'top-up' : 'empty location'}
+            </span>
+          </div>
+          <div className="mt-1.5 grid grid-cols-3 gap-2 text-[10px]">
+            <Metric label="Will place" value={`${chosen.fits} ea`} />
+            <Metric label="Walk" value={metres(plan.route.distance)} />
+            <Metric label="Takes about" value={shortDuration(plan.estimateSec)} />
+          </div>
+        </div>
+
+        <ol className="mt-2.5 space-y-1.5">
+          {plan.directions.map((step) => (
+            <li key={step.index} className="flex gap-2">
+              <span className="mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-full bg-ink-700 font-mono text-[9px] font-bold text-ink-100">
+                {step.index}
+              </span>
+              <span className="flex-1 text-[10.5px] leading-snug text-ink-200">{step.text}</span>
+              {step.metres > 0 && (
+                <span className="shrink-0 font-mono text-[9.5px] tabular-nums text-ink-500">
+                  {step.metres} m
+                </span>
+              )}
+            </li>
+          ))}
+        </ol>
+
+        <p className="mt-2 text-[9.5px] leading-snug text-ink-400">
+          Drawn on the floor of the 3D view from Inbound Receiving to the highlighted shelf.{' '}
+          <button
+            type="button"
+            onClick={() => setCameraPreset('top')}
+            className="underline hover:text-ink-200"
+          >
+            See it from above.
+          </button>
+        </p>
+
+        <div className="mt-2.5 flex gap-2">
+          <button type="button" onClick={beginPlacement} className="btn btn-primary flex-1">
+            Place product
+          </button>
+          <button
+            type="button"
+            onClick={reopenLocation}
+            className="btn"
+            title="Back to choosing a location"
+          >
+            ←
+          </button>
+        </div>
+      </Card>
+    </div>
+  )
+}
+
+// ── step 4: the operator walks it ─────────────────────────────────────────────
+
+const PHASE_TEXT: Record<string, string> = {
+  walking: 'Carrying the pallet to the location',
+  placing: 'Lifting the stock onto the shelf',
+  returning: 'Heading back to goods-in',
+  done: 'Done',
+}
+
+function PlaceStep() {
+  const run = useAppStore((s) => s.placementRun)
+  const placement = useAppStore((s) => s.lastPlacement)
+  const palette = chartPalette(useAppStore((s) => s.theme))
+  const cardRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [])
+
+  // Walking out, stock not yet on the shelf.
+  if (run && !placement) {
+    const chosen = run.plan.candidates.find((c) => c.binId === run.plan.chosenBinId)
+    return (
+      <div ref={cardRef} className="scroll-mt-3">
+        <Card
+          title="Operator on the floor"
+          dense
+          action={<span className="chip">{pct(run.progress)}</span>}
+        >
+          <div className="flex items-baseline justify-between gap-2">
+            <span className="truncate text-[11px] font-medium text-ink-100">{run.name}</span>
+            <span className="shrink-0 font-mono text-[10px] tabular-nums text-ink-400">
+              {run.qty} ea
+            </span>
+          </div>
+          <div className="mt-1.5">
+            <div className="mb-1 flex justify-between text-[10px]">
+              <span className="text-ink-300">{PHASE_TEXT[run.phase]}</span>
+              <span className="font-mono tabular-nums text-ink-400">{chosen?.code}</span>
+            </div>
+            <Bar value={run.progress} color={palette.series[1]} />
+          </div>
+          <p className="mt-2 text-[9.5px] leading-snug text-ink-400">
+            Watch the operator in the 3D view — the stock lands on the shelf when they get there,
+            not when you pressed the button. Raise the time scale to speed the walk up.
+          </p>
+        </Card>
+      </div>
+    )
+  }
+
+  if (!placement) return null
+  return (
+    <div ref={cardRef} className="scroll-mt-3">
+      <PlacedCard />
+    </div>
+  )
+}
+
+function PlacedCard() {
+  const placement = useAppStore((s) => s.lastPlacement)!
+  const run = useAppStore((s) => s.placementRun)
+  const activeLine = useAppStore((s) => s.activeLine)
+  const dismissPlacement = useAppStore((s) => s.dismissPlacement)
+  const planLine = useAppStore((s) => s.planLine)
+  const setSection = useAppStore((s) => s.setSection)
+
+  const partial = placement.remaining > 0
+
+  return (
+    <Card
+      title={partial ? 'Partly placed' : 'Placed on the shelf'}
+      dense
+      action={
+        <span className={cx('chip', !partial && '!text-[var(--viz-good)]')}>
+          {partial ? `${placement.remaining} left` : 'done'}
+        </span>
+      }
+    >
+      <div
+        className={cx(
+          'rounded-lg border p-2.5',
+          partial
+            ? 'border-[var(--viz-warning)]/45 bg-[var(--viz-warning)]/10'
+            : 'border-[var(--viz-good)]/45 bg-[var(--viz-good)]/10',
+        )}
+      >
+        <div className="flex items-baseline justify-between gap-2">
+          <span className="font-mono text-[15px] font-semibold text-ink-100">{placement.code}</span>
+          <span className="font-mono text-[11px] tabular-nums text-ink-300">
+            +{placement.qty} ea
+          </span>
+        </div>
+        <div className="mt-0.5 truncate text-[10.5px] text-ink-300">{placement.name}</div>
       </div>
 
-      {alternatives.length > 0 && (
-        <>
-          <div className="divider !my-2.5" />
-          <div className="mb-1.5 text-[10px] uppercase tracking-wider text-ink-400">
-            Other free space
-          </div>
-          <div className="space-y-1">
-            {alternatives.map((c) => (
-              <AlternativeRow
-                key={c.binId}
-                candidate={c}
-                onChoose={() => chooseLocation(c.binId)}
-                onInspect={() => setSelection({ kind: 'bin', id: c.binId })}
-              />
-            ))}
-          </div>
-        </>
-      )}
+      <p className="mt-2 text-[10px] leading-snug text-ink-400">
+        {run
+          ? 'The stock is on the shelf — the operator is walking back to goods-in.'
+          : 'The stock is on the shelf. The location is highlighted in the 3D view and now holds this line, so pickers will route to it from the next wave onwards.'}
+      </p>
+
+      <div className="mt-2 grid grid-cols-2 gap-2 text-[10px]">
+        <Metric label="Walked" value={metres(placement.distance)} />
+        <Metric label="At" value={mmss(placement.at)} />
+      </div>
+
+      <div className="mt-2.5 flex gap-2">
+        {partial && activeLine ? (
+          <button
+            type="button"
+            onClick={() => planLine(activeLine.receiptId, activeLine.lineId)}
+            className="btn btn-primary flex-1"
+          >
+            Place the remaining {placement.remaining}
+          </button>
+        ) : (
+          <button type="button" onClick={dismissPlacement} className="btn btn-primary flex-1">
+            Receive another
+          </button>
+        )}
+        <button type="button" onClick={() => setSection('history')} className="btn">
+          History
+        </button>
+      </div>
     </Card>
   )
 }
@@ -352,158 +742,6 @@ function Metric({ label, value }: { label: string; value: string }) {
     <div className="min-w-0">
       <div className="truncate text-ink-400">{label}</div>
       <div className="truncate font-mono tabular-nums text-ink-100">{value}</div>
-    </div>
-  )
-}
-
-function AlternativeRow({
-  candidate,
-  onChoose,
-  onInspect,
-}: {
-  candidate: PutawayCandidate
-  onChoose: () => void
-  onInspect: () => void
-}) {
-  return (
-    <div className="flex items-center gap-1.5 rounded-md border border-ink-700/70 bg-ink-850/50 px-2 py-1.5">
-      <button
-        type="button"
-        onClick={onInspect}
-        className="min-w-0 flex-1 text-left"
-        title="Show this location in the scene"
-      >
-        <div className="truncate font-mono text-[10.5px] text-ink-100">{candidate.code}</div>
-        <div className="truncate text-[9px] text-ink-400">
-          {candidate.fit === 'topUp' ? 'top-up' : 'empty'} · {candidate.fits} ea ·{' '}
-          {Math.round(candidate.distance)} m
-        </div>
-      </button>
-      <span className="shrink-0 font-mono text-[10px] tabular-nums text-ink-400">
-        {candidate.score}
-      </span>
-      <button type="button" onClick={onChoose} className="btn shrink-0 !px-2 !py-1 !text-[10px]">
-        Use
-      </button>
-    </div>
-  )
-}
-
-function RoadmapCard() {
-  const plan = useAppStore((s) => s.putawayPlan)!
-  const setCameraPreset = useAppStore((s) => s.setCameraPreset)
-
-  return (
-    <Card
-      title="Route to the location"
-      dense
-      action={<span className="chip">{metres(plan.route.distance)}</span>}
-    >
-      <ol className="space-y-1.5">
-        {plan.directions.map((step) => (
-          <li key={step.index} className="flex gap-2">
-            <span className="mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-full bg-ink-700 font-mono text-[9px] font-bold text-ink-100">
-              {step.index}
-            </span>
-            <span className="flex-1 text-[10.5px] leading-snug text-ink-200">{step.text}</span>
-            {step.metres > 0 && (
-              <span className="shrink-0 font-mono text-[9.5px] tabular-nums text-ink-500">
-                {step.metres} m
-              </span>
-            )}
-          </li>
-        ))}
-      </ol>
-
-      <p className="mt-2 text-[9.5px] leading-snug text-ink-400">
-        Drawn on the floor of the 3D view from Inbound Receiving to the highlighted shelf.{' '}
-        <button
-          type="button"
-          onClick={() => setCameraPreset('top')}
-          className="underline hover:text-ink-200"
-        >
-          See it from above.
-        </button>
-      </p>
-    </Card>
-  )
-}
-
-// ── step 3: it is on the shelf ────────────────────────────────────────────────
-
-function PlacedStep() {
-  const placement = useAppStore((s) => s.lastPlacement)!
-  const activeLine = useAppStore((s) => s.activeLine)
-  const dismissPlacement = useAppStore((s) => s.dismissPlacement)
-  const planLine = useAppStore((s) => s.planLine)
-  const setSection = useAppStore((s) => s.setSection)
-  const cardRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }, [placement.binId, placement.at])
-
-  const partial = placement.remaining > 0
-
-  return (
-    <div ref={cardRef} className="scroll-mt-3">
-      <Card
-        title={partial ? 'Partly placed' : 'Placed on the shelf'}
-        dense
-        action={
-          <span className={cx('chip', !partial && '!text-[var(--viz-good)]')}>
-            {partial ? `${placement.remaining} left` : 'done'}
-          </span>
-        }
-      >
-        <div
-          className={cx(
-            'rounded-lg border p-2.5',
-            partial
-              ? 'border-[var(--viz-warning)]/45 bg-[var(--viz-warning)]/10'
-              : 'border-[var(--viz-good)]/45 bg-[var(--viz-good)]/10',
-          )}
-        >
-          <div className="flex items-baseline justify-between gap-2">
-            <span className="font-mono text-[15px] font-semibold text-ink-100">
-              {placement.code}
-            </span>
-            <span className="font-mono text-[11px] tabular-nums text-ink-300">
-              +{placement.qty} ea
-            </span>
-          </div>
-          <div className="mt-0.5 truncate text-[10.5px] text-ink-300">{placement.name}</div>
-        </div>
-
-        <p className="mt-2 text-[10px] leading-snug text-ink-400">
-          The stock is on the shelf in the simulation — the location is highlighted in the 3D view
-          and now shows this line. Pickers will route to it from the next wave onwards.
-        </p>
-
-        <div className="mt-2 grid grid-cols-2 gap-2 text-[10px]">
-          <Metric label="Walked" value={metres(placement.distance)} />
-          <Metric label="At" value={mmss(placement.at)} />
-        </div>
-
-        <div className="mt-2.5 flex gap-2">
-          {partial && activeLine ? (
-            <button
-              type="button"
-              onClick={() => planLine(activeLine.receiptId, activeLine.lineId)}
-              className="btn btn-primary flex-1"
-            >
-              Place the remaining {placement.remaining}
-            </button>
-          ) : (
-            <button type="button" onClick={dismissPlacement} className="btn btn-primary flex-1">
-              Receive another
-            </button>
-          )}
-          <button type="button" onClick={() => setSection('history')} className="btn">
-            History
-          </button>
-        </div>
-      </Card>
     </div>
   )
 }
@@ -705,15 +943,6 @@ function FreeSpaceSummaryCard() {
         />
       </div>
 
-      <div className="mt-2 grid grid-cols-2 gap-2 text-[10px]">
-        <Fact label="Near full (≥92%)" value={String(space.nearFull)} warn={space.nearFull > 0} />
-        <Fact
-          label="Below replen point"
-          value={String(space.replenFlagged)}
-          warn={space.replenFlagged > 0}
-        />
-      </div>
-
       <div className="divider !my-2.5" />
 
       <div className="mb-2 flex items-center justify-between gap-2">
@@ -750,18 +979,25 @@ function FreeSpaceSummaryCard() {
   )
 }
 
-function Fact({ label, value, warn }: { label: string; value: string; warn?: boolean }) {
+/** What is being kept in this browser, and how to get rid of it. */
+function StorageFooter() {
+  const saved = useAppStore((s) => Object.keys(s.binOverrides).length)
+  const receipts = useAppStore((s) => s.receipts.length)
+  const clearSavedData = useAppStore((s) => s.clearSavedData)
+
   return (
-    <div className="rounded-lg border border-ink-700/70 bg-ink-850/50 px-2 py-1.5">
-      <div className="truncate text-ink-400">{label}</div>
-      <div
-        className={cx(
-          'font-mono text-[13px] font-semibold tabular-nums',
-          warn ? 'text-[var(--viz-warning)]' : 'text-ink-100',
-        )}
+    <div className="flex items-center gap-2 px-1 pb-1 text-[9.5px] text-ink-500">
+      <span className="flex-1 leading-snug">
+        Saved in this browser: {receipts} receipt{receipts === 1 ? '' : 's'}, {saved} restocked
+        location{saved === 1 ? '' : 's'}.
+      </span>
+      <button
+        type="button"
+        onClick={clearSavedData}
+        className="shrink-0 underline hover:text-ink-300"
       >
-        {value}
-      </div>
+        Clear
+      </button>
     </div>
   )
 }

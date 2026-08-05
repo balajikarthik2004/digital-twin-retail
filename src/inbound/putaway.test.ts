@@ -6,7 +6,7 @@ import type { WarehouseConfig } from '../warehouse/types'
 import { describeRoute } from './directions'
 import { binFree, isEmpty, summariseFreeSpace } from './freeSpace'
 import { applyPutaway, planPutaway } from './plan'
-import { rankLocations } from './putaway'
+import { listAvailable, rankLocations } from './putaway'
 import { createManualReceipt, generateReceipts, resetReceiptSequence } from './receipts'
 import type { Receipt } from './types'
 
@@ -176,6 +176,48 @@ describe('putaway routing and directions', () => {
     const replanned = planPutaway(model, ctx, receipt, line, { chosenBinId: alternative.binId })!
     expect(replanned.chosenBinId).toBe(alternative.binId)
     expect(describeRoute(model, replanned.route, alternative.bin).length).toBeGreaterThan(1)
+  })
+
+  /**
+   * The manual picker lists every free location, not the shortlist — so a plan
+   * asked for a location ranked 200th has to route to THAT shelf. Falling back
+   * to the recommendation would silently draw the wrong route.
+   */
+  it('routes to a chosen location far outside the shortlist', () => {
+    const ctx = createRoutingContext(model.graph)
+    const receipt = receipts[3]
+    const line = receipt.lines[0]
+
+    const everything = listAvailable(model, ctx, {
+      skuId: line.skuId,
+      velocity: line.velocity,
+      qty: line.qty - line.storedQty,
+      unitVolume: line.unitVolume,
+    })
+    expect(everything.length).toBeGreaterThan(50)
+
+    const shortlist = planPutaway(model, ctx, receipt, line)!.candidates
+    // Something no shortlist would ever surface.
+    const distant = everything[everything.length - 1]
+    expect(shortlist.some((c) => c.binId === distant.binId)).toBe(false)
+
+    const plan = planPutaway(model, ctx, receipt, line, { chosenBinId: distant.binId })!
+    expect(plan.chosenBinId).toBe(distant.binId)
+    // The walk must actually end at that shelf, not at the recommendation.
+    expect(plan.route.nodePath[plan.route.nodePath.length - 1]).toBe(distant.bin.node)
+    expect(plan.directions[plan.directions.length - 1].text).toContain(distant.code)
+    // And it has to appear on the plan, or the scene cannot highlight it.
+    expect(plan.candidates.some((c) => c.binId === distant.binId)).toBe(true)
+  })
+
+  it('refuses a chosen location that is not legal for the line', () => {
+    const ctx = createRoutingContext(model.graph)
+    const receipt = receipts[4]
+    const line = receipt.lines[0]
+    // Occupied by some other SKU — never a legal target.
+    const occupied = model.bins.find((b) => b.sku.stock > 0 && b.sku.id !== line.skuId)!
+
+    expect(planPutaway(model, ctx, receipt, line, { chosenBinId: occupied.id })).toBeNull()
   })
 })
 

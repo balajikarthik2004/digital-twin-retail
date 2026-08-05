@@ -4,10 +4,21 @@ import { applyPutaway, planPutaway } from '../inbound/plan'
 import {
   createManualReceipt,
   generateReceipts,
+  receiptSequence,
   resetReceiptSequence,
+  restoreReceiptSequence,
   type ManualReceiptInput,
 } from '../inbound/receipts'
 import type { Movement, Placement, PutawayPlan, Receipt } from '../inbound/types'
+import type { WalkerState } from '../inbound/walker'
+import {
+  applyOverrides,
+  clearSnapshot,
+  loadSnapshot,
+  overrideFor,
+  saveSnapshot,
+  type BinOverride,
+} from './persist'
 import { DEFAULT_STRATEGY_ID } from '../pathfinding/strategies'
 import { compareStrategies } from '../simulation/compare'
 import { SimulationEngine, clampAgents } from '../simulation/engine'
@@ -33,6 +44,22 @@ export type TimeScale = 1 | 5 | 20
  * look back at what happened.
  */
 export type AppSection = 'ops' | 'inbound' | 'outbound' | 'history'
+
+/** How the putaway location gets picked. */
+export type LocationMode = 'auto' | 'manual'
+
+/** A putaway being physically walked in the 3D scene right now. */
+export interface PlacementRun {
+  plan: PutawayPlan
+  receiptId: string
+  lineId: string
+  /** Product being carried, for the panel's status line. */
+  name: string
+  qty: number
+  /** Refreshed at the metrics tick, not per frame. */
+  phase: WalkerState['phase']
+  progress: number
+}
 
 export interface Toast {
   id: number
@@ -72,11 +99,19 @@ interface AppState {
   /** Receipt line currently being planned, if any. */
   activeLine: { receiptId: string; lineId: string } | null
   putawayPlan: PutawayPlan | null
+  /** Whether the location is recommended or picked off the full free-space list. */
+  locationMode: LocationMode
+  /** Set once a location is settled — the route step is only shown after this. */
+  locationConfirmed: boolean
+  /** A putaway operator currently walking the floor. */
+  placementRun: PlacementRun | null
   /**
    * The last confirmed putaway. Drives the final step of the inbound flow, and
    * is what tells the 3D scene which shelf just changed hands.
    */
   lastPlacement: Placement | null
+  /** Locations whose contents differ from generation — the persisted diff. */
+  binOverrides: Record<string, BinOverride>
   /** Confirmed putaways, newest last. Merged with shipped orders in History. */
   inboundLog: Movement[]
   /**
@@ -124,11 +159,24 @@ interface AppState {
   regenerateReceipts(): void
   bookInProduct(input: Omit<ManualReceiptInput, 'at'>): void
   planLine(receiptId: string, lineId: string): void
+  setLocationMode(mode: LocationMode): void
   chooseLocation(binId: string): void
-  confirmPutaway(): void
+  /** Settle on the current location and move to the route step. */
+  confirmLocation(): void
+  /** Go back from the route step to picking a location. */
+  reopenLocation(): void
+  /** Send the operator to walk it. Stock lands when they arrive, not now. */
+  beginPlacement(): void
+  /** Called by the walker the moment it reaches the shelf. */
+  completePlacement(): void
+  /** Called when the operator is back at goods-in. */
+  endPlacementRun(): void
+  publishWalker(state: WalkerState): void
   cancelPutaway(): void
   dismissPlacement(): void
   clearReceipts(): void
+  /** Forget everything saved for this layout and rebuild it from its seed. */
+  clearSavedData(): void
 
   setSection(section: AppSection): void
   setSelection(selection: SceneSelection): void
@@ -189,6 +237,82 @@ function settingsFor(config: WarehouseConfig, previous?: SimSettings): SimSettin
   }
 }
 
+/** Everything that makes up a putaway in flight, wound back to nothing. */
+const IDLE_FLOW = {
+  putawayPlan: null,
+  locationConfirmed: false,
+  placementRun: null,
+  lastPlacement: null,
+} as const
+
+/** Write the current inbound work to local storage. Best-effort, never throws. */
+function persistInbound(state: AppState): void {
+  if (!state.layoutId) return
+  saveSnapshot(state.layoutId, {
+    receipts: state.receipts,
+    inboundLog: state.inboundLog,
+    binOverrides: state.binOverrides,
+    seq: receiptSequence(),
+  })
+}
+
+/** The slice of state a layout's inbound work occupies. */
+type InboundSlice = Pick<
+  AppState,
+  | 'receipts'
+  | 'inboundLog'
+  | 'binOverrides'
+  | 'activeLine'
+  | 'putawayPlan'
+  | 'placementRun'
+  | 'lastPlacement'
+  | 'locationConfirmed'
+>
+
+/**
+ * Rebuild a layout's inbound state: replay saved putaways onto the fresh model,
+ * then restore the receipts and log that went with them. With nothing saved,
+ * seed a fresh goods-in schedule so the section is never empty on first run.
+ */
+function restoreInbound(
+  layoutId: string,
+  model: WarehouseModel,
+): { state: InboundSlice; restoredLocations: number } {
+  const blank = {
+    activeLine: null,
+    putawayPlan: null,
+    placementRun: null,
+    lastPlacement: null,
+    locationConfirmed: false,
+  } as const
+
+  const snapshot = loadSnapshot(layoutId)
+  if (snapshot) {
+    const restoredLocations = applyOverrides(model, snapshot.binOverrides)
+    restoreReceiptSequence(snapshot.seq)
+    return {
+      state: {
+        ...blank,
+        receipts: snapshot.receipts,
+        inboundLog: snapshot.inboundLog,
+        binOverrides: snapshot.binOverrides,
+      },
+      restoredLocations,
+    }
+  }
+
+  resetReceiptSequence()
+  return {
+    state: {
+      ...blank,
+      receipts: generateReceipts(model, { count: 8, seed: model.config.seed }),
+      inboundLog: [],
+      binOverrides: {},
+    },
+    restoredLocations: 0,
+  }
+}
+
 let toastSeq = 1
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -228,7 +352,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   receipts: [],
   activeLine: null,
   putawayPlan: null,
+  locationMode: 'auto',
+  locationConfirmed: false,
+  placementRun: null,
   lastPlacement: null,
+  binOverrides: {},
   inboundLog: [],
   stockVersion: 0,
 
@@ -260,6 +388,10 @@ export const useAppStore = create<AppState>((set, get) => ({
       const engine = new SimulationEngine(model, settings)
       engine.setAgentPalette(AGENT_PALETTES[get().theme])
 
+      // Restore saved putaways BEFORE orders are generated, so demand is drawn
+      // against the shelves as they actually stand, not as they were seeded.
+      const saved = restoreInbound(config.id, model)
+
       resetOrderSequence()
       let orders = await activeSource.loadOrders(model)
       if (orders.length === 0) {
@@ -267,24 +399,25 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
       engine.setOrders(orders)
 
-      resetReceiptSequence()
-      const receipts = generateReceipts(model, { count: 8, seed: config.seed })
-
       set({
         status: 'ready',
         model,
         engine,
         settings,
         orders,
-        receipts,
-        activeLine: null,
-        putawayPlan: null,
-        lastPlacement: null,
-        inboundLog: [],
+        ...saved.state,
         stockVersion: get().stockVersion + 1,
         metrics: engine.metrics(),
         comparison: null,
       })
+
+      if (saved.restoredLocations > 0) {
+        get().notify({
+          tone: 'info',
+          message: 'Restored your saved stock',
+          detail: `${saved.restoredLocations} location(s) and ${saved.state.inboundLog.length} movement(s) loaded from this browser.`,
+        })
+      }
     } catch (err) {
       set({ status: 'error', error: err instanceof Error ? err.message : String(err) })
     }
@@ -303,11 +436,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     resetOrderSequence()
     // Hand-written sample orders only resolve against the layout they were
     // written for, so any other layout gets freshly generated demand.
+    const saved = restoreInbound(config.id, model)
+
     const orders = generateOrders(model, { ...orderGen })
     engine.setOrders(orders)
-
-    resetReceiptSequence()
-    const receipts = generateReceipts(model, { count: 8, seed: config.seed })
 
     set({
       layoutId: id,
@@ -315,11 +447,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       engine,
       settings,
       orders,
-      receipts,
-      activeLine: null,
-      putawayPlan: null,
-      lastPlacement: null,
-      inboundLog: [],
+      ...saved.state,
       stockVersion: get().stockVersion + 1,
       metrics: engine.metrics(),
       selection: null,
@@ -488,7 +616,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       seed: Math.floor(Math.random() * 1e9),
       startAt: get().metrics?.time ?? 0,
     })
-    set({ receipts, activeLine: null, putawayPlan: null })
+    set({ receipts, ...IDLE_FLOW })
+    persistInbound(get())
     get().notify({
       tone: 'success',
       message: `${receipts.length} trailers booked in`,
@@ -502,6 +631,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     const receipt = createManualReceipt({ ...input, at: get().metrics?.time ?? 0 })
     // Newest at the top: a line booked in at the door is the one being worked.
     set({ receipts: [receipt, ...get().receipts], lastPlacement: null })
+    persistInbound(get())
     get().planLine(receipt.id, receipt.lines[0].id)
   },
 
@@ -526,8 +656,14 @@ export const useAppStore = create<AppState>((set, get) => ({
     const plan = planPutaway(model, engine.routingContext, receipt, line, {
       speed: get().settings.pickerSpeed,
     })
-    // Planning a line always leaves the "placed" step — this is a new decision.
-    set({ activeLine: { receiptId, lineId }, putawayPlan: plan, lastPlacement: null })
+    // A new line is a new decision: back to an unsettled location, no placement.
+    set({
+      activeLine: { receiptId, lineId },
+      putawayPlan: plan,
+      locationConfirmed: false,
+      placementRun: null,
+      lastPlacement: null,
+    })
 
     if (!plan) {
       get().notify({
@@ -540,8 +676,11 @@ export const useAppStore = create<AppState>((set, get) => ({
       })
       return
     }
-    // Framing the target in 3D is the whole point of the roadmap.
     set({ selection: { kind: 'bin', id: plan.chosenBinId } })
+  },
+
+  setLocationMode(mode) {
+    set({ locationMode: mode })
   },
 
   chooseLocation(binId) {
@@ -555,21 +694,78 @@ export const useAppStore = create<AppState>((set, get) => ({
       chosenBinId: binId,
       speed: get().settings.pickerSpeed,
     })
-    if (!plan) return
+    if (!plan) {
+      // The list was built a moment ago; a pick or another putaway can have
+      // taken the location since. Say so rather than appearing to do nothing.
+      get().notify({
+        tone: 'warn',
+        message: 'That location is no longer free',
+        detail: `${model.binsById.get(binId)?.code ?? binId} has filled up or now holds another SKU.`,
+      })
+      // Re-rank so the list the operator is looking at reflects reality.
+      set({ stockVersion: get().stockVersion + 1 })
+      return
+    }
     set({ putawayPlan: plan, selection: { kind: 'bin', id: plan.chosenBinId } })
   },
 
-  confirmPutaway() {
-    const { model, putawayPlan } = get()
-    if (!model || !putawayPlan) return
-    const receipts = get().receipts
-    const receipt = receipts.find((r) => r.id === putawayPlan.receiptId)
+  confirmLocation() {
+    if (!get().putawayPlan) return
+    set({ locationConfirmed: true })
+  },
+
+  reopenLocation() {
+    set({ locationConfirmed: false })
+  },
+
+  beginPlacement() {
+    const { putawayPlan } = get()
+    if (!putawayPlan || get().placementRun) return
+    const receipt = get().receipts.find((r) => r.id === putawayPlan.receiptId)
     const line = receipt?.lines.find((l) => l.id === putawayPlan.lineId)
     if (!receipt || !line) return
 
+    const candidate = putawayPlan.candidates.find((c) => c.binId === putawayPlan.chosenBinId)
+    set({
+      placementRun: {
+        plan: putawayPlan,
+        receiptId: receipt.id,
+        lineId: line.id,
+        name: line.name,
+        qty: candidate?.fits ?? line.qty - line.storedQty,
+        phase: 'walking',
+        progress: 0,
+      },
+      lastPlacement: null,
+    })
+  },
+
+  publishWalker(state) {
+    const run = get().placementRun
+    if (!run) return
+    // Throttled by the caller; still gate on a visible change so a stationary
+    // operator does not re-render the panel eight times a second.
+    if (run.phase === state.phase && Math.abs(run.progress - state.progress) < 0.01) return
+    set({ placementRun: { ...run, phase: state.phase, progress: state.progress } })
+  },
+
+  /**
+   * The operator has reached the shelf. This is where the stock actually moves —
+   * pressing "Place" only dispatched them.
+   */
+  completePlacement() {
+    const { model, placementRun } = get()
+    if (!model || !placementRun) return
+    const { plan } = placementRun
+    const receipts = get().receipts
+    const receipt = receipts.find((r) => r.id === placementRun.receiptId)
+    const line = receipt?.lines.find((l) => l.id === placementRun.lineId)
+    if (!receipt || !line) return
+
     const at = get().metrics?.time ?? 0
-    const result = applyPutaway(model, line, putawayPlan.chosenBinId, at, putawayPlan.route.distance)
+    const result = applyPutaway(model, line, plan.chosenBinId, at, plan.route.distance)
     if (!result) {
+      set({ placementRun: null, locationConfirmed: false })
       get().notify({
         tone: 'error',
         message: 'Putaway rejected',
@@ -587,27 +783,33 @@ export const useAppStore = create<AppState>((set, get) => ({
       detail: `${line.name} · ${receipt.supplier}`,
       location: result.code,
       qty: result.qty,
-      distance: putawayPlan.route.distance,
+      distance: plan.route.distance,
       onTime: null,
     }
 
+    const override = overrideFor(model, result.binId)
     set({
       // Receipts are re-created rather than mutated in place so React sees the
       // line's new status; `applyPutaway` already mutated the line object itself.
       receipts: receipts.map((r) => (r.id === receipt.id ? { ...r, lines: [...r.lines] } : r)),
       inboundLog: [...get().inboundLog, movement],
+      binOverrides: override
+        ? { ...get().binOverrides, [result.binId]: override }
+        : get().binOverrides,
       stockVersion: get().stockVersion + 1,
       putawayPlan: null,
+      locationConfirmed: false,
       lastPlacement: {
         binId: result.binId,
         code: result.code,
         name: line.name,
         qty: result.qty,
         remaining: result.remaining,
-        distance: putawayPlan.route.distance,
+        distance: plan.route.distance,
         at,
       },
     })
+    persistInbound(get())
 
     get().notify(
       result.remaining > 0
@@ -619,13 +821,17 @@ export const useAppStore = create<AppState>((set, get) => ({
         : {
             tone: 'success',
             message: `${result.qty} units placed at ${result.code}`,
-            detail: `${line.name} · ${Math.round(putawayPlan.route.distance)} m from goods-in`,
+            detail: `${line.name} · ${Math.round(plan.route.distance)} m from goods-in`,
           },
     )
   },
 
+  endPlacementRun() {
+    set({ placementRun: null })
+  },
+
   cancelPutaway() {
-    set({ activeLine: null, putawayPlan: null })
+    set({ activeLine: null, putawayPlan: null, locationConfirmed: false })
   },
 
   dismissPlacement() {
@@ -633,14 +839,30 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   clearReceipts() {
-    set({ receipts: [], activeLine: null, putawayPlan: null })
+    set({ receipts: [], ...IDLE_FLOW })
+    persistInbound(get())
+  },
+
+  clearSavedData() {
+    const { layoutId } = get()
+    clearSnapshot(layoutId)
+    set({ binOverrides: {} })
+    get().notify({
+      tone: 'info',
+      message: 'Saved inbound data cleared',
+      detail: 'Reload to rebuild this layout from its seed.',
+    })
   },
 
   setSection(section) {
     set({ section })
     // Leaving Inbound drops the roadmap — a route drawn for a line you are no
-    // longer looking at is just clutter on the scene.
-    if (section !== 'inbound') set({ putawayPlan: null, activeLine: null, lastPlacement: null })
+    // longer looking at is just clutter on the scene. An operator already on the
+    // floor keeps walking: they are carrying real stock, and abandoning them
+    // mid-aisle because a tab changed would lose the putaway.
+    if (section !== 'inbound') {
+      set({ putawayPlan: null, locationConfirmed: false, lastPlacement: null, activeLine: null })
+    }
   },
 
   setSelection(selection) {

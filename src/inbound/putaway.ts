@@ -26,6 +26,11 @@ export interface RankOptions {
   limit?: number
   /** Node the putaway walk starts from. Defaults to the goods-in lane. */
   from?: NodeId
+  /**
+   * Score every legal location instead of pre-trimming to the nearest few
+   * hundred. Used by the manual picker, which has to list all the free space.
+   */
+  all?: boolean
 }
 
 const WEIGHTS = {
@@ -105,7 +110,7 @@ export function rankLocations(
   // to be on the shortlist however far away it is.
   const topUps = scratch.filter((s) => s.fit === 'topUp')
   const empties = scratch.filter((s) => s.fit === 'empty').sort((a, b) => a.distance - b.distance)
-  const pool = [...topUps, ...empties.slice(0, CONSIDERED)]
+  const pool = options.all ? [...topUps, ...empties] : [...topUps, ...empties.slice(0, CONSIDERED)]
 
   const maxDistance = Math.max(...pool.map((s) => s.distance), 1)
 
@@ -176,7 +181,23 @@ export function rankLocations(
   })
 
   scored.sort((a, b) => b.score - a.score || a.distance - b.distance)
-  return scored.slice(0, limit)
+  return Number.isFinite(limit) ? scored.slice(0, limit) : scored
+}
+
+/**
+ * Every location this delivery could legally go into, best first.
+ *
+ * The auto-suggestion is this list's head; the manual picker is the whole list.
+ * Both come from one ranking pass so the scores an operator browses are the
+ * same numbers the recommendation was made on.
+ */
+export function listAvailable(
+  model: WarehouseModel,
+  ctx: RoutingContext,
+  request: PutawayRequest,
+  from?: NodeId,
+): PutawayCandidate[] {
+  return rankLocations(model, ctx, request, { limit: Infinity, all: true, from })
 }
 
 const ZONE_LABEL: Record<VelocityTier, string> = {
