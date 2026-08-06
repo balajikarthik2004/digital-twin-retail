@@ -654,6 +654,8 @@ export class PackLine {
       dispatched: d.dispatched,
       trailers: d.trailers,
       cartons: d.cartons,
+      stagedCartons: d.staged.reduce((sum, p) => sum + p.cartons, 0),
+      oldestStagedAt: d.staged.length > 0 ? d.oldestStagedAt : 0,
     }))
 
     return {

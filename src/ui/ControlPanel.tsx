@@ -1,7 +1,13 @@
 import { MAX_AGENTS } from '../simulation/engine'
 import { PICKER_KINDS, PICKER_PROFILES, profileFor } from '../simulation/pickerProfiles'
 import { useAppStore } from '../store/useAppStore'
-import { VELOCITY_LABEL, channelHex, velocityHex } from '../scene/theme'
+import {
+  OCCUPANCY_LABEL,
+  VELOCITY_LABEL,
+  channelHex,
+  occupancyHex,
+  velocityHex,
+} from '../scene/theme'
 import { Card, Segmented, Slider, Toggle, cx } from './components/primitives'
 import { shortDuration } from './format'
 
@@ -58,6 +64,7 @@ export function ControlPanel() {
   const showPaths = useAppStore((s) => s.showPaths)
   const showSequence = useAppStore((s) => s.showSequence)
   const showParcels = useAppStore((s) => s.showParcels)
+  const showOccupancy = useAppStore((s) => s.showOccupancy)
 
   const updateSettings = useAppStore((s) => s.updateSettings)
   const setBinColorMode = useAppStore((s) => s.setBinColorMode)
@@ -68,6 +75,7 @@ export function ControlPanel() {
   const theme = useAppStore((s) => s.theme)
   const VELOCITY_HEX = velocityHex(theme)
   const CHANNEL_HEX = channelHex(theme)
+  const OCCUPANCY_HEX = occupancyHex(theme)
   const aisles = useAppStore((s) => s.model?.config.aisles ?? 0)
   const benches = useAppStore((s) => s.model?.config.packStations ?? 1)
   const conveyorMetres = useAppStore((s) => s.model?.conveyor.trunk.length ?? 0)
@@ -292,6 +300,35 @@ export function ControlPanel() {
                 <div key={tier} className="flex items-center gap-1.5 text-[10px] text-ink-400">
                   <span className="h-2 w-2 rounded-sm" style={{ background: VELOCITY_HEX[tier] }} />
                   {VELOCITY_LABEL[tier]}
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="divider !my-2" />
+
+          <Toggle
+            label="Flag empty & low locations"
+            checked={showOccupancy}
+            onChange={() => toggle('showOccupancy')}
+            hint="Paints what is missing over the stock colours — where a putaway can go, and what is about to run out."
+          />
+          {/* The two overlay colours sit outside every categorical palette, so
+              they need naming once rather than being guessed at. */}
+          {showOccupancy && (
+            <div className="space-y-1">
+              {(['empty', 'low'] as const).map((state) => (
+                <div key={state} className="flex items-center gap-1.5 text-[10px] text-ink-400">
+                  <span
+                    className="h-2 w-2 rounded-sm ring-1 ring-inset ring-black/20"
+                    style={{ background: OCCUPANCY_HEX[state] }}
+                  />
+                  {OCCUPANCY_LABEL[state]}
+                  {state === 'low' && metrics && metrics.replenAlerts > 0 && (
+                    <span className="font-mono text-[9.5px] text-[var(--viz-warning)]">
+                      {metrics.replenAlerts}
+                    </span>
+                  )}
                 </div>
               ))}
             </div>

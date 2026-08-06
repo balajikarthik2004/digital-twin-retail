@@ -25,6 +25,40 @@ export interface SceneTheme {
   highlight: number
   /** Bins already picked on a route are greyed to this. */
   binDone: number
+  /**
+   * Occupancy overlay on the racking: what is *not* in a location.
+   *
+   * Deliberately outside every categorical palette in this scene. `empty` is
+   * achromatic — a bare shelf is the absence of a category, so giving it a hue
+   * would put it in competition with the velocity tiers and aisle zones it is
+   * drawn among. `low` is the warning colour the dashboards already use for a
+   * replen alert, so the same condition looks the same in 2D and in 3D.
+   */
+  occupancy: {
+    /** Nothing in it — the location an inbound putaway can re-slot freely. */
+    empty: number
+    /** At or below its replen point: still picking, about to run out. */
+    low: number
+  }
+  /**
+   * Dock doors, by what is moving through them.
+   *
+   * Both hues are borrowed rather than invented: inbound wears the putaway
+   * colour, which already means goods-in everywhere else in the scene, and
+   * outbound wears the staging/dispatch colour off the chute signs the parcels
+   * arrive down. A door and the work on its pad are therefore the same colour.
+   */
+  dockFlow: {
+    inbound: number
+    outbound: number
+    idle: number
+    /** Emissive lift on the door panel under the pointer. */
+    hover: number
+    /** Status board face, and the two text weights drawn on it. */
+    board: string
+    boardText: string
+    boardMuted: string
+  }
   /** Path-trail opacities: the planned route, and the portion already walked. */
   ribbonPlan: number
   ribbonWalked: number
@@ -160,6 +194,16 @@ const LIGHT: SceneTheme = {
   curb: 0x8d99a7,
   highlight: 0x0b1220,
   binDone: 0x98a4b2,
+  occupancy: { empty: 0xf4f7fb, low: 0xb45309 },
+  dockFlow: {
+    inbound: 0x9a3412,
+    outbound: 0x0f7490,
+    idle: 0x8b97a5,
+    hover: 0x1b2430,
+    board: 'rgba(248,250,252,0.96)',
+    boardText: '#16202c',
+    boardMuted: 'rgba(22,32,44,0.55)',
+  },
   ribbonPlan: 0.4,
   ribbonWalked: 1,
   putaway: { route: 0x9a3412, routeOpacity: 0.85, target: 0x7c2d12, candidate: 0x4a3aa7 },
@@ -237,6 +281,16 @@ const DARK: SceneTheme = {
   curb: 0x101620,
   highlight: 0xffffff,
   binDone: 0x334155,
+  occupancy: { empty: 0xdfe7f1, low: 0xf0a83a },
+  dockFlow: {
+    inbound: 0xf59e0b,
+    outbound: 0x22d3ee,
+    idle: 0x475569,
+    hover: 0xffffff,
+    board: 'rgba(9,13,20,0.9)',
+    boardText: '#e9f1fa',
+    boardMuted: 'rgba(233,241,250,0.6)',
+  },
   ribbonPlan: 0.22,
   ribbonWalked: 0.95,
   putaway: { route: 0xf59e0b, routeOpacity: 0.9, target: 0xfab219, candidate: 0x9085e9 },
@@ -296,6 +350,27 @@ const DARK: SceneTheme = {
 
 export function sceneTheme(mode: ThemeMode): SceneTheme {
   return mode === 'light' ? LIGHT : DARK
+}
+
+/** The dock flow colours as CSS, so a panel chip matches the lamp on the door. */
+export function dockFlowHex(mode: ThemeMode): Record<'inbound' | 'outbound' | 'idle', string> {
+  const f = sceneTheme(mode).dockFlow
+  return { inbound: hex(f.inbound), outbound: hex(f.outbound), idle: hex(f.idle) }
+}
+
+/** The occupancy overlay colours as CSS, for the legend beside the toggle. */
+export function occupancyHex(mode: ThemeMode): Record<'empty' | 'low', string> {
+  const o = sceneTheme(mode).occupancy
+  return { empty: hex(o.empty), low: hex(o.low) }
+}
+
+export const OCCUPANCY_LABEL: Record<'empty' | 'low', string> = {
+  empty: 'Empty location',
+  low: 'At or below replen',
+}
+
+function hex(value: number): string {
+  return `#${value.toString(16).padStart(6, '0')}`
 }
 
 /**

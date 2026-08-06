@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent, type RefObject } from 'react'
 import type { WarehouseScene } from '../scene/WarehouseScene'
-import { VELOCITY_LABEL, channelHex, velocityHex } from '../scene/theme'
+import { VELOCITY_LABEL, channelHex, dockFlowHex, velocityHex } from '../scene/theme'
+import { DOCK_FLOW_LABEL } from '../simulation/dockActivity'
 import { useAppStore } from '../store/useAppStore'
+import { useDockState } from './useDockActivity'
 import { Bar, cx } from './components/primitives'
 import { AlertIcon, CloseIcon, LocationIcon, SnapBackIcon } from './components/icons'
 import {
@@ -50,6 +52,8 @@ export function Inspector({ sceneRef }: { sceneRef: RefObject<WarehouseScene | n
   const theme = useAppStore((s) => s.theme)
   const VELOCITY_HEX = velocityHex(theme)
   const CHANNEL_HEX = channelHex(theme)
+  const FLOW_HEX = dockFlowHex(theme)
+  const dock = useDockState(selection?.kind === 'dock' ? selection.id : null)
 
   useEffect(() => {
     if (!selection) return
@@ -202,7 +206,7 @@ export function Inspector({ sceneRef }: { sceneRef: RefObject<WarehouseScene | n
   const agent = selection.kind === 'agent' ? metrics?.agents.find((a) => a.id === selection.id) : null
   const parcel =
     selection.kind === 'parcel' ? metrics?.parcels.find((p) => p.id === selection.id) : null
-  if (!bin && !agent && !parcel) return null
+  if (!bin && !agent && !parcel && !dock) return null
   const currentTask = agent?.tasks.find((t) => t.status === 'current')
   const needsReplen = bin ? bin.sku.stock <= bin.sku.replenPoint : false
   const transit = parcel
@@ -264,10 +268,10 @@ export function Inspector({ sceneRef }: { sceneRef: RefObject<WarehouseScene | n
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <div className="text-[10px] font-medium uppercase tracking-[0.12em] text-ink-400">
-                  {bin ? 'Storage location' : parcel ? 'Parcel' : 'Picker'}
+                  {bin ? 'Storage location' : parcel ? 'Parcel' : dock ? 'Dock door' : 'Picker'}
                 </div>
                 <div className="truncate font-mono text-sm font-semibold text-ink-100">
-                  {bin ? bin.code : parcel ? parcel.ref : agent!.label}
+                  {bin ? bin.code : parcel ? parcel.ref : dock ? dock.label : agent!.label}
                 </div>
               </div>
               <div className="flex shrink-0 items-center gap-1">
@@ -344,6 +348,113 @@ export function Inspector({ sceneRef }: { sceneRef: RefObject<WarehouseScene | n
                     </div>
                   )}
                 </div>
+              </div>
+            ) : dock ? (
+              /*
+                The door, both ways round.
+
+                Outbound is always shown because a door always has a sorter lane
+                assigned to it, whether or not anything is on the pad. Goods-in is
+                only shown when there is a trailer against this door, since an
+                empty inbound block on every door would read as a fault.
+              */
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span
+                    className="text-xs font-semibold"
+                    style={{ color: FLOW_HEX[dock.flow] }}
+                  >
+                    {DOCK_FLOW_LABEL[dock.flow]}
+                  </span>
+                  {dock.inboundQueue > 0 && (
+                    <span className="chip !text-[9px]">
+                      {dock.inboundQueue} booked in
+                    </span>
+                  )}
+                </div>
+
+                <p className="text-[10.5px] leading-snug text-ink-200">{dock.headline}</p>
+                <Bar value={dock.progress} color={FLOW_HEX[dock.flow]} />
+
+                <div>
+                  <div className="mb-1 flex justify-between text-[10px] text-ink-400">
+                    <span>Trailer load</span>
+                    <span className="font-mono tabular-nums text-ink-200">
+                      {dock.outbound.staged}/{dock.outbound.capacity} parcels
+                    </span>
+                  </div>
+                  <Bar
+                    value={dock.outbound.load}
+                    color={dock.outbound.full ? '#d03b3b' : FLOW_HEX.outbound}
+                  />
+                  <div className="mt-1 text-[9.5px] text-ink-400">
+                    {dock.outbound.staged === 0
+                      ? 'Pad clear — nothing waiting to load.'
+                      : dock.outbound.full
+                        ? 'Full load — the trailer seals on the next step.'
+                        : `${dock.outbound.stagedCartons} cartons on the pad · seals in ${shortDuration(dock.outbound.sealIn ?? 0)}.`}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[10.5px]">
+                  <Row label="On the belt" value={`${dock.outbound.enRoute} parcels`} />
+                  <Row label="Shipped" value={`${dock.outbound.dispatched} parcels`} />
+                  <Row label="Trailers away" value={String(dock.outbound.trailers)} />
+                  <Row label="Cartons away" value={String(dock.outbound.cartons)} />
+                </div>
+
+                {dock.outbound.channels.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {dock.outbound.channels.map((channel) => (
+                      <span
+                        key={channel}
+                        className="chip !normal-case !tracking-normal !text-[9px]"
+                        style={{
+                          color: CHANNEL_HEX[channel],
+                          borderColor: `${CHANNEL_HEX[channel]}55`,
+                        }}
+                      >
+                        {channel}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {dock.inbound && (
+                  <div className="rounded-md border border-ink-700 bg-ink-850/60 px-2 py-1.5">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span className="text-[9px] font-semibold uppercase tracking-wider text-ink-400">
+                        Goods in
+                      </span>
+                      <span className="font-mono text-[9.5px] text-ink-300">
+                        {dock.inbound.ref}
+                      </span>
+                    </div>
+                    <div className="mt-0.5 truncate text-[10px] text-ink-200">
+                      {dock.inbound.supplier}
+                    </div>
+                    <div className="mt-1 grid grid-cols-2 gap-x-3 gap-y-1 text-[10px]">
+                      <Row
+                        label="Lines counted"
+                        value={`${dock.inbound.linesCounted}/${dock.inbound.lines}`}
+                      />
+                      <Row
+                        label="Units counted"
+                        value={`${dock.inbound.unitsCounted}/${dock.inbound.unitsAdvised}`}
+                      />
+                      <Row label="Put away" value={`${dock.inbound.unitsStored} ea`} />
+                      <Row label="On the pallet" value={`${dock.inbound.unitsToPutAway} ea`} />
+                    </div>
+                    <div className="mt-1.5">
+                      <Bar value={dock.inbound.progress} color={FLOW_HEX.inbound} />
+                    </div>
+                    <div className="mt-1 text-[9.5px] text-ink-400">
+                      {dock.inbound.atDoor
+                        ? `Trailer on the door ${shortDuration(dock.inbound.dwell)} — counting in progress.`
+                        : 'Counted in; the putaway is being walked on the floor.'}
+                    </div>
+                  </div>
+                )}
               </div>
             ) : parcel ? (
               <div className="space-y-2.5">

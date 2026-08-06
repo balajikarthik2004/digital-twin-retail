@@ -3,6 +3,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'
 import type { WalkerState } from '../inbound/walker'
 import type { Route } from '../pathfinding/types'
+import type { DockActivity } from '../simulation/dockActivity'
 import type { PackStation, Parcel, PickerAgent } from '../simulation/types'
 import type { Bin, WarehouseModel } from '../warehouse/types'
 import { buildWarehouse, type BinColorMode, type WarehouseVisual } from './buildWarehouse'
@@ -18,7 +19,11 @@ export type SceneSelection =
   | { kind: 'bin'; id: string }
   | { kind: 'agent'; id: string }
   | { kind: 'parcel'; id: string }
+  | { kind: 'dock'; id: string }
   | null
+
+/** What the pointer is currently over, for the hover read-out. */
+export type SceneHover = Exclude<SceneSelection, null> | null
 
 /** Live pack-out state pushed in every frame, straight from the engine. */
 export interface PackLineFrame {
@@ -34,13 +39,19 @@ export interface SceneOptions {
   /** Render parcels and animate the conveyor. */
   showParcels: boolean
   binColorMode: BinColorMode
+  /** Paint empty and at-replen locations in the occupancy colours. */
+  showOccupancy: boolean
   /** Which agent's pick sequence is annotated with numbered markers. */
   focusAgentId: string | null
 }
 
 export interface SceneCallbacks {
   onSelect(selection: SceneSelection): void
-  onHoverChange(hovering: boolean): void
+  /**
+   * What the pointer is over, or null. Fires only on a change, so a host can
+   * hang a hover read-out off it without polling.
+   */
+  onHover(target: SceneHover): void
 }
 
 /**
@@ -104,6 +115,7 @@ const DEFAULT_OPTIONS: SceneOptions = {
   showSequence: true,
   showParcels: true,
   binColorMode: 'velocity',
+  showOccupancy: true,
   focusAgentId: null,
 }
 
@@ -171,7 +183,9 @@ export class WarehouseScene {
 
   private selection: SceneSelection = null
   private selectionBox: THREE.LineSegments
-  private hoverActive = false
+  private hover: SceneHover = null
+  /** Latest dock state, kept so a rebuilt visual can be re-stamped with it. */
+  private dockStates: DockActivity[] = []
 
   private tween = new CameraTween()
   private preset: CameraPresetId = 'overview'
@@ -344,6 +358,10 @@ export class WarehouseScene {
     if (!this.model) return
     this.visual = buildWarehouse(this.model, this.mode)
     this.visual.setColorMode(this.options.binColorMode)
+    this.visual.setOccupancyOverlay(this.options.showOccupancy)
+    // Door boards are canvas textures baked at build time, so a rebuilt visual
+    // starts blank until it is told what its doors are doing.
+    this.visual.docks.sync(this.dockStates)
     this.scene.add(this.visual.group)
 
     this.packLine = buildPackLine(this.model, this.mode)
@@ -416,6 +434,13 @@ export class WarehouseScene {
     this.options = { ...prev, ...patch }
     if (patch.binColorMode && patch.binColorMode !== prev.binColorMode) {
       this.visual?.setColorMode(patch.binColorMode)
+      // A colour-mode swap drops every tint, and the putaway shortlist is a plan
+      // that outlives it — the same reason a theme swap re-stamps it.
+      this.tintSignature = ''
+      this.applyPutawayTints()
+    }
+    if (patch.showOccupancy !== undefined && patch.showOccupancy !== prev.showOccupancy) {
+      this.visual?.setOccupancyOverlay(patch.showOccupancy)
     }
     if (patch.showPaths === false) {
       for (const r of this.planRibbons.values()) r.hide()
@@ -428,6 +453,26 @@ export class WarehouseScene {
 
   get parcelsVisible(): boolean {
     return this.options.showParcels
+  }
+
+  // ── dock doors ────────────────────────────────────────────────────────────
+
+  /**
+   * Push what every door is doing.
+   *
+   * Called on the metrics tick rather than per frame: the boards are canvas
+   * textures and the shutters interpolate on their own clock, so nothing here
+   * needs a 60 Hz feed. The states are kept so a theme swap — which rebuilds every
+   * mesh in the building — can put them straight back.
+   */
+  syncDocks(states: DockActivity[]): void {
+    this.dockStates = states
+    this.visual?.docks.sync(states)
+  }
+
+  /** Live state of one door, for a hover read-out or an inspector card. */
+  dockState(id: string): DockActivity | null {
+    return this.dockStates.find((d) => d.id === id) ?? null
   }
 
   // ── inbound putaway roadmap ───────────────────────────────────────────────
@@ -813,6 +858,13 @@ export class WarehouseScene {
         )
         this.selectionBox.visible = true
       }
+    } else if (this.selection?.kind === 'dock') {
+      const box = this.visual?.docks.boundsOf(this.selection.id)
+      if (box) {
+        this.selectionBox.scale.copy(box.size)
+        this.selectionBox.position.copy(box.center)
+        this.selectionBox.visible = true
+      }
     }
 
     // Ring colour/opacity is owned by the per-frame sync; only scale here.
@@ -823,18 +875,26 @@ export class WarehouseScene {
   }
 
   selectionWorldPosition(): THREE.Vector3 | null {
-    if (!this.selection || !this.model) return null
-    if (this.selection.kind === 'bin') {
-      const bin = this.model.binsById.get(this.selection.id)
+    return this.worldPositionOf(this.selection)
+  }
+
+  /** Where a card describing `target` should point. */
+  worldPositionOf(target: SceneSelection): THREE.Vector3 | null {
+    if (!target || !this.model) return null
+    if (target.kind === 'bin') {
+      const bin = this.model.binsById.get(target.id)
       if (!bin) return null
       const facing = bin.side === 'L' ? 1 : -1
       return new THREE.Vector3(bin.face.x + facing * 0.3, bin.face.y + 0.35, bin.face.z)
     }
-    if (this.selection.kind === 'parcel') {
-      const pos = this.packLine?.parcelPosition(this.selection.id)
+    if (target.kind === 'parcel') {
+      const pos = this.packLine?.parcelPosition(target.id)
       return pos ? pos.setY(pos.y + 0.3) : null
     }
-    const picker = this.pickers.get(this.selection.id)
+    if (target.kind === 'dock') {
+      return this.visual?.docks.anchorOf(target.id) ?? null
+    }
+    const picker = this.pickers.get(target.id)
     if (!picker) return null
     return picker.group.position.clone().setY(2.25)
   }
@@ -866,6 +926,7 @@ export class WarehouseScene {
 
     this.syncAgents(agents, dt)
     this.syncPackLine(packLine, dt)
+    this.visual?.docks.tick(dt)
     this.syncRoof()
     this.updateFog()
     this.controls.update()
@@ -1153,6 +1214,7 @@ export class WarehouseScene {
     const hitboxes = [...this.pickers.values()].map((p) => p.hitbox)
     const agentHits = this.raycaster.intersectObjects(hitboxes, false)
     const binHits = this.raycaster.intersectObject(this.visual.binsMesh, false)
+    const dockHits = this.raycaster.intersectObjects(this.visual.docks.hitboxes, false)
     const parcelMesh = this.packLine?.parcelsMesh
     const parcelHits =
       parcelMesh && parcelMesh.visible && parcelMesh.count > 0
@@ -1162,6 +1224,7 @@ export class WarehouseScene {
     const agentHit = agentHits[0]
     const binHit = binHits[0]
     const parcelHit = parcelHits[0]
+    const dockHit = dockHits[0]
 
     // A parcel is small and always in front of whatever it is riding over, so it
     // wins outright when the ray actually touches one.
@@ -1169,18 +1232,29 @@ export class WarehouseScene {
       const id = this.packLine?.parcelIdAt(parcelHit.instanceId)
       const closer =
         (!agentHit || parcelHit.distance < agentHit.distance) &&
-        (!binHit || parcelHit.distance < binHit.distance)
+        (!binHit || parcelHit.distance < binHit.distance) &&
+        (!dockHit || parcelHit.distance < dockHit.distance)
       if (id && closer) return { kind: 'parcel', id }
     }
     // Agents win ties within half a metre so a picker in front of a rack is clickable.
     if (agentHit && (!binHit || agentHit.distance < binHit.distance + 0.5)) {
       return { kind: 'agent', id: String(agentHit.object.userData.id) }
     }
+    /*
+     * A door is a wall, and a ray that passes through one carries on into the
+     * racking on the far side — so the door has to be compared on distance, not
+     * given a fixed place in the order. Nearer wins: a bin in front of a door is
+     * a bin, a door in front of a bin is a door.
+     */
+    const dockId = typeof dockHit?.object.userData.id === 'string' ? dockHit.object.userData.id : null
+    if (dockId && (!binHit || dockHit!.distance < binHit.distance)) {
+      return { kind: 'dock', id: dockId }
+    }
     if (binHit && binHit.instanceId !== undefined) {
       const bin = this.visual.binOrder[binHit.instanceId]
       if (bin) return { kind: 'bin', id: bin.id }
     }
-    return null
+    return dockId ? { kind: 'dock', id: dockId } : null
   }
 
   private handlePointerDown = (event: PointerEvent) => {
@@ -1198,12 +1272,23 @@ export class WarehouseScene {
   private handlePointerMove = (event: PointerEvent) => {
     if (event.buttons !== 0) return
     this.updatePointer(event)
-    const hovering = this.pick() !== null
-    if (hovering !== this.hoverActive) {
-      this.hoverActive = hovering
-      this.renderer.domElement.style.cursor = hovering ? 'pointer' : 'grab'
-      this.callbacks.onHoverChange(hovering)
-    }
+    this.setHover(this.pick())
+  }
+
+  /**
+   * Publish what the pointer is over, once per change.
+   *
+   * A door lifts under the pointer, which is the affordance that tells you it can
+   * be clicked at all — nothing else in the scene looks like a piece of building
+   * and behaves like a control.
+   */
+  private setHover(target: SceneHover): void {
+    const same = target?.kind === this.hover?.kind && target?.id === this.hover?.id
+    if (same) return
+    this.hover = target
+    this.renderer.domElement.style.cursor = target ? 'pointer' : 'grab'
+    this.visual?.docks.setHover(target?.kind === 'dock' ? target.id : null)
+    this.callbacks.onHover(target)
   }
 
   resize(): void {

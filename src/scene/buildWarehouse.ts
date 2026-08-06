@@ -1,12 +1,29 @@
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
+import { isEmpty, needsReplen } from '../inbound/freeSpace'
 import type { ThemeMode } from '../ui/theme'
 import type { Bin, WarehouseModel } from '../warehouse/types'
+import { buildDocks, type DockVisual } from './dockMesh'
 import { makeTextSprite } from './labels'
 import { buildShell } from './shell'
 import { sceneTheme, velocityColors, zoneColors, type SceneTheme } from './theme'
 
 export type BinColorMode = 'velocity' | 'zone'
+
+/**
+ * How full a location has to be to stop being flagged as empty.
+ *
+ * Zero, deliberately: "empty" means an inbound putaway may re-slot it to any SKU,
+ * and one unit of the wrong SKU is enough to stop that. The near-empty case is a
+ * replen alert, which is the overlay's other state.
+ */
+export type BinOccupancy = 'stocked' | 'low' | 'empty'
+
+/** Which occupancy state a location is in — the overlay's only rule. */
+export function binOccupancy(bin: Bin): BinOccupancy {
+  if (isEmpty(bin)) return 'empty'
+  return needsReplen(bin) ? 'low' : 'stocked'
+}
 
 /** Slab bay size, metres — the pitch of the saw-cut joints in the floor. */
 const SLAB_METRES = 6
@@ -53,7 +70,17 @@ export interface WarehouseVisual {
   /** instance index -> bin */
   binOrder: Bin[]
   binIndexById: Map<string, number>
+  /** Dock doors: their live boards, lamps, shutters and hitboxes. */
+  docks: DockVisual
   setColorMode(mode: BinColorMode): void
+  /**
+   * Paint locations by what is *missing* from them — empty and at-replen — over
+   * the top of the velocity/zone palette. Route and putaway tints still win, so
+   * the overlay never hides work in progress.
+   */
+  setOccupancyOverlay(enabled: boolean): void
+  /** How many locations the overlay is currently calling out. */
+  occupancyCounts(): { empty: number; low: number }
   /** Temporarily tint a bin (route highlight); pass null to restore. */
   tintBin(binId: string, color: THREE.ColorRepresentation | null): void
   clearTints(): void
@@ -359,13 +386,20 @@ export function buildWarehouse(model: WarehouseModel, themeMode: ThemeMode = 'li
   binsMesh.instanceColor = instanceColor
   const tinted = new Set<number>()
 
-  const restore = (index: number) => {
-    const src = palettes[mode]
-    const arr = instanceColor.array as Float32Array
-    arr[index * 3] = src[index * 3]
-    arr[index * 3 + 1] = src[index * 3 + 1]
-    arr[index * 3 + 2] = src[index * 3 + 2]
-  }
+  /*
+   * Occupancy overlay.
+   *
+   * Kept as a third palette plus a per-location state byte rather than being
+   * folded into the velocity/zone palettes, because it is orthogonal to both: an
+   * empty location has no stock and therefore no velocity worth colouring, and
+   * switching colour mode must not lose the fact that it is empty. The state byte
+   * is what `restore` consults, so tints, colour-mode swaps and stock changes all
+   * resolve to the same answer without any of them knowing about the others.
+   */
+  const OCC = SCENE_THEME.occupancy
+  const occupancy = new Uint8Array(binOrder.length)
+  const occupancyPalette = new Float32Array(binOrder.length * 3)
+  let overlay = true
 
   const writePalette = (target: Float32Array, index: number, hex: number) => {
     baseColor.setHex(hex)
@@ -374,6 +408,43 @@ export function buildWarehouse(model: WarehouseModel, themeMode: ThemeMode = 'li
     target[index * 3 + 2] = baseColor.b
   }
 
+  /** Re-read one location's occupancy state. Returns true when it changed. */
+  const writeOccupancy = (bin: Bin, index: number): boolean => {
+    const state = binOccupancy(bin)
+    const next = state === 'empty' ? 2 : state === 'low' ? 1 : 0
+    if (occupancy[index] === next) return false
+    occupancy[index] = next
+    if (next !== 0) writePalette(occupancyPalette, index, next === 2 ? OCC.empty : OCC.low)
+    return true
+  }
+
+  binOrder.forEach(writeOccupancy)
+
+  const restore = (index: number) => {
+    const src = overlay && occupancy[index] !== 0 ? occupancyPalette : palettes[mode]
+    const arr = instanceColor.array as Float32Array
+    arr[index * 3] = src[index * 3]
+    arr[index * 3 + 1] = src[index * 3 + 1]
+    arr[index * 3 + 2] = src[index * 3 + 2]
+  }
+
+  /** Rewrite every location that is not currently carrying a tint. */
+  const restoreAll = () => {
+    for (let i = 0; i < binOrder.length; i++) {
+      if (!tinted.has(i)) restore(i)
+    }
+    instanceColor.needsUpdate = true
+  }
+
+  restoreAll()
+
+  // ── Dock doors ────────────────────────────────────────────────────────────
+  // Their own module: a door carries live state — a shutter, a lamp and a board —
+  // and is the only piece of the building you can point at and ask what it is
+  // doing right now.
+  const docks = buildDocks(model, themeMode)
+  group.add(docks.group)
+
   const visual: WarehouseVisual = {
     group,
     roof: shell.roof,
@@ -381,12 +452,25 @@ export function buildWarehouse(model: WarehouseModel, themeMode: ThemeMode = 'li
     binsMesh,
     binOrder,
     binIndexById,
+    docks,
     setColorMode(next) {
       mode = next
-      const arr = instanceColor.array as Float32Array
-      arr.set(palettes[next])
       tinted.clear()
-      instanceColor.needsUpdate = true
+      restoreAll()
+    },
+    setOccupancyOverlay(enabled) {
+      if (enabled === overlay) return
+      overlay = enabled
+      restoreAll()
+    },
+    occupancyCounts() {
+      let empty = 0
+      let low = 0
+      for (const state of occupancy) {
+        if (state === 2) empty++
+        else if (state === 1) low++
+      }
+      return { empty, low }
     },
     tintBin(binId, color) {
       const index = binIndexById.get(binId)
@@ -413,6 +497,8 @@ export function buildWarehouse(model: WarehouseModel, themeMode: ThemeMode = 'li
     refreshAllBins() {
       binOrder.forEach(writeBinMatrix)
       binsMesh.instanceMatrix.needsUpdate = true
+      binOrder.forEach(writeOccupancy)
+      restoreAll()
     },
     refreshBin(binId) {
       const index = binIndexById.get(binId)
@@ -424,6 +510,9 @@ export function buildWarehouse(model: WarehouseModel, themeMode: ThemeMode = 'li
 
       writePalette(palettes.velocity, index, VELOCITY_COLOR[bin.sku.velocity])
       writePalette(palettes.zone, index, ZONE_COLORS[bin.aisle % ZONE_COLORS.length])
+      // Stock moved, so whether this location is empty or at replen may have moved
+      // with it — that is what the overlay is reading.
+      writeOccupancy(bin, index)
       // A tinted bin keeps its tint; the new base shows through once it clears.
       if (!tinted.has(index)) {
         restore(index)
@@ -433,6 +522,7 @@ export function buildWarehouse(model: WarehouseModel, themeMode: ThemeMode = 'li
     dispose() {
       binsMesh.dispose()
       shell.dispose()
+      docks.dispose()
       for (const d of disposables) d.dispose()
       group.traverse((obj) => {
         if (obj instanceof THREE.Sprite) {
@@ -446,23 +536,16 @@ export function buildWarehouse(model: WarehouseModel, themeMode: ThemeMode = 'li
 
   group.add(binsMesh)
 
-  // ── Docks, pack stations, staging ─────────────────────────────────────────
+  // ── Pack stations and staging lanes ───────────────────────────────────────
   const structureMat = new THREE.MeshStandardMaterial({ color: SCENE_THEME.dock, roughness: 0.6, metalness: 0.25 })
-  const doorMat = new THREE.MeshStandardMaterial({
-    color: SCENE_THEME.dockDoor,
-    roughness: 0.5,
-    metalness: 0.3,
-    emissive: new THREE.Color(SCENE_THEME.dockDoor).multiplyScalar(0.25),
-  })
   const packTopMat = new THREE.MeshStandardMaterial({
     color: SCENE_THEME.packTop,
     roughness: 0.5,
     emissive: new THREE.Color(SCENE_THEME.packTop).multiplyScalar(0.22),
   })
-  // Rubber for the dock bumpers and door seals, plus the pallet kit standing in
-  // the staging lanes. One material each, shared across every instance.
+  // The pallet kit standing in the staging lanes. One material each, shared
+  // across every instance.
   const P = SCENE_THEME.props
-  const rubberMat = new THREE.MeshStandardMaterial({ color: P.rubber, roughness: 0.95 })
   const palletMat = new THREE.MeshStandardMaterial({ color: P.pallet, roughness: 0.92 })
   const cartonMat = new THREE.MeshStandardMaterial({ color: P.carton, roughness: 0.88 })
   const wrapMat = new THREE.MeshStandardMaterial({
@@ -472,49 +555,23 @@ export function buildWarehouse(model: WarehouseModel, themeMode: ThemeMode = 'li
     opacity: P.wrapOpacity,
     depthWrite: false,
   })
-  disposables.push(structureMat, doorMat, packTopMat, rubberMat, palletMat, cartonMat, wrapMat)
+  disposables.push(structureMat, packTopMat, palletMat, cartonMat, wrapMat)
 
   /*
    * Scenery is collected as geometry and merged once, not added as meshes.
    *
-   * Drawn individually, four dock doors and two staging lanes are ~240 extra draw
-   * calls — more than the rest of the building put together, for objects that
-   * never move. Merged by material it is five.
+   * Drawn individually, two staging lanes are ~200 extra draw calls — more than
+   * the rest of the building put together, for objects that never move. Merged by
+   * material it is three.
    */
-  const rubberGeos: THREE.BufferGeometry[] = []
-  const levellerGeos: THREE.BufferGeometry[] = []
   const palletGeos: THREE.BufferGeometry[] = []
   const cartonGeos: THREE.BufferGeometry[] = []
   const wrapGeos: THREE.BufferGeometry[] = []
 
   for (const f of model.facilities) {
-    if (f.kind === 'dock') {
-      const frameGeo = new THREE.BoxGeometry(f.width + 0.5, 4.2, 0.5)
-      const frame = new THREE.Mesh(frameGeo, structureMat)
-      frame.position.set(f.pos.x, 2.1, f.pos.y - 0.3)
-      const doorGeo = new THREE.BoxGeometry(f.width, 3.6, 0.12)
-      const door = new THREE.Mesh(doorGeo, doorMat)
-      door.position.set(f.pos.x, 1.85, f.pos.y - 0.05)
-      group.add(frame, door)
-      disposables.push(frameGeo, doorGeo)
-
-      // Slats: a sectional door is a stack of panels, and the shadow lines
-      // between them are most of what makes it read as a door at all.
-      for (let s = 1; s <= 7; s++) {
-        rubberGeos.push(boxAt(f.pos.x, 0.1 + (3.6 / 8) * s, f.pos.y + 0.03, f.width - 0.06, 0.05, 0.06))
-      }
-
-      // Bumpers either side at trailer-bed height, and the leveller plate the
-      // pallet truck actually drives over.
-      for (const dx of [-1, 1]) {
-        rubberGeos.push(boxAt(f.pos.x + dx * (f.width / 2 + 0.16), 1.05, f.pos.y + 0.1, 0.22, 0.5, 0.3))
-      }
-      levellerGeos.push(boxAt(f.pos.x, 0.05, f.pos.y + 0.95, f.width - 0.2, 0.06, 1.6))
-
-      const label = makeTextSprite(f.label, { fontSize: 46, worldHeight: 0.72, ...SCENE_THEME.label })
-      label.position.set(f.pos.x, 4.7, f.pos.y)
-      group.add(label)
-    } else if (f.kind === 'pack') {
+    // Dock doors are built by `buildDocks`, which owns their live state.
+    if (f.kind === 'dock') continue
+    if (f.kind === 'pack') {
       const benchGeo = new THREE.BoxGeometry(f.width, 0.9, f.depth)
       const bench = new THREE.Mesh(benchGeo, structureMat)
       bench.position.set(f.pos.x, 0.45, f.pos.y)
@@ -597,8 +654,6 @@ export function buildWarehouse(model: WarehouseModel, themeMode: ThemeMode = 'li
   // One mesh per scenery material. Shadows are cast by the things with real bulk
   // (pallet loads, bumpers) and only received by the flat plate on the floor.
   for (const [geos, mat, cast, receive] of [
-    [rubberGeos, rubberMat, true, false],
-    [levellerGeos, structureMat, false, true],
     [palletGeos, palletMat, true, false],
     [cartonGeos, cartonMat, true, false],
     [wrapGeos, wrapMat, false, false],

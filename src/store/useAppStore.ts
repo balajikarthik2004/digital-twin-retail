@@ -138,6 +138,12 @@ interface AppState {
   showSequence: boolean
   /** Render parcels + conveyor motion in the 3D scene. */
   showParcels: boolean
+  /**
+   * Paint empty and at-replen locations in the occupancy colours, over the top of
+   * the velocity/zone palette. On by default: where the space is is the first
+   * question anyone asks of a rack, and it cannot be read off a stock colour.
+   */
+  showOccupancy: boolean
   binColorMode: BinColorMode
   cameraPreset: CameraPresetId
   selection: SceneSelection
@@ -203,7 +209,8 @@ interface AppState {
       | 'minimapLarge'
       | 'showPaths'
       | 'showSequence'
-      | 'showParcels',
+      | 'showParcels'
+      | 'showOccupancy',
   ): void
   setBinColorMode(mode: BinColorMode): void
   setFocusAgent(id: string | null): void
@@ -382,6 +389,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   showPaths: true,
   showSequence: true,
   showParcels: true,
+  showOccupancy: true,
   binColorMode: 'velocity',
   cameraPreset: 'overview',
   selection: null,

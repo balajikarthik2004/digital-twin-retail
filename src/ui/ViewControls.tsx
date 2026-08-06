@@ -67,7 +67,8 @@ export function ViewControls() {
           <p className="text-[10px] leading-relaxed text-ink-400">
             Drag to orbit · scroll to zoom · right-drag to pan.
             <br />
-            Click any bin, picker or parcel to inspect it.
+            Click any bin, picker, parcel or dock door to inspect it. Hover a door for what it is
+            loading or unloading right now.
           </p>
         </div>
       )}

@@ -1,6 +1,8 @@
 import type { Order } from '../simulation/types'
-import { channelHex } from '../scene/theme'
+import { channelHex, dockFlowHex } from '../scene/theme'
+import { DOCK_FLOW_LABEL } from '../simulation/dockActivity'
 import { useAppStore } from '../store/useAppStore'
+import { useDockActivity } from './useDockActivity'
 import { Bar, Card, EmptyState, StatTile, cx } from './components/primitives'
 import {
   PACK_PHASE_LABEL,
@@ -27,6 +29,8 @@ export function PackPanel() {
   const setSelection = useAppStore((s) => s.setSelection)
   const palette = chartPalette(theme)
   const CHANNEL_HEX = channelHex(theme)
+  const FLOW_HEX = dockFlowHex(theme)
+  const docks = useDockActivity()
 
   if (!metrics) return null
 
@@ -187,45 +191,82 @@ export function PackPanel() {
         )}
       </Card>
 
+      {/*
+        Doors, not just dispatch counters.
+
+        The same `DockActivity` the 3D door boards are drawn from, so a row here
+        and the sign on that door always agree — and clicking a row selects the
+        door in the scene, which is the other half of clicking the door itself.
+      */}
       <Card
-        title="Outbound doors"
+        title="Dock doors"
         dense
         action={<span className="chip">{metrics.parcelsStaged} staged</span>}
       >
         <div className="space-y-1.5">
-          {metrics.docks.map((dock) => (
-            <div key={dock.id} className="rounded-lg border border-ink-700/70 bg-ink-850/50 px-2.5 py-2">
-              <div className="flex items-center gap-2">
-                <span className="font-mono text-[10.5px] font-semibold text-ink-100">
-                  {dock.label}
-                </span>
-                <span className="flex flex-wrap gap-1">
-                  {dock.channels.map((channel) => (
-                    <span
-                      key={channel}
-                      className="chip !normal-case !tracking-normal !text-[9px]"
-                      style={{ color: CHANNEL_HEX[channel], borderColor: `${CHANNEL_HEX[channel]}55` }}
-                    >
-                      {channel}
-                    </span>
-                  ))}
-                </span>
-              </div>
-              <div className="mt-1.5 flex items-center gap-3 font-mono text-[9.5px] tabular-nums text-ink-400">
-                <span>{dock.inbound} inbound</span>
-                <span className="text-ink-600">›</span>
-                <span className={dock.staged > 0 ? 'text-[var(--viz-warning)]' : undefined}>
-                  {dock.staged} staged
-                </span>
-                <span className="text-ink-600">›</span>
-                <span className={dock.dispatched > 0 ? 'text-[var(--viz-good)]' : undefined}>
-                  {dock.dispatched} shipped
-                </span>
-                <span className="flex-1" />
-                <span>{dock.trailers} trailers</span>
-              </div>
-            </div>
-          ))}
+          {docks.map((dock) => {
+            const active = selection?.kind === 'dock' && selection.id === dock.id
+            const accent = FLOW_HEX[dock.flow]
+            return (
+              <button
+                key={dock.id}
+                type="button"
+                onClick={() => setSelection({ kind: 'dock', id: dock.id })}
+                className={cx(
+                  'w-full rounded-lg border px-2.5 py-2 text-left transition-all duration-150',
+                  active
+                    ? 'border-ink-500 bg-ink-750/70'
+                    : 'border-ink-700/70 bg-ink-850/50 hover:border-ink-600',
+                )}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-[10.5px] font-semibold text-ink-100">
+                    {dock.label}
+                  </span>
+                  <span
+                    className="chip !normal-case !tracking-normal !text-[9px]"
+                    style={{ color: accent, borderColor: `${accent}55` }}
+                  >
+                    {DOCK_FLOW_LABEL[dock.flow]}
+                  </span>
+                  <span className="flex-1" />
+                  <span className="flex flex-wrap justify-end gap-1">
+                    {dock.outbound.channels.map((channel) => (
+                      <span
+                        key={channel}
+                        className="h-2 w-2 rounded-sm"
+                        title={channel}
+                        style={{ background: CHANNEL_HEX[channel] }}
+                      />
+                    ))}
+                  </span>
+                </div>
+
+                <div className="mt-1.5">
+                  <Bar
+                    value={dock.progress}
+                    color={dock.outbound.full ? palette.critical : accent}
+                  />
+                </div>
+
+                <div className="mt-1.5 flex items-center gap-3 font-mono text-[9.5px] tabular-nums text-ink-400">
+                  <span>{dock.outbound.enRoute} on belt</span>
+                  <span className="text-ink-600">›</span>
+                  <span className={dock.outbound.staged > 0 ? 'text-[var(--viz-warning)]' : undefined}>
+                    {dock.outbound.staged}/{dock.outbound.capacity} loaded
+                  </span>
+                  <span className="text-ink-600">›</span>
+                  <span className={dock.outbound.dispatched > 0 ? 'text-[var(--viz-good)]' : undefined}>
+                    {dock.outbound.dispatched} shipped
+                  </span>
+                  <span className="flex-1" />
+                  <span>{dock.outbound.trailers} trailers</span>
+                </div>
+
+                <div className="mt-0.5 truncate text-[9.5px] text-ink-500">{dock.headline}</div>
+              </button>
+            )
+          })}
         </div>
       </Card>
 

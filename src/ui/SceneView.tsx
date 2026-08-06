@@ -1,7 +1,9 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { PutawayWalker } from '../inbound/walker'
-import { WarehouseScene } from '../scene/WarehouseScene'
+import { WarehouseScene, type SceneHover } from '../scene/WarehouseScene'
+import { dockActivityOf } from '../simulation/dockActivity'
 import { useAppStore } from '../store/useAppStore'
+import { DockHoverCard } from './DockHoverCard'
 import { Inspector } from './Inspector'
 
 /** Pushing a loaded pallet is slower than walking a pick round. */
@@ -20,6 +22,11 @@ export function SceneView() {
 
   const model = useAppStore((s) => s.model)
   const status = useAppStore((s) => s.status)
+  /**
+   * What the pointer is over. Local state, not the store: a hover is a property
+   * of this canvas and nothing outside it needs to re-render when it changes.
+   */
+  const [hover, setHover] = useState<SceneHover>(null)
 
   useEffect(() => {
     const container = containerRef.current
@@ -29,7 +36,7 @@ export function SceneView() {
       container,
       {
         onSelect: (selection) => useAppStore.getState().setSelection(selection),
-        onHoverChange: () => {},
+        onHover: setHover,
       },
       useAppStore.getState().theme,
     )
@@ -101,6 +108,18 @@ export function SceneView() {
         metricsAccumulator = 0
         if (engine) state.publishMetrics()
         if (walker) state.publishWalker(walker.state)
+        /*
+         * Dock doors ride the metrics tick rather than the frame.
+         *
+         * Read *after* the publish, so the boards on the doors are drawn from the
+         * same snapshot the dashboard is showing — a door claiming a parcel count
+         * the panel beside it disagrees with would be worse than no board at all.
+         * The shutters and lamps interpolate on their own clock in `frame`.
+         */
+        const published = useAppStore.getState()
+        scene.syncDocks(
+          dockActivityOf(published.model, published.metrics, published.receipts),
+        )
       }
     }
     raf = requestAnimationFrame(loop)
@@ -112,6 +131,7 @@ export function SceneView() {
         s.showPaths !== prev.showPaths ||
         s.showSequence !== prev.showSequence ||
         s.showParcels !== prev.showParcels ||
+        s.showOccupancy !== prev.showOccupancy ||
         s.binColorMode !== prev.binColorMode ||
         s.focusAgentId !== prev.focusAgentId
       ) {
@@ -119,6 +139,7 @@ export function SceneView() {
           showPaths: s.showPaths,
           showSequence: s.showSequence,
           showParcels: s.showParcels,
+          showOccupancy: s.showOccupancy,
           binColorMode: s.binColorMode,
           focusAgentId: s.focusAgentId,
         })
@@ -167,6 +188,7 @@ export function SceneView() {
       showPaths: initial.showPaths,
       showSequence: initial.showSequence,
       showParcels: initial.showParcels,
+      showOccupancy: initial.showOccupancy,
       binColorMode: initial.binColorMode,
       focusAgentId: initial.focusAgentId,
     })
@@ -192,6 +214,7 @@ export function SceneView() {
           <p className="text-xs text-ink-400">Generating warehouse & navigation graph…</p>
         </div>
       )}
+      <DockHoverCard sceneRef={sceneRef} hover={hover} />
       <Inspector sceneRef={sceneRef} />
     </div>
   )
