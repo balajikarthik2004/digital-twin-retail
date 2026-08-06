@@ -70,9 +70,15 @@ const CHANNEL_SEQUENCE: Order['channel'][] = [
 
 /** Minimum spacing between parcels on the belt, metres. */
 const MIN_GAP = 1.15
-/** Parcels per trailer, and how long a part-full trailer waits before it seals. */
-const TRAILER_CAPACITY = 16
-const TRAILER_DWELL = 240
+/**
+ * Parcels per trailer, and how long a part-full trailer waits before it seals.
+ *
+ * Exported because a door's loading progress is only meaningful against them:
+ * "6 staged" says nothing on its own, "6 of 16, sealing in 2m 10s" is the state
+ * of the door. The dock inspector reads both.
+ */
+export const TRAILER_CAPACITY = 16
+export const TRAILER_DWELL = 240
 /** Walking pace when parcels are hand-trucked instead of conveyed, m/s. */
 const MANUAL_SPEED = 1.05
 /** Extra seconds of load/unload handling on a hand-trucked parcel. */

@@ -7,6 +7,13 @@ const GEO = {
   torso: new THREE.CapsuleGeometry(0.19, 0.4, 6, 12),
   head: new THREE.SphereGeometry(0.14, 16, 12),
   vest: new THREE.CylinderGeometry(0.24, 0.26, 0.34, 14, 1, true),
+  // Hard hat: a dome plus a brim. Worn in the identity colour, so it doubles as
+  // a second read on who a picker is from directly overhead — where the shoulder
+  // vest is the only other thing you can see.
+  hatDome: new THREE.SphereGeometry(0.155, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2),
+  hatBrim: new THREE.CylinderGeometry(0.185, 0.185, 0.022, 16),
+  /** Reflective band, sized to sit just outside the vest it wraps. */
+  band: new THREE.CylinderGeometry(0.262, 0.268, 0.045, 14, 1, true),
   limb: new THREE.CapsuleGeometry(0.058, 0.34, 4, 8),
   arm: new THREE.CapsuleGeometry(0.05, 0.3, 4, 8),
   tote: new THREE.BoxGeometry(0.42, 0.24, 0.3),
@@ -36,6 +43,15 @@ const MAT = {
   carton: new THREE.MeshStandardMaterial({ color: 0xa8783f, roughness: 0.9 }),
   pallet: new THREE.MeshStandardMaterial({ color: 0x8a6a42, roughness: 0.95 }),
   robot: new THREE.MeshStandardMaterial({ color: 0x222c39, roughness: 0.45, metalness: 0.4 }),
+  // Retro-reflective tape: near-white and glossy, so it catches the high bays
+  // from any angle exactly as the real thing does.
+  band: new THREE.MeshStandardMaterial({
+    color: 0xe8eef4,
+    roughness: 0.28,
+    metalness: 0.35,
+    emissive: 0x1a2028,
+    side: THREE.DoubleSide,
+  }),
 }
 
 export interface PickerVisual {
@@ -151,7 +167,20 @@ export function createPickerVisual(
     head.position.y = 0.62
     head.castShadow = true
 
-    hips.add(torso, vest, head)
+    const bandLower = new THREE.Mesh(GEO.band, MAT.band)
+    bandLower.position.y = 0.21
+    const bandUpper = new THREE.Mesh(GEO.band, MAT.band)
+    bandUpper.position.y = 0.38
+
+    const hat = new THREE.Group()
+    hat.position.y = 0.7
+    const hatDome = new THREE.Mesh(GEO.hatDome, accent)
+    hatDome.castShadow = true
+    const hatBrim = new THREE.Mesh(GEO.hatBrim, accent)
+    hatBrim.position.y = 0.012
+    hat.add(hatDome, hatBrim)
+
+    hips.add(torso, vest, bandLower, bandUpper, head, hat)
 
     // Legs pivot at the hip so the walk cycle is a simple rotation.
     for (const dx of [-0.1, 0.1]) {

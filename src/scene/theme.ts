@@ -6,11 +6,16 @@ export interface SceneTheme {
   background: number
   fog: number
   floor: number
-  /** Grid line colour baked into the floor texture. */
+  /** 1 m scale grid baked into the floor texture. */
   floorGrid: string
+  /** Saw-cut slab joint every {@link SLAB_METRES}, and the concrete's tooth. */
+  floorJoint: string
+  floorSpeckle: string
   aisleLane: number
   rackUpright: number
   rackDeck: number
+  /** Front edge of every shelf level — the beam face of the racking. */
+  rackBeam: number
   dock: number
   dockDoor: number
   packTop: number
@@ -37,6 +42,29 @@ export interface SceneTheme {
     /** The runners-up on the shortlist. */
     candidate: number
   }
+  /**
+   * The building the racking stands in: walls, roof steel, high-bay lighting and
+   * the painted floor markings.
+   *
+   * Deliberately achromatic. Every hue in this scene is already spoken for by
+   * data — velocity tiers, aisle zones, sales channels, picker identity — so the
+   * envelope carries none of its own and can never be read as a category. The
+   * one exception is the lamp colour, which is a light source, not a swatch.
+   */
+  shell: {
+    wall: number
+    /** Darker impact skirt around the base of every wall. */
+    wallBase: number
+    ceiling: number
+    truss: number
+    /** High-bay fixture housing, and how hard its lens reads as a light source. */
+    fixture: number
+    fixtureLens: number
+    fixtureEmissive: number
+    /** Painted safety lanes and the pedestrian walkway across the apron. */
+    marking: number
+    markingOpacity: number
+  }
   /** Outbound conveyor: frame steel, belt surface and its moulded cleats. */
   conveyor: {
     frame: number
@@ -50,6 +78,18 @@ export interface SceneTheme {
   parcel: {
     carton: number
     tape: number
+  }
+  /**
+   * Loose kit on the floor: wrapped pallets in the staging lanes, and the rubber
+   * fittings around a dock door. Scenery, so achromatic or material-coloured.
+   */
+  props: {
+    pallet: number
+    carton: number
+    /** Stretch wrap — translucent, so it reads as film over the cases. */
+    wrap: number
+    wrapOpacity: number
+    rubber: number
   }
   /** Pack bench furniture: the packer's hi-vis, and the andon beacon states. */
   pack: {
@@ -69,6 +109,12 @@ export interface SceneTheme {
     fillColor: number
     fillIntensity: number
     exposure: number
+    /**
+     * Weight of the image-based ambient (a PMREM of a neutral room). This is what
+     * puts a believable falloff on the rack steel and the conveyor frames —
+     * directional lights alone leave metal reading as flat grey paint.
+     */
+    envIntensity: number
   }
   /** Canvas-sprite styling for facility, aisle and pick-sequence labels. */
   label: {
@@ -100,10 +146,13 @@ const LIGHT: SceneTheme = {
   // dark one, and painting light surfaces then over-lighting them blows the
   // whole floor out to flat white under ACES tone mapping.
   floor: 0xb9c2cd,
-  floorGrid: 'rgba(60,80,100,0.22)',
+  floorGrid: 'rgba(60,80,100,0.14)',
+  floorJoint: 'rgba(46,62,80,0.34)',
+  floorSpeckle: 'rgba(38,52,68,0.10)',
   aisleLane: 0xc9d2dc,
   rackUpright: 0x4f5c6e,
   rackDeck: 0x707e8f,
+  rackBeam: 0x5b6879,
   dock: 0x8b97a5,
   dockDoor: 0x2b6cb0,
   packTop: 0x1f8a66,
@@ -114,6 +163,18 @@ const LIGHT: SceneTheme = {
   ribbonPlan: 0.4,
   ribbonWalked: 1,
   putaway: { route: 0x9a3412, routeOpacity: 0.85, target: 0x7c2d12, candidate: 0x4a3aa7 },
+  shell: {
+    wall: 0xdde3ea,
+    wallBase: 0x93a0af,
+    ceiling: 0xcdd5dd,
+    truss: 0x8b98a8,
+    fixture: 0x8e9aa8,
+    fixtureLens: 0xfffdf4,
+    // A daylit building barely shows its lamps; the housings still read as steel.
+    fixtureEmissive: 0.55,
+    marking: 0xfafbfc,
+    markingOpacity: 0.92,
+  },
   conveyor: {
     frame: 0x5b6879,
     leg: 0x6f7c8c,
@@ -122,6 +183,13 @@ const LIGHT: SceneTheme = {
     chute: '#8c98a7',
   },
   parcel: { carton: 0xc59355, tape: 0xe8dcc6 },
+  props: {
+    pallet: 0x9b7a4e,
+    carton: 0xbe8f56,
+    wrap: 0xdfe7ee,
+    wrapOpacity: 0.24,
+    rubber: 0x2c333c,
+  },
   pack: {
     packer: 0xeda100,
     bench: 0x8b97a5,
@@ -133,12 +201,17 @@ const LIGHT: SceneTheme = {
   lights: {
     skyColor: 0xffffff,
     groundColor: 0xb4c0ce,
-    hemiIntensity: 1.05,
+    // Trimmed when the image-based ambient came in, so total illumination — and
+    // therefore the tone-mapped floor — is unchanged; the IBL replaces part of
+    // the flat hemisphere with light that has direction to it.
+    hemiIntensity: 0.9,
     sunColor: 0xfff6e8,
     sunIntensity: 1.25,
     fillColor: 0xd2e2f2,
     fillIntensity: 0.35,
     exposure: 0.92,
+    // Daylit: the sun already carries the scene, so the ambient stays a whisper.
+    envIntensity: 0.3,
   },
   label: { color: '#1b2430', background: 'rgba(255,255,255,0.94)', border: 'rgba(27,36,48,0.22)' },
   aisleLabel: { color: '#0b5c73', background: 'rgba(255,255,255,0.96)', border: 'rgba(15,116,144,0.45)' },
@@ -150,10 +223,13 @@ const DARK: SceneTheme = {
   background: 0x080b11,
   fog: 0x080b11,
   floor: 0x171e28,
-  floorGrid: 'rgba(140,170,200,0.16)',
+  floorGrid: 'rgba(140,170,200,0.10)',
+  floorJoint: 'rgba(150,180,212,0.22)',
+  floorSpeckle: 'rgba(170,196,224,0.07)',
   aisleLane: 0x1f2836,
   rackUpright: 0x4d5d71,
   rackDeck: 0x2a3442,
+  rackBeam: 0x3c4a5c,
   dock: 0x243244,
   dockDoor: 0x2f7d8c,
   packTop: 0x3d7f6d,
@@ -164,6 +240,18 @@ const DARK: SceneTheme = {
   ribbonPlan: 0.22,
   ribbonWalked: 0.95,
   putaway: { route: 0xf59e0b, routeOpacity: 0.9, target: 0xfab219, candidate: 0x9085e9 },
+  shell: {
+    wall: 0x1a2230,
+    wallBase: 0x0c111a,
+    ceiling: 0x141b25,
+    truss: 0x2b3644,
+    fixture: 0x27313e,
+    fixtureLens: 0xfff3d6,
+    // A night shift is lit by its own high bays, so the lenses have to carry it.
+    fixtureEmissive: 1.35,
+    marking: 0x8b9db3,
+    markingOpacity: 0.58,
+  },
   conveyor: {
     frame: 0x38445a,
     leg: 0x2b3646,
@@ -172,6 +260,13 @@ const DARK: SceneTheme = {
     chute: '#48566b',
   },
   parcel: { carton: 0xb07f45, tape: 0xd8ccb6 },
+  props: {
+    pallet: 0x7d613d,
+    carton: 0xa07641,
+    wrap: 0x9fb3c6,
+    wrapOpacity: 0.2,
+    rubber: 0x141a21,
+  },
   pack: {
     packer: 0xc98500,
     bench: 0x2a3549,
@@ -183,12 +278,15 @@ const DARK: SceneTheme = {
   lights: {
     skyColor: 0xa8cbe8,
     groundColor: 0x161d27,
-    hemiIntensity: 1.55,
+    // Same trade as the light theme; see the note there.
+    hemiIntensity: 1.35,
     sunColor: 0xe6f2ff,
     sunIntensity: 1.9,
     fillColor: 0x8fbadd,
     fillIntensity: 0.6,
     exposure: 1.22,
+    // A dark interior leans on bounced light, so the ambient carries more of it.
+    envIntensity: 0.5,
   },
   label: { color: '#e6edf5', background: 'rgba(9,13,20,0.82)', border: 'rgba(255,255,255,0.18)' },
   aisleLabel: { color: '#7dd3fc', background: 'rgba(13,20,29,0.9)', border: 'rgba(34,211,238,0.35)' },

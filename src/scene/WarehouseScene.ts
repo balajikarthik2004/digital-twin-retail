@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'
 import type { WalkerState } from '../inbound/walker'
 import type { Route } from '../pathfinding/types'
 import type { PackStation, Parcel, PickerAgent } from '../simulation/types'
@@ -109,6 +110,22 @@ const DEFAULT_OPTIONS: SceneOptions = {
 /** Max numbered markers rendered for the focused route. */
 const MAX_MARKERS = 60
 
+/** Metres below the roof deck at which the roof steel stops being drawn. */
+const ROOF_CUT = 1.6
+
+/**
+ * Fog is the building's air, and air only hazes what you look *through* it at.
+ *
+ * At aisle level the far end of the module is 60-70 m of air away and should fade;
+ * from a plan view 80 m up you are looking *down at* the floor through almost
+ * none of it, so the same fog range washes the whole layout out into a flat milky
+ * sheet — exactly where crisp is what a plan view is for. So the range is pushed
+ * out as the camera climbs: eye height gets the full effect, an overview keeps a
+ * little depth at the far wall, and straight down gets none.
+ */
+const EYE_LEVEL = 1.7
+const FOG_LIFT = 1.2
+
 /**
  * Owns the WebGL scene. Intentionally has no React or store dependency: the
  * host calls `frame(dt, agents)` once per animation frame with live agent state
@@ -132,6 +149,8 @@ export class WarehouseScene {
   private hemiLight: THREE.HemisphereLight
   private dirLight: THREE.DirectionalLight
   private fillLight: THREE.DirectionalLight
+  /** Image-based ambient, built once and shared by both themes. */
+  private envMap: THREE.Texture | null = null
 
   private pickers = new Map<string, PickerVisual>()
   private planRibbons = new Map<string, PathRibbon>()
@@ -156,6 +175,8 @@ export class WarehouseScene {
 
   private tween = new CameraTween()
   private preset: CameraPresetId = 'overview'
+  /** Fog range at eye level; {@link EYE_LEVEL} explains how it is lifted. */
+  private fogBase = { near: 60, far: 260 }
 
   /** Keys currently held, and the axes they add up to. */
   private heldKeys = new Set<string>()
@@ -190,7 +211,10 @@ export class WarehouseScene {
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping
     this.renderer.toneMappingExposure = this.theme.lights.exposure
     this.renderer.shadowMap.enabled = true
-    this.renderer.shadowMap.type = THREE.PCFShadowMap
+    // Soft shadows: a warehouse is lit by broad high bays, and a hard-edged
+    // stencil under every picker is the single biggest tell that a scene is
+    // synthetic. The cost is one extra tap group per shadow sample.
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap
     this.renderer.domElement.style.display = 'block'
     this.renderer.domElement.style.outline = 'none'
     this.renderer.domElement.style.position = 'absolute'
@@ -202,6 +226,14 @@ export class WarehouseScene {
 
     this.scene.background = new THREE.Color(this.theme.background)
     this.scene.fog = new THREE.Fog(this.theme.fog, 60, 260)
+
+    // Pre-filtered radiance from a neutral room. Generated once, kept for the
+    // life of the scene, and re-weighted rather than rebuilt on a theme swap.
+    const pmrem = new THREE.PMREMGenerator(this.renderer)
+    this.envMap = pmrem.fromScene(new RoomEnvironment(), 0.04).texture
+    pmrem.dispose()
+    this.scene.environment = this.envMap
+    this.scene.environmentIntensity = this.theme.lights.envIntensity
 
     this.camera = new THREE.PerspectiveCamera(
       52,
@@ -226,7 +258,12 @@ export class WarehouseScene {
     this.dirLight = new THREE.DirectionalLight(L.sunColor, L.sunIntensity)
     this.dirLight.castShadow = true
     this.dirLight.shadow.mapSize.set(2048, 2048)
-    this.dirLight.shadow.bias = -0.0006
+    this.dirLight.shadow.bias = -0.0004
+    // Offsetting along the surface normal instead of leaning on depth bias alone
+    // is what stops thin geometry — shelf decks, forks, roof chords — from
+    // shadowing itself into stripes.
+    this.dirLight.shadow.normalBias = 0.035
+    this.dirLight.shadow.radius = 2.4
     this.scene.add(this.dirLight, this.dirLight.target)
 
     this.fillLight = new THREE.DirectionalLight(L.fillColor, L.fillIntensity)
@@ -283,9 +320,10 @@ export class WarehouseScene {
     cam.far = span * 3
     cam.updateProjectionMatrix()
 
-    const fog = this.scene.fog as THREE.Fog
-    fog.near = span * 0.5
-    fog.far = span * 3.2
+    // Eye-level range: the far end of the module is on the edge of hazing, and
+    // anything beyond the building has gone. `updateFog` lifts it with altitude.
+    this.fogBase = { near: span * 0.55, far: span * 3.2 }
+    this.updateFog()
 
     this.controls.maxDistance = span * 2.6
     this.applyPreset('overview', 0)
@@ -331,6 +369,7 @@ export class WarehouseScene {
     const L = this.theme.lights
 
     this.renderer.toneMappingExposure = L.exposure
+    this.scene.environmentIntensity = L.envIntensity
     ;(this.scene.background as THREE.Color).set(this.theme.background)
     ;(this.scene.fog as THREE.Fog).color.set(this.theme.fog)
 
@@ -497,8 +536,19 @@ export class WarehouseScene {
    * takes on its new SKU's colour, and the camera drops to shelf level so the
    * bin that just changed is the thing you are looking at.
    */
+  /**
+   * Re-read on-hand levels across the whole facility.
+   *
+   * A location's height is how full it is, so anything that moves stock without
+   * a pick or a putaway behind it — a shift reset restoring opening on-hand — has
+   * to be pushed in, or the racking stays drawn as it was at the end of the run.
+   */
+  refreshStockLevels(): void {
+    this.visual?.refreshAllBins()
+  }
+
   markPlaced(binId: string): void {
-    this.visual?.recolorBin(binId)
+    this.visual?.refreshBin(binId)
     this.putawayRibbon?.hide()
     this.clearPutawayTints()
     this.putawayTints.set(binId, this.theme.putaway.target)
@@ -816,8 +866,38 @@ export class WarehouseScene {
 
     this.syncAgents(agents, dt)
     this.syncPackLine(packLine, dt)
+    this.syncRoof()
+    this.updateFog()
     this.controls.update()
     this.renderer.render(this.scene, this.camera)
+  }
+
+  /**
+   * Drop the roof steel once the camera is above it.
+   *
+   * Walls and the ceiling deck are single-sided and face inwards, so they
+   * disappear on their own from outside. The trusses and high bays are solid
+   * boxes and would otherwise sit between an overhead camera and the floor —
+   * which is the one view where seeing the whole pick path is the entire point.
+   *
+   * The cut is the underside of the roof steel, not the deck: a camera level with
+   * the trusses is looking through a thicket of chords and light housings, so it
+   * is treated as being above the roof rather than under it.
+   */
+  private syncRoof(): void {
+    const visual = this.visual
+    if (!visual) return
+    const visible = this.camera.position.y < visual.roofHeight - ROOF_CUT
+    if (visual.roof.visible !== visible) visual.roof.visible = visible
+  }
+
+  /** Push the fog range out as the camera climbs — see {@link EYE_LEVEL}. */
+  private updateFog(): void {
+    const fog = this.scene.fog as THREE.Fog | null
+    if (!fog) return
+    const lift = Math.max(0, this.camera.position.y - EYE_LEVEL) * FOG_LIFT
+    fog.near = this.fogBase.near + lift
+    fog.far = this.fogBase.far + lift
   }
 
   private syncPackLine(frame: PackLineFrame | null, dt: number): void {
@@ -966,6 +1046,11 @@ export class WarehouseScene {
       for (const wp of agent.route.waypoints) {
         const done = wp.sequence <= agent.nextWaypoint
         visual.tintBin(wp.stop.ref, done ? this.theme.binDone : agent.color)
+        // A serviced stop has had stock taken off it, so its box has to come
+        // down. The signature this pass is gated on only goes stale when a
+        // waypoint is completed, which is exactly when that is true — so this
+        // costs one matrix write per pick, not a sweep of the racking.
+        if (done) visual.refreshBin(wp.stop.ref)
       }
     }
 
@@ -1163,6 +1248,9 @@ export class WarehouseScene {
     this.markerPool = []
     this.visual?.dispose()
     this.packLine?.dispose()
+    this.scene.environment = null
+    this.envMap?.dispose()
+    this.envMap = null
     this.selectionBox.geometry.dispose()
     ;(this.selectionBox.material as THREE.Material).dispose()
     this.renderer.dispose()

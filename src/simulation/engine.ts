@@ -13,6 +13,7 @@ import type {
   PackStation,
   Parcel,
   PickerAgent,
+  PickTask,
   SimEvent,
   SimMetrics,
   SimSettings,
@@ -1026,6 +1027,43 @@ export class SimulationEngine {
 
   // ── metrics snapshot ──────────────────────────────────────────────────────
 
+  /**
+   * The picker's tour as a task list.
+   *
+   * Built from the route rather than from the orders, because the route is what
+   * the picker is actually walking: a batched tour interleaves lines from several
+   * orders, and the sequence a strategy chose is the whole point of the exercise.
+   * `nextWaypoint` is the count of serviced stops, so it is also the index of the
+   * one being worked on right now.
+   */
+  private taskList(agent: PickerAgent): PickTask[] {
+    const route = agent.route
+    if (!route) return []
+    const refById = new Map(agent.orders.map((o) => [o.id, o.ref]))
+
+    return route.waypoints.map((wp) => {
+      const bin = this.model.binsById.get(wp.stop.ref)
+      const data = wp.stop.data as StopData | undefined
+      return {
+        sequence: wp.sequence,
+        binId: wp.stop.ref,
+        code: bin?.code ?? wp.stop.ref,
+        aisle: bin?.aisle ?? 0,
+        sku: bin?.sku.id ?? '—',
+        skuName: bin?.sku.name ?? 'Unknown line',
+        qty: data?.qty ?? 0,
+        orderRef: (data && refById.get(data.orderId)) ?? '—',
+        status:
+          wp.sequence <= agent.nextWaypoint
+            ? 'done'
+            : wp.sequence === agent.nextWaypoint + 1
+              ? 'current'
+              : 'pending',
+        arcLength: wp.arcLength,
+      }
+    })
+  }
+
   metrics(): SimMetrics {
     const elapsed = Math.max(this.time, 1e-3)
     const totalDistance = this.agents.reduce((s, a) => s + a.distanceTraveled, 0)
@@ -1060,6 +1098,14 @@ export class SimulationEngine {
       linesLoaded: a.linesLoaded,
       capacityLines: a.capacityLines,
       thoughts: a.thoughts.slice().reverse(),
+      tasks: this.taskList(a),
+      routeDistance: a.route?.distance ?? 0,
+      tourDistance: Math.max(0, a.distanceTraveled - a.tourStartDistance),
+      walkTime: a.walkTime,
+      pickTime: a.pickTime,
+      waitTime: a.waitTime,
+      idleTime: a.idleTime,
+      breakTime: a.breakTime,
     }))
 
     const pack = this.packLine.metrics(elapsed)

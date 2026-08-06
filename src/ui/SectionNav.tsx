@@ -1,5 +1,7 @@
+import type { ComponentType, SVGProps } from 'react'
 import { useAppStore, type AppSection } from '../store/useAppStore'
 import { cx } from './components/primitives'
+import { HistoryIcon, InboundIcon, OutboundIcon, SlidersIcon } from './components/icons'
 
 /**
  * Left-sidebar section switcher.
@@ -7,11 +9,16 @@ import { cx } from './components/primitives'
  * The order is the physical flow of goods, left to right: set the shift up,
  * take stock in, send orders out, then review what happened.
  */
-const SECTIONS: { id: AppSection; label: string; hint: string; glyph: string }[] = [
-  { id: 'ops', label: 'Ops', hint: 'Fleet, pack-out and scene options', glyph: '⚙' },
-  { id: 'inbound', label: 'Inbound', hint: 'Goods-in, free space and putaway', glyph: '↓' },
-  { id: 'outbound', label: 'Outbound', hint: 'Order waves and the pick queue', glyph: '↑' },
-  { id: 'history', label: 'History', hint: 'Everything received and shipped', glyph: '↻' },
+const SECTIONS: {
+  id: AppSection
+  label: string
+  hint: string
+  Icon: ComponentType<SVGProps<SVGSVGElement> & { size?: number }>
+}[] = [
+  { id: 'ops', label: 'Ops', hint: 'Fleet, pack-out and scene options', Icon: SlidersIcon },
+  { id: 'inbound', label: 'Inbound', hint: 'Goods-in, free space and putaway', Icon: InboundIcon },
+  { id: 'outbound', label: 'Outbound', hint: 'Order waves and the pick queue', Icon: OutboundIcon },
+  { id: 'history', label: 'History', hint: 'Everything received and shipped', Icon: HistoryIcon },
 ]
 
 export function SectionNav() {
@@ -50,15 +57,10 @@ export function SectionNav() {
                 : 'border-transparent text-ink-400 hover:bg-ink-750 hover:text-ink-100',
             )}
           >
-            <span
-              className={cx(
-                'block text-[13px] leading-none',
-                active ? 'text-accent-soft' : 'text-ink-500',
-              )}
-              aria-hidden
-            >
-              {s.glyph}
-            </span>
+            <s.Icon
+              size={14}
+              className={cx('mx-auto block', active ? 'text-accent-soft' : 'text-ink-500')}
+            />
             <span
               className={cx(
                 'mt-1 block text-[10px] font-semibold leading-none',

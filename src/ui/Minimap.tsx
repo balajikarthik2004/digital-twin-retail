@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { channelHex, sceneTheme, velocityHex } from '../scene/theme'
 import { useAppStore } from '../store/useAppStore'
 import { cx } from './components/primitives'
+import { CloseIcon, CollapseIcon, ExpandIcon } from './components/icons'
 import type { ThemeMode } from './theme'
 
 /** `0xrrggbb` -> `#rrggbb`, so canvas 2D can use the scene's own palette. */
@@ -229,16 +230,18 @@ export function Minimap() {
             onClick={() => toggle('minimapLarge')}
             className="btn btn-icon"
             title={large ? 'Shrink plan view' : 'Enlarge plan view'}
+            aria-label={large ? 'Shrink plan view' : 'Enlarge plan view'}
           >
-            {large ? '⤡' : '⤢'}
+            {large ? <CollapseIcon size={11} /> : <ExpandIcon size={11} />}
           </button>
           <button
             type="button"
             onClick={() => toggle('minimapOpen')}
             className="btn btn-icon"
-            title="Hide plan view"
+            title="Hide plan view (m)"
+            aria-label="Hide plan view"
           >
-            ✕
+            <CloseIcon size={11} />
           </button>
         </div>
       </header>

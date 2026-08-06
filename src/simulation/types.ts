@@ -218,6 +218,15 @@ export interface DockMetrics {
   dispatched: number
   trailers: number
   cartons: number
+  /** Cartons in the stack waiting on the pad right now. */
+  stagedCartons: number
+  /**
+   * Sim seconds the oldest currently-staged parcel landed, or 0 with an empty
+   * pad. This is what the door's dwell clock counts from — a part-full trailer
+   * seals on time, not on volume, so without it the door's progress cannot be
+   * shown honestly.
+   */
+  oldestStagedAt: number
 }
 
 export interface CompletedOrder {
@@ -315,6 +324,31 @@ export interface SimSettings {
   stockDepletion: boolean
 }
 
+/**
+ * One line on a picker's task list — the WMS view of the tour being walked.
+ *
+ * This is the same data the 3D view draws as numbered markers on the floor, in
+ * the form an operator would actually be handed it: location code, SKU, quantity
+ * and which order it belongs to, in visiting order. `sequence` matches the
+ * markers exactly, so a stop read off the panel can be found in the aisle.
+ */
+export interface PickTask {
+  /** 1-based visiting sequence, matching the numbered markers in the scene. */
+  sequence: number
+  binId: string
+  /** Operator-facing location code, e.g. `A03-R14-2B`. */
+  code: string
+  aisle: number
+  sku: string
+  skuName: string
+  qty: number
+  /** Customer-facing reference of the order this line belongs to. */
+  orderRef: string
+  status: 'done' | 'current' | 'pending'
+  /** Metres from the start of the tour to this stop. */
+  arcLength: number
+}
+
 export interface AgentMetrics {
   id: string
   label: string
@@ -338,6 +372,22 @@ export interface AgentMetrics {
   linesLoaded: number
   capacityLines: number
   thoughts: Thought[]
+  /** The current tour in visiting order; empty when the picker has no route. */
+  tasks: PickTask[]
+  /** Metres planned for the current tour, for planned-vs-actual on the tour. */
+  routeDistance: number
+  /** Metres walked on the current tour so far. */
+  tourDistance: number
+  /**
+   * Where the shift has actually gone, in seconds. Walking, picking and waiting
+   * are the three numbers that decide whether a layout or a staffing level is
+   * the problem, so they are published rather than rolled into utilisation.
+   */
+  walkTime: number
+  pickTime: number
+  waitTime: number
+  idleTime: number
+  breakTime: number
 }
 
 export interface SimMetrics {

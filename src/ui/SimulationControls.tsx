@@ -1,5 +1,6 @@
 import { useAppStore, type TimeScale } from '../store/useAppStore'
 import { Segmented, cx } from './components/primitives'
+import { PauseIcon, PlayIcon, ResetIcon } from './components/icons'
 import { clock } from './format'
 
 const TIME_SCALES: { value: TimeScale; label: string }[] = [
@@ -60,7 +61,8 @@ export function SimulationControls() {
           disabled={orders.length === 0}
           title={orders.length === 0 ? 'Queue some orders first' : 'Space'}
         >
-          {running ? '❙❙ Pause' : '▶ Run simulation'}
+          {running ? <PauseIcon size={11} /> : <PlayIcon size={11} />}
+          {running ? 'Pause' : 'Run simulation'}
         </button>
         <button
           type="button"
@@ -68,7 +70,8 @@ export function SimulationControls() {
           className="btn"
           title="Reset clock, agents and metrics"
         >
-          ↺ Reset
+          <ResetIcon size={12} />
+          Reset
         </button>
       </div>
     </div>

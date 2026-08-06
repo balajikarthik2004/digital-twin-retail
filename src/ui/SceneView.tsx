@@ -124,6 +124,10 @@ export function SceneView() {
         })
       }
       if (s.theme !== prev.theme) scene.setTheme(s.theme)
+      // On-hand levels moved facility-wide (a shift reset restoring opening
+      // stock, a putaway landing). Locations are drawn at the height of what is
+      // in them, so the racking has to be re-read.
+      if (s.stockVersion !== prev.stockVersion) scene.refreshStockLevels()
       if (s.selection !== prev.selection) scene.setSelection(s.selection)
       if (s.cameraPreset !== prev.cameraPreset) scene.applyPreset(s.cameraPreset)
 

@@ -2,6 +2,7 @@ import { useAppStore } from '../store/useAppStore'
 import { Bar, Card, EmptyState, StatTile, cx } from './components/primitives'
 import { ThroughputChart } from './charts/ThroughputChart'
 import { PackPanel } from './PackPanel'
+import { PickFlowPanel } from './PickFlowPanel'
 import { PHASE_LABEL, PHASE_TONE, metres, mmss, pct } from './format'
 import { chartPalette } from './theme'
 
@@ -159,10 +160,11 @@ export function MetricsPanel() {
         )}
       </Card>
 
-
+      {/* The operator's own view of the tour the scene is currently annotating. */}
+      <PickFlowPanel />
 
       <Card
-        title="Pickers"
+        title="Fleet"
         dense
         action={
           <span className="chip">
@@ -200,6 +202,11 @@ export function MetricsPanel() {
                   <span className={cx('text-[11px] font-medium', PHASE_TONE[agent.phase])}>
                     {PHASE_LABEL[agent.phase]}
                   </span>
+                  {focusAgentId === agent.id && (
+                    <span className="text-[8.5px] font-semibold uppercase tracking-wider text-accent-soft">
+                      following
+                    </span>
+                  )}
                   <span className="flex-1" />
                   <span className="font-mono text-[10px] tabular-nums text-ink-300">
                     {metres(agent.distance)}

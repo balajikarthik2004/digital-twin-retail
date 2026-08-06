@@ -174,6 +174,64 @@ describe('simulation engine', () => {
     expect(coarse.totalDistance).toBeCloseTo(fine.totalDistance, 1)
   })
 
+  it('publishes the tour as a task list in visiting order', () => {
+    const engine = new SimulationEngine(model, settings)
+    const orders = generateOrders(model, { count: 6, minLines: 4, maxLines: 6, arrivalPerMin: 60, seed: 11 })
+    engine.setOrders(orders)
+    engine.start()
+    for (let i = 0; i < 120; i++) engine.step(0.25)
+
+    const working = engine.metrics().agents.find((a) => a.tasks.length > 0)
+    expect(working).toBeDefined()
+    const tasks = working!.tasks
+
+    // One line per route stop, numbered to match the markers drawn in the scene.
+    expect(tasks).toHaveLength(working!.routeStops)
+    expect(tasks.map((t) => t.sequence)).toEqual(tasks.map((_, i) => i + 1))
+    // Monotonic along the route: the list is the walk, not a re-sort of it.
+    for (let i = 1; i < tasks.length; i++) {
+      expect(tasks[i].arcLength).toBeGreaterThanOrEqual(tasks[i - 1].arcLength)
+    }
+
+    // Exactly one instruction is in hand, and it is the stop after the last done.
+    const current = tasks.filter((t) => t.status === 'current')
+    expect(current).toHaveLength(1)
+    expect(current[0].sequence).toBe(working!.stopsDone + 1)
+    expect(tasks.filter((t) => t.status === 'done')).toHaveLength(working!.stopsDone)
+
+    // Every line resolves to a real location, SKU and quantity.
+    for (const task of tasks) {
+      expect(model.binsById.get(task.binId)?.code).toBe(task.code)
+      expect(task.qty).toBeGreaterThan(0)
+      expect(task.orderRef).not.toBe('—')
+      expect(working!.orderRefs).toContain(task.orderRef)
+    }
+  })
+
+  it('accounts for every second of the shift in the time split', () => {
+    const engine = new SimulationEngine(model, settings)
+    engine.setOrders(generateOrders(model, { count: 6, minLines: 3, maxLines: 5, arrivalPerMin: 60, seed: 12 }))
+    runToCompletion(engine)
+
+    const m = engine.metrics()
+    for (const agent of m.agents) {
+      const split = agent.walkTime + agent.pickTime + agent.waitTime + agent.idleTime + agent.breakTime
+      // The split is the shift, give or take the unload dwell at the pack bench,
+      // which is neither walking nor picking. It must never exceed the clock.
+      expect(split).toBeLessThanOrEqual(m.time + 1)
+      expect(split).toBeGreaterThan(m.time * 0.5)
+      expect(agent.walkTime).toBeGreaterThan(0)
+      expect(agent.pickTime).toBeGreaterThan(0)
+    }
+  })
+
+  it('empties the task list once a tour is finished', () => {
+    const engine = new SimulationEngine(model, settings)
+    engine.setOrders(generateOrders(model, { count: 4, minLines: 3, maxLines: 4, arrivalPerMin: 60, seed: 13 }))
+    runToCompletion(engine)
+    expect(engine.metrics().agents.every((a) => a.tasks.length === 0)).toBe(true)
+  })
+
   it('adds and removes pickers without losing work in flight', () => {
     const engine = new SimulationEngine(model, settings)
     const orders = generateOrders(model, { count: 10, minLines: 3, maxLines: 5, arrivalPerMin: 60, seed: 8 })

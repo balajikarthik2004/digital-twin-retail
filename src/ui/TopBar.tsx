@@ -1,6 +1,14 @@
 import { getStrategy } from '../pathfinding/strategies'
 import { useAppStore } from '../store/useAppStore'
 import { cx } from './components/primitives'
+import { clock } from './format'
+import {
+  MoonIcon,
+  PanelLeftIcon,
+  PanelRightIcon,
+  RackMarkIcon,
+  SunIcon,
+} from './components/icons'
 
 export function TopBar() {
   const layouts = useAppStore((s) => s.layouts)
@@ -11,6 +19,7 @@ export function TopBar() {
   const rightOpen = useAppStore((s) => s.rightOpen)
   const theme = useAppStore((s) => s.theme)
   const setTheme = useAppStore((s) => s.setTheme)
+  const metrics = useAppStore((s) => s.metrics)
 
   const selectLayout = useAppStore((s) => s.selectLayout)
   const toggle = useAppStore((s) => s.toggle)
@@ -23,9 +32,10 @@ export function TopBar() {
         type="button"
         onClick={() => toggle('leftOpen')}
         className={cx('btn btn-icon', leftOpen && 'text-accent-soft')}
-        title="Toggle controls panel"
+        title="Toggle controls panel ([)"
+        aria-label="Toggle controls panel"
       >
-        ☰
+        <PanelLeftIcon />
       </button>
 
       <div className="flex items-center gap-2.5">
@@ -34,15 +44,7 @@ export function TopBar() {
           style={{ background: 'rgb(var(--accent))' }}
         >
           {/* Racking mark — two shelf bays, the product's logo. */}
-          <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
-            <path
-              d="M2.5 14.5V6l3.2-2 3.2 2v8.5M9 14.5V8.4l3.2-2 3.2 2v6.1M2.5 10.2h6.4M9 11.6h6.4"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
+          <RackMarkIcon />
         </div>
         <div className="leading-tight">
           <div className="text-[13px] font-semibold tracking-tight text-ink-100">PickTwin</div>
@@ -77,6 +79,48 @@ export function TopBar() {
 
       <div className="flex-1" />
 
+      {/*
+        Shift status, always on. Both side panels can be collapsed for a clean
+        look at the floor, and an operations view that cannot tell you whether the
+        shift is even running is not one — so the clock, the run state and the
+        headline count live in the chrome as well as in the panels.
+      */}
+      {metrics && (
+        <div className="mr-1 flex items-center gap-2.5">
+          <span
+            className={cx(
+              'inline-flex items-center gap-1.5 rounded-lg border px-2 py-1 text-[10px] font-medium',
+              metrics.running ? 'pill-good' : 'border-ink-600 bg-ink-800 text-ink-400',
+            )}
+          >
+            <span
+              className={cx(
+                'h-1.5 w-1.5 rounded-full',
+                metrics.running ? 'animate-pulse bg-good' : 'bg-ink-500',
+              )}
+            />
+            {metrics.running ? 'Running' : metrics.time > 0 ? 'Paused' : 'Ready'}
+          </span>
+
+          <div className="leading-tight">
+            <div className="text-[9px] uppercase tracking-[0.12em] text-ink-400">Shift</div>
+            <div className="font-mono text-[12px] font-semibold tabular-nums text-ink-100">
+              {clock(metrics.time)}
+            </div>
+          </div>
+
+          <div className="hidden leading-tight lg:block">
+            <div className="text-[9px] uppercase tracking-[0.12em] text-ink-400">Shipped</div>
+            <div className="font-mono text-[12px] font-semibold tabular-nums text-ink-100">
+              {metrics.ordersCompleted}
+              <span className="text-ink-400">/{metrics.ordersTotal}</span>
+            </div>
+          </div>
+
+          <div className="mx-0.5 h-7 w-px bg-ink-700" />
+        </div>
+      )}
+
       <div className="flex items-center gap-2">
         <div className="hidden text-right leading-tight 2xl:block">
           <div className="text-[9.5px] uppercase tracking-[0.12em] text-ink-400">Routing</div>
@@ -90,35 +134,17 @@ export function TopBar() {
           title={`Switch to ${theme === 'light' ? 'dark' : 'light'} theme (t)`}
           aria-label="Toggle colour theme"
         >
-          {theme === 'light' ? (
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden>
-              <path
-                d="M13.2 10.4A5.6 5.6 0 0 1 5.6 2.8a5.6 5.6 0 1 0 7.6 7.6Z"
-                stroke="currentColor"
-                strokeWidth="1.4"
-                strokeLinejoin="round"
-              />
-            </svg>
-          ) : (
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden>
-              <circle cx="8" cy="8" r="3.1" stroke="currentColor" strokeWidth="1.4" />
-              <path
-                d="M8 1.4v1.7M8 12.9v1.7M1.4 8h1.7M12.9 8h1.7M3.3 3.3l1.2 1.2M11.5 11.5l1.2 1.2M12.7 3.3l-1.2 1.2M4.5 11.5l-1.2 1.2"
-                stroke="currentColor"
-                strokeWidth="1.4"
-                strokeLinecap="round"
-              />
-            </svg>
-          )}
+          {theme === 'light' ? <MoonIcon /> : <SunIcon />}
         </button>
 
         <button
           type="button"
           onClick={() => toggle('rightOpen')}
           className={cx('btn btn-icon', rightOpen && 'text-accent-soft')}
-          title="Toggle metrics panel"
+          title="Toggle metrics panel (])"
+          aria-label="Toggle metrics panel"
         >
-          ▤
+          <PanelRightIcon />
         </button>
       </div>
     </header>

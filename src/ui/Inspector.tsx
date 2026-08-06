@@ -3,6 +3,7 @@ import type { WarehouseScene } from '../scene/WarehouseScene'
 import { VELOCITY_LABEL, channelHex, velocityHex } from '../scene/theme'
 import { useAppStore } from '../store/useAppStore'
 import { Bar, cx } from './components/primitives'
+import { AlertIcon, CloseIcon, LocationIcon, SnapBackIcon } from './components/icons'
 import {
   PARCEL_STAGE_LABEL,
   PHASE_LABEL,
@@ -202,6 +203,7 @@ export function Inspector({ sceneRef }: { sceneRef: RefObject<WarehouseScene | n
   const parcel =
     selection.kind === 'parcel' ? metrics?.parcels.find((p) => p.id === selection.id) : null
   if (!bin && !agent && !parcel) return null
+  const currentTask = agent?.tasks.find((t) => t.status === 'current')
   const needsReplen = bin ? bin.sku.stock <= bin.sku.replenPoint : false
   const transit = parcel
     ? (parcel.stage === 'staged' ? parcel.stagedAt : (metrics?.time ?? 0)) - parcel.packedAt
@@ -277,16 +279,17 @@ export function Inspector({ sceneRef }: { sceneRef: RefObject<WarehouseScene | n
                     title="Snap back to the object"
                     aria-label="Snap card back to the object"
                   >
-                    ⇱
+                    <SnapBackIcon size={12} />
                   </button>
                 )}
                 <button
                   type="button"
                   onClick={() => setSelection(null)}
                   className="btn btn-icon text-ink-400"
+                  title="Close (Esc)"
                   aria-label="Close inspector"
                 >
-                  ✕
+                  <CloseIcon size={11} />
                 </button>
               </div>
             </div>
@@ -335,8 +338,9 @@ export function Inspector({ sceneRef }: { sceneRef: RefObject<WarehouseScene | n
                     color={needsReplen ? '#d03b3b' : VELOCITY_HEX[bin.sku.velocity]}
                   />
                   {needsReplen && (
-                    <div className="mt-1.5 rounded-md border border-crit/45 bg-crit/10 px-1.5 py-1 text-[9.5px] font-medium text-crit">
-                      ! At or below replen point — flagged for top-up
+                    <div className="mt-1.5 flex items-center gap-1.5 rounded-md border border-crit/45 bg-crit/10 px-1.5 py-1 text-[9.5px] font-medium text-crit">
+                      <AlertIcon size={10} className="shrink-0" />
+                      At or below replen point — flagged for top-up
                     </div>
                   )}
                 </div>
@@ -414,6 +418,38 @@ export function Inspector({ sceneRef }: { sceneRef: RefObject<WarehouseScene | n
                   </span>
                   <span className="chip !text-[9px]">{KIND_LABEL[agent!.kind]}</span>
                 </div>
+
+                {/* What this picker has been sent to do, right now. The full
+                    tour lives in the pick-task panel on the right rail; the card
+                    only ever carries the instruction in hand. */}
+                {currentTask && (
+                  <button
+                    type="button"
+                    onClick={() => setSelection({ kind: 'bin', id: currentTask.binId })}
+                    className="w-full rounded-md border border-ink-700 bg-ink-850/60 px-2 py-1.5 text-left transition-colors hover:border-ink-600 hover:bg-ink-750/60"
+                    title="Show this location"
+                  >
+                    <div className="flex items-baseline justify-between gap-2 text-[9px] uppercase tracking-wider text-ink-400">
+                      <span>Now picking</span>
+                      <span>
+                        stop {currentTask.sequence}/{agent!.tasks.length}
+                      </span>
+                    </div>
+                    <div className="mt-0.5 flex items-center gap-1.5">
+                      <LocationIcon size={11} className="shrink-0 text-ink-400" />
+                      <span className="truncate font-mono text-[11.5px] font-semibold text-ink-100">
+                        {currentTask.code}
+                      </span>
+                      <span className="flex-1" />
+                      <span className="shrink-0 font-mono text-[10px] tabular-nums text-ink-200">
+                        {currentTask.qty} ea
+                      </span>
+                    </div>
+                    <div className="mt-0.5 truncate text-[9.5px] text-ink-400">
+                      {currentTask.skuName}
+                    </div>
+                  </button>
+                )}
 
                 <div className="flex flex-wrap gap-1">
                   {agent!.orderRefs.length > 0 ? (

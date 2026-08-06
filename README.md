@@ -107,11 +107,15 @@ src/
 │   └── compare.ts        Route one wave through every strategy
 ├── scene/             Three.js only. Knows nothing about React or the store.
 │   ├── WarehouseScene.ts Renderer, camera, picking, trails, agent sync
-│   ├── buildWarehouse.ts Static geometry + 2,560-instance bin InstancedMesh
+│   ├── buildWarehouse.ts Slab, racking, dock kit + 2,560-instance bin InstancedMesh
+│   │                     (each location drawn at the height of what is in it)
+│   ├── shell.ts          Walls, roof steel, high-bay lighting, painted floor markings
 │   ├── packLineMesh.ts   Animated belts, packers, andon beacons, instanced parcels
 │   └── ribbon.ts         Thick floor path lines (LineBasicMaterial.linewidth is a no-op)
 ├── store/             Zustand — the only thing both React and the scene talk to
 ├── ui/                React overlay: panels, charts, inspector, plan view
+│   ├── PickFlowPanel.tsx The tour as the operator sees it: instruction, list, time split
+│   ├── components/       Primitives + the 16px icon set the chrome is drawn with
 │   └── theme.ts          Theme mode + the validated chart & picker palettes
 └── data/              layouts.json · sampleOrders.json · DataSource boundary
 ```
