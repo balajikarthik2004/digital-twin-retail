@@ -3,6 +3,7 @@ import { SAMPLE_ORDERS_DOC } from '../data'
 import { channelHex } from '../scene/theme'
 import type { Order } from '../simulation/types'
 import { useAppStore } from '../store/useAppStore'
+import type { WarehouseModel } from '../warehouse/types'
 import { Bar, Card, EmptyState, Segmented, StatTile, cx } from './components/primitives'
 import { mmss, pct } from './format'
 import { chartPalette } from './theme'
@@ -36,6 +37,7 @@ export function OutboundPanel() {
   const orders = useAppStore((s) => s.orders)
   const engine = useAppStore((s) => s.engine)
   const metrics = useAppStore((s) => s.metrics)
+  const model = useAppStore((s) => s.model)
   const theme = useAppStore((s) => s.theme)
   const palette = chartPalette(theme)
   const CHANNEL_HEX = channelHex(theme)
@@ -167,6 +169,7 @@ export function OutboundPanel() {
               <OrderRow
                 key={order.id}
                 order={order}
+                model={model}
                 stage={stages.get(order.id) ?? 'scheduled'}
                 channelColor={CHANNEL_HEX[order.channel]}
                 now={now}
@@ -188,43 +191,110 @@ export function OutboundPanel() {
 
 function OrderRow({
   order,
+  model,
   stage,
   channelColor,
   now,
 }: {
   order: Order
+  model: WarehouseModel | null
   stage: OrderStage
   channelColor: string
   now: number
 }) {
+  const [open, setOpen] = useState(false)
   const units = order.lines.reduce((s, l) => s + l.qty, 0)
   // Only meaningful while the order is still in the building.
   const late = stage !== 'shipped' && now > order.dueAt
 
+  const value = order.lines.reduce((sum, l) => {
+    const price = model?.binsById.get(l.binId)?.sku.price
+    return sum + (price ?? 0) * l.qty
+  }, 0)
+  const hasPricing = order.lines.some((l) => model?.binsById.get(l.binId)?.sku.price != null)
+
   return (
     <div className="rounded-md border border-ink-700/70 bg-ink-850/50 px-2 py-1.5">
-      <div className="flex items-center gap-2">
-        <span className="h-2 w-2 shrink-0 rounded-sm" style={{ background: channelColor }} />
-        <span className="font-mono text-[10.5px] font-medium text-ink-100">{order.ref}</span>
-        {order.priority === 'express' && (
-          <span className="chip !px-1 !py-0 !text-[8px] !text-[var(--viz-warning)]">express</span>
-        )}
-        <span className="flex-1" />
-        <span className={cx('text-[9.5px] font-medium', STAGE_TONE[stage])}>
-          {STAGE_LABEL[stage]}
-        </span>
-      </div>
-      <div className="mt-0.5 flex items-center gap-1.5 text-[9px] text-ink-400">
-        <span>{order.channel}</span>
-        <span className="text-ink-600">·</span>
-        <span>
-          {order.lines.length} lines · {units} ea
-        </span>
-        <span className="flex-1" />
-        <span className={cx('font-mono tabular-nums', late && 'text-[var(--viz-critical)]')}>
-          due {mmss(order.dueAt)}
-        </span>
-      </div>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full text-left"
+        aria-expanded={open}
+      >
+        <div className="flex items-center gap-2">
+          <span className="h-2 w-2 shrink-0 rounded-sm" style={{ background: channelColor }} />
+          <span className="font-mono text-[10.5px] font-medium text-ink-100">{order.ref}</span>
+          {order.priority === 'express' && (
+            <span className="chip !px-1 !py-0 !text-[8px] !text-[var(--viz-warning)]">express</span>
+          )}
+          <span className="flex-1" />
+          <span className={cx('text-[9.5px] font-medium', STAGE_TONE[stage])}>
+            {STAGE_LABEL[stage]}
+          </span>
+          <span
+            aria-hidden
+            className={cx(
+              'shrink-0 text-[9px] text-ink-500 transition-transform duration-150',
+              open && 'rotate-90',
+            )}
+          >
+            ›
+          </span>
+        </div>
+        <div className="mt-0.5 flex items-center gap-1.5 text-[9px] text-ink-400">
+          <span>{order.channel}</span>
+          <span className="text-ink-600">·</span>
+          <span>
+            {order.lines.length} lines · {units} ea
+          </span>
+          {hasPricing && (
+            <>
+              <span className="text-ink-600">·</span>
+              <span className="font-mono tabular-nums text-ink-300">${value.toFixed(2)}</span>
+            </>
+          )}
+          <span className="flex-1" />
+          <span className={cx('font-mono tabular-nums', late && 'text-[var(--viz-critical)]')}>
+            due {mmss(order.dueAt)}
+          </span>
+        </div>
+      </button>
+
+      {open && (
+        <div className="mt-1.5 space-y-1 border-t border-ink-700/60 pt-1.5">
+          {order.lines.map((line, i) => {
+            const bin = model?.binsById.get(line.binId)
+            return (
+              <div
+                key={`${line.binId}-${i}`}
+                className="rounded-md border border-ink-700/60 bg-ink-800/50 px-2 py-1.5"
+              >
+                <div className="truncate text-[10px] text-ink-100">{bin?.sku.name ?? line.sku}</div>
+                <div className="mt-1 grid grid-cols-[1.3fr_1.2fr_0.6fr_0.8fr] gap-2 text-[9px]">
+                  <div className="min-w-0">
+                    <div className="text-ink-500">ID</div>
+                    <div className="truncate font-mono text-ink-300">{bin?.sku.id ?? line.sku}</div>
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-ink-500">Category</div>
+                    <div className="truncate text-ink-300">{bin?.sku.category ?? '—'}</div>
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-ink-500">Qty</div>
+                    <div className="truncate font-mono tabular-nums text-ink-300">{line.qty} ea</div>
+                  </div>
+                  <div className="min-w-0 text-right">
+                    <div className="text-ink-500">Price</div>
+                    <div className="truncate font-mono tabular-nums text-accent-soft">
+                      {bin ? `$${bin.sku.price.toFixed(2)}` : '—'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }

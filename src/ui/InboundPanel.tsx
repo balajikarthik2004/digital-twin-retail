@@ -553,6 +553,7 @@ function ReceiveStep() {
   const receipts = useAppStore((s) => s.receipts)
   const receiveLine = useAppStore((s) => s.receiveLine)
   const cancelPutaway = useAppStore((s) => s.cancelPutaway)
+  const model = useAppStore((s) => s.model)
   const VELOCITY_HEX = velocityHex(useAppStore((s) => s.theme))
 
   const receipt = receipts.find((r) => r.id === activeLine.receiptId)
@@ -570,26 +571,38 @@ function ReceiveStep() {
   const qty = Math.max(0, Math.round(Number(counted) || 0))
   const off = qty - line.expectedQty
   const valid = counted.trim() !== '' && Number.isFinite(Number(counted)) && qty >= 0
+  // Only a known SKU has a catalogue price — a line new to the facility does not.
+  const price = line.skuId ? model?.binBySku.get(line.skuId)?.sku.price : undefined
 
   return (
     <Card title="Count it in" dense action={<span className="chip">{receipt.ref}</span>}>
       <div className="rounded-lg border border-ink-700 bg-ink-850/60 p-2.5">
-        <div className="truncate text-[11.5px] font-medium text-ink-100">{line.name}</div>
-        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[9.5px] text-ink-400">
-          <span className="h-2 w-2 rounded-sm" style={{ background: VELOCITY_HEX[line.velocity] }} />
-          <span>{VELOCITY_LABEL[line.velocity]}</span>
-          <span className="text-ink-600">·</span>
-          <span>{line.category}</span>
-          {line.skuId && (
-            <>
-              <span className="text-ink-600">·</span>
-              <span className="font-mono">{line.skuId}</span>
-            </>
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0 truncate text-[11.5px] font-medium text-ink-100">{line.name}</div>
+          {price != null && (
+            <div className="shrink-0 rounded-md border border-accent/35 bg-accent/5 px-2 py-1 text-right">
+              <div className="font-mono text-[11.5px] font-semibold tabular-nums text-accent-soft">
+                ${price.toFixed(2)}
+              </div>
+              <div className="text-[8px] uppercase tracking-wider text-ink-500">unit price</div>
+            </div>
           )}
         </div>
-        <div className="mt-2 grid grid-cols-2 gap-2 text-[10px]">
-          <Metric label="Advised" value={`${line.expectedQty} ea`} />
+
+        <div className="mt-2.5 grid grid-cols-2 gap-x-3 gap-y-2 text-[10px]">
+          <Metric label="Category" value={line.category} />
+          <Metric
+            label="Velocity"
+            value={VELOCITY_LABEL[line.velocity]}
+            dot={VELOCITY_HEX[line.velocity]}
+          />
+          <Metric label="SKU / ID" value={line.skuId ?? 'New line'} />
+          <Metric label="Advised qty" value={`${line.expectedQty} ea`} />
           <Metric label="Supplier" value={receipt.supplier} />
+          <Metric
+            label="Line value"
+            value={price != null ? `$${(price * line.expectedQty).toFixed(2)}` : '—'}
+          />
         </div>
       </div>
 
@@ -1209,11 +1222,27 @@ function PlacedCard() {
   )
 }
 
-function Metric({ label, value }: { label: string; value: string }) {
+function Metric({
+  label,
+  value,
+  dot,
+}: {
+  label: string
+  value: string
+  /** Optional colour swatch shown before the value, e.g. a velocity tier. */
+  dot?: string
+}) {
   return (
     <div className="min-w-0">
       <div className="truncate text-ink-400">{label}</div>
-      <div className="truncate font-mono tabular-nums text-ink-100">{value}</div>
+      {dot ? (
+        <div className="mt-0.5 flex items-center gap-1.5">
+          <span className="h-2 w-2 shrink-0 rounded-sm" style={{ background: dot }} />
+          <span className="truncate font-mono tabular-nums text-ink-100">{value}</span>
+        </div>
+      ) : (
+        <div className="truncate font-mono tabular-nums text-ink-100">{value}</div>
+      )}
     </div>
   )
 }
