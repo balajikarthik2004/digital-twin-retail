@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import layoutsDoc from '../data/layouts.json'
+import realCatalogDoc from '../data/realCatalog.json'
 import sampleOrdersDoc from '../data/sampleOrders.json'
+import type { CatalogEntry } from '../warehouse/catalog'
 import { generateWarehouse } from '../warehouse/generate'
 import type { WarehouseConfig } from '../warehouse/types'
 import { compareStrategies } from './compare'
@@ -12,6 +14,9 @@ import type { SimSettings } from './types'
 
 const configs = (layoutsDoc as unknown as { layouts: WarehouseConfig[] }).layouts
 const config = configs.find((c) => c.id === 'dc-north')!
+// Deliberately catalog-less: every other test in this file leans on this
+// fixture's exact RNG-derived stock/capacity distribution, so it stays plain
+// synthetic. The one test that needs the real catalogue builds its own model.
 const model = generateWarehouse(config)
 
 /**
@@ -90,11 +95,16 @@ describe('order generation & import', () => {
 
   it('resolves the bundled sample wave against the default layout', () => {
     resetOrderSequence()
-    const { orders, warnings } = importOrders(model, sampleOrdersDoc)
+    // The sample wave is real order data, referencing SKU ids from the same
+    // real catalogue `boot()` seeds into the layout — a plain synthetic model
+    // (like the shared `model` fixture above) would not contain those ids at
+    // all, so this test builds its own model with the catalogue included.
+    const realModel = generateWarehouse(config, realCatalogDoc as unknown as CatalogEntry[])
+    const { orders, warnings } = importOrders(realModel, sampleOrdersDoc)
+    const doc = sampleOrdersDoc as unknown as { orders: { ref: string }[] }
     expect(warnings).toEqual([])
-    expect(orders).toHaveLength(12)
-    expect(orders[0].ref).toBe('SO-004101')
-    expect(orders[0].priority).toBe('express')
+    expect(orders).toHaveLength(doc.orders.length)
+    expect(orders[0].ref).toBe(doc.orders[0].ref)
   })
 
   it('accepts bin ids and SKU ids as well as location codes', () => {

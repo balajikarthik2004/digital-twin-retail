@@ -1,7 +1,12 @@
+import { importReceipts } from '../inbound/receipts'
+import type { Receipt } from '../inbound/types'
 import type { Order } from '../simulation/types'
 import { importOrders } from '../simulation/orderGenerator'
+import type { CatalogEntry } from '../warehouse/catalog'
 import type { WarehouseConfig, WarehouseModel } from '../warehouse/types'
 import layoutsDoc from './layouts.json'
+import realCatalogDoc from './realCatalog.json'
+import realReceiptsDoc from './realReceipts.json'
 import sampleOrdersDoc from './sampleOrders.json'
 
 /**
@@ -27,8 +32,12 @@ export interface DataSource {
   label: string
   listLayouts(): Promise<WarehouseConfig[]>
   defaultLayoutId(): Promise<string>
+  /** Real product identity to seed into a freshly generated layout's catalogue. */
+  loadCatalog(): Promise<CatalogEntry[]>
   /** Orders resolved against a generated model, so bin references can be validated. */
   loadOrders(model: WarehouseModel): Promise<Order[]>
+  /** Goods-in resolved against a generated model, so SKU references can be validated. */
+  loadReceipts(model: WarehouseModel): Promise<Receipt[]>
 }
 
 interface LayoutsDoc {
@@ -47,12 +56,25 @@ export const localSource: DataSource = {
   async defaultLayoutId() {
     return doc.defaultLayoutId
   },
+  async loadCatalog() {
+    return realCatalogDoc as unknown as CatalogEntry[]
+  },
   async loadOrders(model) {
     // Sample orders are hand-written against the default layout. On other
     // layouts some codes will not resolve, so fall back to generated demand.
     try {
       const { orders } = importOrders(model, sampleOrdersDoc)
       return orders
+    } catch {
+      return []
+    }
+  },
+  async loadReceipts(model) {
+    // Same fallback shape as loadOrders — real receipts are only good against
+    // the layout the real catalogue was seeded into.
+    try {
+      const { receipts } = importReceipts(model, realReceiptsDoc)
+      return receipts
     } catch {
       return []
     }

@@ -221,3 +221,125 @@ export function receiveLine(line: ReceiptLine, countedQty: number, at: number): 
   line.receivedAt = at
   line.status = 'received'
 }
+
+/** Shape accepted by the bulk receipts importer — mirrors `OrderImportShape`'s optionality. */
+export interface ReceiptLineImportShape {
+  /** Real SKU/barcode id. Omit or null for a line new to the facility. */
+  skuId?: string | null
+  /** Only used if `skuId` doesn't resolve to an existing bin. */
+  name?: string
+  category?: string
+  velocity?: VelocityTier
+  unitVolume?: number
+  expectedQty: number
+}
+
+export interface ReceiptImportShape {
+  id?: string
+  ref?: string
+  po?: string
+  supplier?: string
+  /** Sim seconds the trailer hit the goods-in door. */
+  arrivedAt?: number
+  unplanned?: boolean
+  lines: ReceiptLineImportShape[]
+}
+
+export interface ReceiptImportResult {
+  receipts: Receipt[]
+  warnings: string[]
+}
+
+/**
+ * Parse externally supplied goods-in — the receipts counterpart of
+ * `importOrders` in `simulation/orderGenerator.ts`, and deliberately as
+ * defensive: a line whose `skuId` doesn't resolve against the model is booked
+ * in as new to the facility rather than dropped (receiving a genuinely new
+ * SKU is already an ordinary, supported case), and nothing here throws on a
+ * partial mismatch — only when the whole document turns out to be unusable.
+ *
+ * Every imported line lands as `'expected'`, whatever the source document's
+ * own history says — the source may well already show it received or put
+ * away, but replaying that would skip the count-in → plan → putaway flow the
+ * Inbound tab exists to walk through.
+ */
+export function importReceipts(model: WarehouseModel, raw: unknown): ReceiptImportResult {
+  const warnings: string[] = []
+  const payload = Array.isArray(raw)
+    ? raw
+    : raw && typeof raw === 'object' && Array.isArray((raw as { receipts?: unknown[] }).receipts)
+      ? (raw as { receipts: unknown[] }).receipts
+      : null
+
+  if (!payload) {
+    throw new Error('Expected a JSON array of receipts, or an object with a "receipts" array.')
+  }
+
+  const receipts: Receipt[] = []
+  payload.forEach((entry, index) => {
+    const r = entry as ReceiptImportShape
+    if (!r || !Array.isArray(r.lines)) {
+      warnings.push(`Receipt #${index + 1} skipped: no "lines" array.`)
+      return
+    }
+
+    const lines: ReceiptLine[] = []
+    for (const line of r.lines) {
+      const qty = Math.max(1, Math.round(line.expectedQty ?? 1))
+      const bin = line.skuId ? model.binBySku.get(line.skuId) : undefined
+
+      if (bin) {
+        // A real top-up: the bin already knows its own name/category/velocity —
+        // trust that over anything the source document guessed. Velocity in
+        // particular is assigned by slotting at generation time, so an import
+        // document authored ahead of it cannot know it reliably.
+        lines.push(
+          expectedLine(
+            {
+              skuId: bin.sku.id,
+              name: bin.sku.name,
+              category: bin.sku.category,
+              velocity: bin.sku.velocity,
+              unitVolume: bin.sku.unitVolume,
+            },
+            qty,
+          ),
+        )
+        continue
+      }
+
+      if (line.skuId) {
+        warnings.push(`Receipt #${index + 1}: unknown SKU "${line.skuId}" — booked in as new to the facility.`)
+      }
+      if (!line.name || !line.category || !line.velocity) {
+        warnings.push(`Receipt #${index + 1}: a line was skipped — no matching SKU and not enough detail to book in as new.`)
+        continue
+      }
+      lines.push(
+        expectedLine(
+          { skuId: null, name: line.name, category: line.category, velocity: line.velocity, unitVolume: line.unitVolume ?? 1 },
+          qty,
+        ),
+      )
+    }
+
+    if (lines.length === 0) {
+      warnings.push(`Receipt #${index + 1} skipped: no resolvable lines.`)
+      return
+    }
+
+    receipts.push({
+      id: r.id ?? `grn-${receiptSeq}`,
+      ref: r.ref ?? r.id ?? `GRN-${String(100000 + receiptSeq).slice(1)}`,
+      po: r.po ?? '',
+      supplier: r.supplier ?? 'Unknown',
+      arrivedAt: Math.max(0, r.arrivedAt ?? 0),
+      unplanned: r.unplanned ?? false,
+      lines,
+    })
+    receiptSeq++
+  })
+
+  if (receipts.length === 0) throw new Error('No receipts could be resolved against this layout.')
+  return { receipts, warnings }
+}

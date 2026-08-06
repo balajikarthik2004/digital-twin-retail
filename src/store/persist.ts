@@ -19,9 +19,16 @@ import type { VelocityTier, WarehouseModel } from '../warehouse/types'
  * Bumped whenever the persisted shape changes. A version mismatch is discarded
  * rather than migrated — this is demo state, and a half-migrated receipt would
  * be worse than a clean start.
+ *
+ * Bumped to 3 when real product data was seeded into the catalogue: a
+ * `BinOverride` only ever stores name/category/velocity/unitVolume/stock —
+ * never a SKU's `id` or `price` — so a browser holding a v2 snapshot from
+ * before this change would silently glue an old synthetic name onto a new
+ * real barcode and price. Discarding it on load is a clean reset, not a loss —
+ * this is demo state.
  */
-const KEY = 'picktwin.inbound.v2'
-const VERSION = 2
+const KEY = 'picktwin.inbound.v3'
+const VERSION = 3
 /** Keeps the saved document small enough to never bump the ~5 MB quota. */
 const MAX_LOG = 250
 

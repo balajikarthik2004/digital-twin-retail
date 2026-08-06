@@ -1,0 +1,152 @@
+{
+  "receipts": [
+    {
+      "ref": "GRN-60-Aug26B44",
+      "po": "GRN-60-Aug26B44",
+      "supplier": "SU-HYD-WARANGAL HANUMAKONDA",
+      "unplanned": false,
+      "lines": [
+        {
+          "skuId": "8907546684997",
+          "name": "Style Union Mens Ethnic Legwear Black",
+          "category": "Mens Wear",
+          "unitVolume": 1.0,
+          "expectedQty": 5
+        },
+        {
+          "skuId": "8907546777712",
+          "name": "Style Union Girls Graphic Tees Grape Royale",
+          "category": "Kids Wear",
+          "unitVolume": 1.0,
+          "expectedQty": 10
+        },
+        {
+          "skuId": "8909001065877",
+          "name": "Style Union Girls Graphic Tees Lime Punch",
+          "category": "Kids Wear",
+          "unitVolume": 1.0,
+          "expectedQty": 5
+        },
+        {
+          "skuId": "8909001065884",
+          "name": "Style Union Girls Graphic Tees Lime Punch",
+          "category": "Kids Wear",
+          "unitVolume": 1.0,
+          "expectedQty": 10
+        },
+        {
+          "skuId": "8909001115657",
+          "name": "Style Union Womens Skirts Black",
+          "category": "Womens Westernwear",
+          "unitVolume": 1.0,
+          "expectedQty": 5
+        },
+        {
+          "skuId": "8909001115664",
+          "name": "Style Union Womens Skirts Black",
+          "category": "Womens Westernwear",
+          "unitVolume": 1.0,
+          "expectedQty": 10
+        },
+        {
+          "skuId": "8909001115688",
+          "name": "Style Union Womens Skirts Black",
+          "category": "Womens Westernwear",
+          "unitVolume": 1.0,
+          "expectedQty": 5
+        },
+        {
+          "skuId": "8909001124765",
+          "name": "Style Union Uss Knits Shaded Spruce",
+          "category": "Mens Wear",
+          "unitVolume": 1.0,
+          "expectedQty": 5
+        },
+        {
+          "skuId": "8909001124772",
+          "name": "Style Union Uss Knits Shaded Spruce",
+          "category": "Mens Wear",
+          "unitVolume": 1.0,
+          "expectedQty": 10
+        },
+        {
+          "skuId": "8909001124789",
+          "name": "Style Union Uss Knits Shaded Spruce",
+          "category": "Mens Wear",
+          "unitVolume": 1.0,
+          "expectedQty": 10
+        },
+        {
+          "skuId": "8909001283523",
+          "name": "Style Union Womens Tregging Black",
+          "category": "Womens Westernwear",
+          "unitVolume": 1.0,
+          "expectedQty": 5
+        },
+        {
+          "skuId": "8909001283578",
+          "name": "Style Union Womens Tregging Black",
+          "category": "Womens Westernwear",
+          "unitVolume": 1.0,
+          "expectedQty": 15
+        },
+        {
+          "skuId": "8909001284063",
+          "name": "Style Union Womens Tregging Black",
+          "category": "Womens Westernwear",
+          "unitVolume": 1.0,
+          "expectedQty": 10
+        },
+        {
+          "skuId": "8909001294765",
+          "name": "Style Union Womens Essential Tees Walnut",
+          "category": "Womens Westernwear",
+          "unitVolume": 1.0,
+          "expectedQty": 5
+        },
+        {
+          "skuId": "8909001309254",
+          "name": "Style Union Womens Active Legwear Black",
+          "category": "Womens Westernwear",
+          "unitVolume": 1.0,
+          "expectedQty": 5
+        },
+        {
+          "skuId": "8909001338759",
+          "name": "Style Union Boys Graphic Tees Aloe Wash",
+          "category": "Kids Wear",
+          "unitVolume": 1.0,
+          "expectedQty": 10
+        },
+        {
+          "skuId": "8909001339411",
+          "name": "Style Union Boys Graphic Tees Aloe Wash",
+          "category": "Kids Wear",
+          "unitVolume": 1.0,
+          "expectedQty": 5
+        },
+        {
+          "skuId": "8909001354520",
+          "name": "Style Union Boys Core Tees Black",
+          "category": "Kids Wear",
+          "unitVolume": 1.0,
+          "expectedQty": 5
+        },
+        {
+          "skuId": "8909001355145",
+          "name": "Style Union Boys Core Tees Black",
+          "category": "Kids Wear",
+          "unitVolume": 1.0,
+          "expectedQty": 5
+        },
+        {
+          "skuId": "8909001355503",
+          "name": "Style Union Boys Core Tees Pewter",
+          "category": "Kids Wear",
+          "unitVolume": 1.0,
+          "expectedQty": 5
+        }
+      ]
+    }
+  ]
+}

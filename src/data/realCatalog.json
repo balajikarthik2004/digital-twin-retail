@@ -1,0 +1,632 @@
+[
+  {
+    "id": "8907546684997",
+    "name": "Style Union Mens Ethnic Legwear Black",
+    "category": "Mens Wear",
+    "price": 8.42
+  },
+  {
+    "id": "8907546777712",
+    "name": "Style Union Girls Graphic Tees Grape Royale",
+    "category": "Kids Wear",
+    "price": 1.19
+  },
+  {
+    "id": "8909001065877",
+    "name": "Style Union Girls Graphic Tees Lime Punch",
+    "category": "Kids Wear",
+    "price": 1.19
+  },
+  {
+    "id": "8909001065884",
+    "name": "Style Union Girls Graphic Tees Lime Punch",
+    "category": "Kids Wear",
+    "price": 1.19
+  },
+  {
+    "id": "8909001115657",
+    "name": "Style Union Womens Skirts Black",
+    "category": "Womens Westernwear",
+    "price": 9.63
+  },
+  {
+    "id": "8909001115664",
+    "name": "Style Union Womens Skirts Black",
+    "category": "Womens Westernwear",
+    "price": 9.63
+  },
+  {
+    "id": "8909001115688",
+    "name": "Style Union Womens Skirts Black",
+    "category": "Womens Westernwear",
+    "price": 9.63
+  },
+  {
+    "id": "8909001124765",
+    "name": "Style Union Uss Knits Shaded Spruce",
+    "category": "Mens Wear",
+    "price": 2.4
+  },
+  {
+    "id": "8909001124772",
+    "name": "Style Union Uss Knits Shaded Spruce",
+    "category": "Mens Wear",
+    "price": 2.4
+  },
+  {
+    "id": "8909001124789",
+    "name": "Style Union Uss Knits Shaded Spruce",
+    "category": "Mens Wear",
+    "price": 2.4
+  },
+  {
+    "id": "8909001283523",
+    "name": "Style Union Womens Tregging Black",
+    "category": "Womens Westernwear",
+    "price": 10.83
+  },
+  {
+    "id": "8909001283578",
+    "name": "Style Union Womens Tregging Black",
+    "category": "Womens Westernwear",
+    "price": 10.83
+  },
+  {
+    "id": "8909001284063",
+    "name": "Style Union Womens Tregging Black",
+    "category": "Womens Westernwear",
+    "price": 10.83
+  },
+  {
+    "id": "8909001294765",
+    "name": "Style Union Womens Essential Tees Walnut",
+    "category": "Womens Westernwear",
+    "price": 2.4
+  },
+  {
+    "id": "8909001309254",
+    "name": "Style Union Womens Active Legwear Black",
+    "category": "Womens Westernwear",
+    "price": 7.82
+  },
+  {
+    "id": "8909001338759",
+    "name": "Style Union Boys Graphic Tees Aloe Wash",
+    "category": "Kids Wear",
+    "price": 1.8
+  },
+  {
+    "id": "8909001339411",
+    "name": "Style Union Boys Graphic Tees Aloe Wash",
+    "category": "Kids Wear",
+    "price": 2.04
+  },
+  {
+    "id": "8909001354520",
+    "name": "Style Union Boys Core Tees Black",
+    "category": "Kids Wear",
+    "price": 1.8
+  },
+  {
+    "id": "8909001355145",
+    "name": "Style Union Boys Core Tees Black",
+    "category": "Kids Wear",
+    "price": 1.8
+  },
+  {
+    "id": "8909001355503",
+    "name": "Style Union Boys Core Tees Pewter",
+    "category": "Kids Wear",
+    "price": 2.76
+  },
+  {
+    "id": "8907546829138",
+    "name": "Style Union Womens Active Legwear Black",
+    "category": "Womens Westernwear",
+    "price": 6.02
+  },
+  {
+    "id": "8909001991251",
+    "name": "Style Union Yw Jacket Olive",
+    "category": "Womens Westernwear",
+    "price": 6.02
+  },
+  {
+    "id": "8909404093835",
+    "name": "Style Union Nerd Flat Knits Cloud Dancer",
+    "category": "Mens Wear",
+    "price": 6.02
+  },
+  {
+    "id": "8909001990490",
+    "name": "Style Union Yw Jacket Ocean Blue",
+    "category": "Womens Westernwear",
+    "price": 6.02
+  },
+  {
+    "id": "8907546021228",
+    "name": "Ethnicity Fusion Topwear Pirate Black",
+    "category": "Bo Apparel",
+    "price": 6.02
+  },
+  {
+    "id": "8909404086936",
+    "name": "Style Union Womens Dress Mid Blue",
+    "category": "Womens Westernwear",
+    "price": 6.02
+  },
+  {
+    "id": "8909001188644",
+    "name": "Style Union Dd Polo Canyon Clay",
+    "category": "Mens Wear",
+    "price": 6.02
+  },
+  {
+    "id": "8909404139441",
+    "name": "Style Union Dd Polo Black Coffee",
+    "category": "Mens Wear",
+    "price": 6.02
+  },
+  {
+    "id": "8909404231152",
+    "name": "Style Union Smart Varsity Polo Fig",
+    "category": "Mens Wear",
+    "price": 6.02
+  },
+  {
+    "id": "8909404231947",
+    "name": "Style Union Smart Varsity Polo Beech",
+    "category": "Mens Wear",
+    "price": 6.02
+  },
+  {
+    "id": "8909404320306",
+    "name": "Style Union Smart Solid Polo Deep Teal",
+    "category": "Mens Wear",
+    "price": 6.02
+  },
+  {
+    "id": "8909001100417",
+    "name": "Style Union Womens Fashion Jeans Stone",
+    "category": "Womens Westernwear",
+    "price": 6.02
+  },
+  {
+    "id": "8907546855991",
+    "name": "Style Union Dd Polo Maroon",
+    "category": "Mens Wear",
+    "price": 6.02
+  },
+  {
+    "id": "8909404133432",
+    "name": "Style Union Origin Classic Black",
+    "category": "Mens Wear",
+    "price": 6.02
+  },
+  {
+    "id": "8907546811140",
+    "name": "Style Union Yw Essential Tees Off White",
+    "category": "Womens Westernwear",
+    "price": 6.02
+  },
+  {
+    "id": "8909404017794",
+    "name": "Style Union Sports Jacket Cement",
+    "category": "Mens Wear",
+    "price": 6.02
+  },
+  {
+    "id": "8909001579718",
+    "name": "Style Union Mens Ethnic Shirts Sky Blue",
+    "category": "Mens Wear",
+    "price": 6.02
+  },
+  {
+    "id": "8909001779408",
+    "name": "Style Union Mens Ethnic Shirts Arcadian Green",
+    "category": "Mens Wear",
+    "price": 6.02
+  },
+  {
+    "id": "8909404314466",
+    "name": "Style Union Indie Essential Topwear Warm Beige",
+    "category": "Womens Ethnicwear",
+    "price": 6.02
+  },
+  {
+    "id": "8909404065481",
+    "name": "Style Union Smart Solid Shirt Play",
+    "category": "Mens Wear",
+    "price": 6.02
+  },
+  {
+    "id": "8909404182782",
+    "name": "Style Union Uss Knits Chambray Blue",
+    "category": "Mens Wear",
+    "price": 6.02
+  },
+  {
+    "id": "8909404130059",
+    "name": "Style Union Mens Long Kurta White Melange",
+    "category": "Mens Wear",
+    "price": 6.02
+  },
+  {
+    "id": "8909001907511",
+    "name": "Style Union Womens Essential Jeans Tint",
+    "category": "Womens Westernwear",
+    "price": 6.02
+  },
+  {
+    "id": "8909001585559",
+    "name": "Style Union Smart Solid Shirt Off White",
+    "category": "Mens Wear",
+    "price": 6.02
+  },
+  {
+    "id": "8909404151290",
+    "name": "Style Union Ethno Sets Mustard",
+    "category": "Womens Ethnicwear",
+    "price": 6.02
+  },
+  {
+    "id": "8909001929544",
+    "name": "Style Union Explorer Cargo Grass",
+    "category": "Mens Wear",
+    "price": 6.02
+  },
+  {
+    "id": "8909001944400",
+    "name": "Style Union Mens Short Kurta Crushed Violets",
+    "category": "Mens Wear",
+    "price": 6.02
+  },
+  {
+    "id": "8909001723128",
+    "name": "Style Union Womens Dress Pink",
+    "category": "Womens Westernwear",
+    "price": 6.02
+  },
+  {
+    "id": "8909404132954",
+    "name": "Style Union Origin Classic Ice",
+    "category": "Mens Wear",
+    "price": 6.02
+  },
+  {
+    "id": "8909001871485",
+    "name": "Style Union Nerd Sweater Driftwood",
+    "category": "Mens Wear",
+    "price": 6.02
+  },
+  {
+    "id": "8909001321706",
+    "name": "Style Union Indie Pants Black",
+    "category": "Womens Ethnicwear",
+    "price": 6.02
+  },
+  {
+    "id": "8909001330180",
+    "name": "Style Union Indie Pants Black",
+    "category": "Womens Ethnicwear",
+    "price": 6.02
+  },
+  {
+    "id": "8909404144896",
+    "name": "Style Union Mens Short Kurta Black",
+    "category": "Mens Wear",
+    "price": 6.02
+  },
+  {
+    "id": "8909404093538",
+    "name": "Style Union Neo Top White",
+    "category": "Womens Ethnicwear",
+    "price": 6.02
+  },
+  {
+    "id": "8909404279673",
+    "name": "Style Union Ethnomod Sets Marron",
+    "category": "Womens Ethnicwear",
+    "price": 6.02
+  },
+  {
+    "id": "8909404145695",
+    "name": "Style Union Dd Polo Sahara Sun",
+    "category": "Mens Wear",
+    "price": 6.02
+  },
+  {
+    "id": "8909001134429",
+    "name": "Ethnicity Fashion Dupatta Red",
+    "category": "Bo Apparel",
+    "price": 6.02
+  },
+  {
+    "id": "8909001584101",
+    "name": "Style Union Smart Solid Shirt Black",
+    "category": "Mens Wear",
+    "price": 6.02
+  },
+  {
+    "id": "8909404170000",
+    "name": "Style Union Ethno Sets Peach",
+    "category": "Womens Ethnicwear",
+    "price": 6.02
+  },
+  {
+    "id": "8909001582077",
+    "name": "Style Union Yw Shirts Black",
+    "category": "Womens Westernwear",
+    "price": 6.02
+  },
+  {
+    "id": "8909001802205",
+    "name": "Style Union Mens Short Kurta Powder Blue",
+    "category": "Mens Wear",
+    "price": 6.02
+  },
+  {
+    "id": "8909001824580",
+    "name": "Style Union Mens Ethnic Shirts Deep Navy",
+    "category": "Mens Wear",
+    "price": 6.02
+  },
+  {
+    "id": "8909001931233",
+    "name": "Style Union Mens Short Kurta Pastel Yellow",
+    "category": "Mens Wear",
+    "price": 6.02
+  },
+  {
+    "id": "8909001947081",
+    "name": "Style Union Mens Short Kurta Teal",
+    "category": "Mens Wear",
+    "price": 6.02
+  },
+  {
+    "id": "8907546896628",
+    "name": "Style Union Womens Essential Jeans Grey",
+    "category": "Womens Westernwear",
+    "price": 6.02
+  },
+  {
+    "id": "8907546896772",
+    "name": "Style Union Womens Essential Jeans Mid Stone",
+    "category": "Womens Westernwear",
+    "price": 6.02
+  },
+  {
+    "id": "8909404173377",
+    "name": "Style Union Mens Long Kurta Cloud Cream",
+    "category": "Mens Wear",
+    "price": 6.02
+  },
+  {
+    "id": "8909404136044",
+    "name": "Style Union Ethno Sets Blue",
+    "category": "Womens Ethnicwear",
+    "price": 6.02
+  },
+  {
+    "id": "8909001498736",
+    "name": "Style Union Womens Essential Tees Emerald",
+    "category": "Womens Westernwear",
+    "price": 6.02
+  },
+  {
+    "id": "8909001498897",
+    "name": "Style Union Womens Essential Tees Maroon",
+    "category": "Womens Westernwear",
+    "price": 6.02
+  },
+  {
+    "id": "8909001499832",
+    "name": "Style Union Womens Essential Tees Emerald",
+    "category": "Womens Westernwear",
+    "price": 6.02
+  },
+  {
+    "id": "8909404064088",
+    "name": "Style Union Womens Essential Tees Tomato",
+    "category": "Womens Westernwear",
+    "price": 6.02
+  },
+  {
+    "id": "8907546805484",
+    "name": "Style Union Dd Crew Tees Black",
+    "category": "Mens Wear",
+    "price": 6.02
+  },
+  {
+    "id": "8909001164730",
+    "name": "Style Union Dd Crew Tees Tidal Teal",
+    "category": "Mens Wear",
+    "price": 6.02
+  },
+  {
+    "id": "8909404240031",
+    "name": "Style Union Ethno Essential Topwear Wild Lime",
+    "category": "Womens Ethnicwear",
+    "price": 6.02
+  },
+  {
+    "id": "8909404096645",
+    "name": "Style Union Ethno Pants Off White",
+    "category": "Womens Ethnicwear",
+    "price": 6.02
+  },
+  {
+    "id": "8909404098274",
+    "name": "Style Union Ethno Pants Off White",
+    "category": "Womens Ethnicwear",
+    "price": 6.02
+  },
+  {
+    "id": "8909404098373",
+    "name": "Style Union Ethno Pants Off White",
+    "category": "Womens Ethnicwear",
+    "price": 6.02
+  },
+  {
+    "id": "8909001186305",
+    "name": "Style Union Smart Denim Indigo",
+    "category": "Mens Wear",
+    "price": 6.02
+  },
+  {
+    "id": "8909001921067",
+    "name": "Style Union Yw Sweat Tee Ash Violet",
+    "category": "Womens Westernwear",
+    "price": 6.02
+  },
+  {
+    "id": "8909404248136",
+    "name": "Style Union Oversize Graphic Tees Pastel Lilac",
+    "category": "Mens Wear",
+    "price": 6.02
+  },
+  {
+    "id": "8909001868782",
+    "name": "Style Union Ethno Sets Purple",
+    "category": "Womens Ethnicwear",
+    "price": 6.02
+  },
+  {
+    "id": "8909404063265",
+    "name": "Style Union Ath Legwear Sand",
+    "category": "Mens Wear",
+    "price": 6.02
+  },
+  {
+    "id": "8909404058681",
+    "name": "Style Union Smart Chino Grass",
+    "category": "Mens Wear",
+    "price": 6.02
+  },
+  {
+    "id": "8909001293683",
+    "name": "Style Union Womens Essential Tees Dark Ash",
+    "category": "Womens Westernwear",
+    "price": 6.02
+  },
+  {
+    "id": "8909001058961",
+    "name": "Style Union Womens Athleisure Legwear Dark Grey",
+    "category": "Womens Westernwear",
+    "price": 6.02
+  },
+  {
+    "id": "8909001645895",
+    "name": "Style Union Womens Dress Brown",
+    "category": "Womens Westernwear",
+    "price": 6.02
+  },
+  {
+    "id": "8909404210041",
+    "name": "Style Union Ethno Flared Kurta Pink",
+    "category": "Womens Ethnicwear",
+    "price": 6.02
+  },
+  {
+    "id": "8909404128377",
+    "name": "Style Union Womens Active Tees Dark Coffee",
+    "category": "Womens Westernwear",
+    "price": 6.02
+  },
+  {
+    "id": "8909001463406",
+    "name": "Style Union Womens Essential Jeans Indigo",
+    "category": "Womens Westernwear",
+    "price": 6.02
+  },
+  {
+    "id": "8907546903289",
+    "name": "Style Union Womens Essential Jeans Black",
+    "category": "Womens Westernwear",
+    "price": 6.02
+  },
+  {
+    "id": "8909404060387",
+    "name": "Style Union Yw Fashion Pants Dark Grey",
+    "category": "Womens Westernwear",
+    "price": 6.02
+  },
+  {
+    "id": "8909001321874",
+    "name": "Style Union Indie Pants Black",
+    "category": "Womens Ethnicwear",
+    "price": 6.02
+  },
+  {
+    "id": "8909404196154",
+    "name": "Style Union Womens Fashion Jeans Tint",
+    "category": "Womens Westernwear",
+    "price": 6.02
+  },
+  {
+    "id": "8909404320412",
+    "name": "Style Union Smart Cuban Shirt Navy Peony",
+    "category": "Mens Wear",
+    "price": 6.02
+  },
+  {
+    "id": "8909404251853",
+    "name": "Style Union Ethno Sets Dusty Pink",
+    "category": "Womens Ethnicwear",
+    "price": 6.02
+  },
+  {
+    "id": "8909404211703",
+    "name": "Style Union Ethno Flared Kurta Sky Blue",
+    "category": "Womens Ethnicwear",
+    "price": 6.02
+  },
+  {
+    "id": "8909404224239",
+    "name": "Style Union Ethno Essential Topwear Winter White",
+    "category": "Womens Ethnicwear",
+    "price": 6.02
+  },
+  {
+    "id": "8907546992924",
+    "name": "Style Union Dd Crew Tees Blue Melange",
+    "category": "Mens Wear",
+    "price": 6.02
+  },
+  {
+    "id": "8907546993136",
+    "name": "Style Union Dd Crew Tees Anthra Melange",
+    "category": "Mens Wear",
+    "price": 6.02
+  },
+  {
+    "id": "8907546993204",
+    "name": "Style Union Dd Crew Tees Ecru Melange",
+    "category": "Mens Wear",
+    "price": 6.02
+  },
+  {
+    "id": "8909001164488",
+    "name": "Style Union Dd Crew Tees Tobacco",
+    "category": "Mens Wear",
+    "price": 6.02
+  },
+  {
+    "id": "8909001164761",
+    "name": "Style Union Dd Crew Tees Tidal Teal",
+    "category": "Mens Wear",
+    "price": 6.02
+  },
+  {
+    "id": "8909001287217",
+    "name": "Style Union Dd Crew Tees Maroon",
+    "category": "Mens Wear",
+    "price": 6.02
+  },
+  {
+    "id": "8909001724538",
+    "name": "Style Union Dd Crew Tees Plum Perfect",
+    "category": "Mens Wear",
+    "price": 6.02
+  }
+]

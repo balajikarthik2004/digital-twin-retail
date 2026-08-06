@@ -17,8 +17,16 @@ const CATEGORIES = [
 const BRANDS = ['Nordvale', 'Harborline', 'Cedarleaf', 'Brightmoor', 'Kestrel', 'Aurora', 'Tallgrass', 'Ironwood'] as const
 
 export interface CatalogEntry {
+  /**
+   * Real-world identity, when known — a barcode or item code from an imported
+   * catalogue. Left undefined for a synthetic entry, which gets a generated
+   * `SKU-000001`-style id instead. Never set by `makeCatalogEntry` itself.
+   */
+  id?: string
   name: string
   category: string
+  /** Real retail price, when known. A synthetic entry gets a random one instead. */
+  price?: number
 }
 
 export function makeCatalogEntry(rng: Rng): CatalogEntry {

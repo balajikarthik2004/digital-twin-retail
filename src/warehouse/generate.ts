@@ -1,6 +1,6 @@
 import { NavGraphBuilder } from '../pathfinding/graph'
 import type { NodeId } from '../pathfinding/types'
-import { makeCatalogEntry } from './catalog'
+import { makeCatalogEntry, type CatalogEntry } from './catalog'
 import { buildConveyorNetwork } from './conveyor'
 import { createRng } from './random'
 import type {
@@ -61,8 +61,17 @@ const EMPTY_SHARE = 0.11
  *         │            pack stations  ·  staging           │   apron
  *         └──────────── dock doors (front wall) ───────────┘
  *                                                            → x
+ *
+ * @param realCatalog  Real product identity to seed into the catalogue, e.g.
+ * from an imported spreadsheet. Consumed round-robin across every aisle (see
+ * where it is used below) until exhausted; every remaining bin gets a
+ * synthetic entry exactly as it always did. Omit for a fully synthetic
+ * warehouse.
  */
-export function generateWarehouse(config: WarehouseConfig): WarehouseModel {
+export function generateWarehouse(
+  config: WarehouseConfig,
+  realCatalog: CatalogEntry[] = [],
+): WarehouseModel {
   const rng = createRng(config.seed)
   const {
     aisles,
@@ -307,6 +316,37 @@ export function generateWarehouse(config: WarehouseConfig): WarehouseModel {
     tierOf.set(entry.bin.id, i < fastCut ? 'fast' : i < mediumCut ? 'medium' : 'slow')
   })
 
+  /*
+   * Real catalogue entries are handed out round-robin across every aisle,
+   * never in `scored`'s raw scan order. Aisle is the outermost of the loops
+   * that built `scored` above, so consuming it in that order would pile every
+   * real product into aisle 0 alone — the opposite of what "real data in the
+   * twin" is supposed to look like. One pass per aisle keeps the assignment
+   * itself deterministic (no extra randomness) while spreading real stock
+   * across the whole floor.
+   */
+  const realAssignment = new Map<string, CatalogEntry>()
+  if (realCatalog.length > 0) {
+    const byAisle = new Map<number, typeof scored>()
+    for (const entry of scored) {
+      const list = byAisle.get(entry.bin.aisle)
+      if (list) list.push(entry)
+      else byAisle.set(entry.bin.aisle, [entry])
+    }
+    const aisleLists = [...byAisle.values()]
+    let cursor = 0
+    outer: for (let round = 0; ; round++) {
+      let placedThisRound = false
+      for (const list of aisleLists) {
+        if (round >= list.length) continue
+        if (cursor >= realCatalog.length) break outer
+        realAssignment.set(list[round].bin.id, realCatalog[cursor++])
+        placedThisRound = true
+      }
+      if (!placedThisRound) break
+    }
+  }
+
   // Clear volume of one storage location, in litres. The height allowance is the
   // shelf pitch less the deck and the lift clearance a picker actually needs.
   const slotLitres = slotWidth * config.rackDepth * (levelHeight * 0.78) * 1000
@@ -314,7 +354,8 @@ export function generateWarehouse(config: WarehouseConfig): WarehouseModel {
   let skuSeq = 1
   for (const entry of scored) {
     const velocity = tierOf.get(entry.bin.id)!
-    const { name, category } = makeCatalogEntry(rng)
+    const real = realAssignment.get(entry.bin.id)
+    const { name, category } = real ?? makeCatalogEntry(rng)
 
     const [vMin, vMax] = UNIT_VOLUME[velocity]
     const unitVolume = Math.round(rng.float(vMin, vMax) * 10) / 10
@@ -328,7 +369,11 @@ export function generateWarehouse(config: WarehouseConfig): WarehouseModel {
       : Math.min(capacity, Math.max(8, Math.round(capacity * rng.float(fMin, fMax))))
 
     const sku: Sku = {
-      id: `SKU-${String(skuSeq++).padStart(6, '0')}`,
+      // A real entry keeps its own identity (a barcode/item code, so real
+      // order and receipt data resolves against it); a synthetic one gets the
+      // next id off the sequence — only advanced here, so real ids never
+      // leave gaps in it.
+      id: real?.id ?? `SKU-${String(skuSeq++).padStart(6, '0')}`,
       name,
       category,
       velocity,
@@ -337,7 +382,7 @@ export function generateWarehouse(config: WarehouseConfig): WarehouseModel {
       // Fast movers are replenished far more aggressively than long-tail lines.
       replenPoint: Math.max(2, Math.round(capacity * REPLEN_SHARE[velocity])),
       unitsPerLine: velocity === 'fast' ? rng.int(1, 6) : velocity === 'medium' ? rng.int(1, 3) : rng.int(1, 2),
-      price: Math.round(rng.float(1.2, 89) * 100) / 100,
+      price: real?.price ?? Math.round(rng.float(1.2, 89) * 100) / 100,
       unitVolume,
     }
     bins.push({ ...entry.bin, capacity, sku })

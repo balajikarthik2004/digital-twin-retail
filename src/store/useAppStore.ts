@@ -292,11 +292,18 @@ type InboundSlice = Pick<
 /**
  * Rebuild a layout's inbound state: replay saved putaways onto the fresh model,
  * then restore the receipts and log that went with them. With nothing saved,
- * seed a fresh goods-in schedule so the section is never empty on first run.
+ * prefer real goods-in data if the source has any for this layout; otherwise
+ * seed a fresh synthetic schedule so the section is never empty on first run.
+ *
+ * @param realReceipts  Resolved ahead of the call, since `DataSource.loadReceipts`
+ * is async and this function is not. Empty on a layout switch — hand-written
+ * real data only resolves against the layout it was captured from, same as
+ * `loadOrders`.
  */
 function restoreInbound(
   layoutId: string,
   model: WarehouseModel,
+  realReceipts: Receipt[] = [],
 ): { state: InboundSlice; restoredLocations: number } {
   const blank = {
     activeLine: null,
@@ -325,7 +332,7 @@ function restoreInbound(
   return {
     state: {
       ...blank,
-      receipts: generateReceipts(model, { count: 8, seed: model.config.seed }),
+      receipts: realReceipts.length > 0 ? realReceipts : generateReceipts(model, { count: 8, seed: model.config.seed }),
       inboundLog: [],
       binOverrides: {},
     },
@@ -404,14 +411,18 @@ export const useAppStore = create<AppState>((set, get) => ({
       if (!config) throw new Error('No warehouse layouts available from the data source.')
 
       set({ layouts, layoutId: config.id })
-      const model = generateWarehouse(config)
+      const catalog = await activeSource.loadCatalog()
+      const model = generateWarehouse(config, catalog)
       const settings = settingsFor(config)
       const engine = new SimulationEngine(model, settings)
       engine.setAgentPalette(AGENT_PALETTES[get().theme])
 
       // Restore saved putaways BEFORE orders are generated, so demand is drawn
       // against the shelves as they actually stand, not as they were seeded.
-      const saved = restoreInbound(config.id, model)
+      // Real receipts are resolved first — they need the model the same way
+      // real orders do — so a snapshot-free boot prefers them over synthetic.
+      const realReceipts = await activeSource.loadReceipts(model)
+      const saved = restoreInbound(config.id, model, realReceipts)
 
       resetOrderSequence()
       let orders = await activeSource.loadOrders(model)
