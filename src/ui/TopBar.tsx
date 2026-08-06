@@ -47,8 +47,8 @@ export function TopBar() {
           <RackMarkIcon />
         </div>
         <div className="leading-tight">
-          <div className="text-[13px] font-semibold tracking-tight text-ink-100">PickTwin</div>
-          <div className="text-[10px] text-ink-400">Warehouse Execution Twin</div>
+          <div className="text-[13px] font-semibold tracking-tight text-ink-100">Digital Twin WMS</div>
+          <div className="text-[10px] text-ink-400">Warehouse Management System</div>
         </div>
       </div>
 

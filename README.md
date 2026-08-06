@@ -1,4 +1,4 @@
-# PickTwin — 3D Warehouse Picking Digital Twin
+# Digital Twin WMS — 3D Warehouse Management System
 
 A browser-based digital twin of a retail distribution-centre pick module. It generates a
 warehouse from a JSON config, builds a real navigation graph over it, routes live pick lists
@@ -82,8 +82,8 @@ or drop **Pickers on the floor** to see it work.
 `Space` run/pause · `1`–`5` camera presets (overview, top-down, aisle, pack line, dock) ·
 `[` `]` toggle panels · `m` plan view · `t` light/dark theme · `Esc` close inspector
 
-In dev builds only, `window.__pickTwin` exposes `{ scene, store }` for poking at the twin from
-the console — e.g. `__pickTwin.store.getState().metrics`.
+In dev builds only, `window.__digitalTwinWMS` exposes `{ scene, store }` for poking at the twin
+from the console — e.g. `__digitalTwinWMS.store.getState().metrics`.
 
 ---
 

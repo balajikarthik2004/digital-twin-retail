@@ -1,9 +1,9 @@
 {
-  "name": "warehouse-pick-twin",
+  "name": "digital-twin-wms",
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "3D retail warehouse digital twin for pick-path simulation and optimization",
+  "description": "Digital Twin WMS — a 3D retail warehouse digital twin for pick-path simulation and optimization",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",

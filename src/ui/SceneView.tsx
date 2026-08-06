@@ -44,7 +44,7 @@ export function SceneView() {
 
     // Dev-only handle for poking at the twin from the console / a test driver.
     if (import.meta.env.DEV) {
-      ;(window as unknown as Record<string, unknown>).__pickTwin = { scene, store: useAppStore }
+      ;(window as unknown as Record<string, unknown>).__digitalTwinWMS = { scene, store: useAppStore }
     }
 
     let raf = 0
