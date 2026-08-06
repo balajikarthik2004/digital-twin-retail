@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { summariseFreeSpace, type SpaceBucket } from '../inbound/freeSpace'
+// Unused while FreeSpaceSummaryCard is hidden — see below.
+// import { summariseFreeSpace, type SpaceBucket } from '../inbound/freeSpace'
 import { listAvailable } from '../inbound/putaway'
 import {
   outstandingUnits,
@@ -13,7 +14,7 @@ import {
 import { VELOCITY_LABEL, velocityHex } from '../scene/theme'
 import { useAppStore } from '../store/useAppStore'
 import type { VelocityTier } from '../warehouse/types'
-import { Bar, Card, EmptyState, Segmented, StatTile, cx } from './components/primitives'
+import { Bar, Card, EmptyState, Segmented, cx } from './components/primitives'
 import { compact, metres, mmss, pct, shortDuration } from './format'
 import { chartPalette } from './theme'
 
@@ -75,7 +76,8 @@ export function InboundPanel() {
       {step === 4 && <RouteStep />}
       {step === 5 && <PlaceStep />}
 
-      <FreeSpaceSummaryCard />
+      {/* Hidden for now — not needed in Inbound. */}
+      {/* <FreeSpaceSummaryCard /> */}
       <StorageFooter />
     </div>
   )
@@ -1217,7 +1219,8 @@ function Metric({ label, value }: { label: string; value: string }) {
 }
 
 // ── facility-wide free space, as context under the flow ───────────────────────
-
+// Hidden for now — not needed in Inbound. Kept for when it's wanted back.
+/*
 type SpaceCut = 'aisle' | 'level' | 'zone'
 
 function FreeSpaceSummaryCard() {
@@ -1306,6 +1309,7 @@ function FreeSpaceSummaryCard() {
     </Card>
   )
 }
+*/
 
 /** What is being kept in this browser, and how to get rid of it. */
 function StorageFooter() {
