@@ -12,7 +12,7 @@ import { makeTextSprite } from './labels'
 import type { ThemeMode } from '../ui/theme'
 import { buildPackLine, type PackLineVisual } from './packLineMesh'
 import { aimBeam, animateGait, createPickerVisual, reachFor, type PickerVisual } from './pickerMesh'
-import { PathRibbon, polylineUpTo } from './ribbon'
+import { PathRibbon, polylineUpTo, tickRibbonFlow, type RibbonVariant } from './ribbon'
 import { sceneTheme, type SceneTheme } from './theme'
 
 export type SceneSelection =
@@ -924,6 +924,7 @@ export class WarehouseScene {
     // After the tween, so driving always wins over a preset still flying in.
     this.drive(dt)
 
+    if (this.options.showPaths) tickRibbonFlow(dt)
     this.syncAgents(agents, dt)
     this.syncPackLine(packLine, dt)
     this.visual?.docks.tick(dt)
@@ -1078,8 +1079,11 @@ export class WarehouseScene {
     visual: WarehouseVisual,
     tintsStale: boolean,
   ): void {
-    const plan = this.ensureRibbon(this.planRibbons, agent.id, agent.color, 0.34, this.theme.ribbonPlan)
-    const walked = this.ensureRibbon(this.walkedRibbons, agent.id, agent.color, 0.5, this.theme.ribbonWalked)
+    // Plan = still to walk, so it marches (flow); walked = done, so it's a
+    // steady solid glow — the two variants make progress along a route
+    // legible at a glance instead of the two being told apart by opacity alone.
+    const plan = this.ensureRibbon(this.planRibbons, agent.id, agent.color, 0.4, this.theme.ribbonPlan, 'flow')
+    const walked = this.ensureRibbon(this.walkedRibbons, agent.id, agent.color, 0.5, this.theme.ribbonWalked, 'solid')
 
     if (!agent.route || !busy || !this.options.showPaths) {
       plan.hide()
@@ -1103,10 +1107,17 @@ export class WarehouseScene {
     }
 
     // Tint every bin on this route so the pick face is findable from a distance.
+    // Three tiers, not two: the stop the picker is walking to *right now* gets
+    // the full identity colour so it's the one thing that pops; the rest of
+    // the queue is muted so it still reads as "this picker's route" without
+    // competing with the immediate target. A flat colour on the whole route
+    // made every stop look equally urgent, which none of them are.
     if (tintsStale) {
+      const pending = mutePickColor(agent.color, this.theme.binDone)
       for (const wp of agent.route.waypoints) {
         const done = wp.sequence <= agent.nextWaypoint
-        visual.tintBin(wp.stop.ref, done ? this.theme.binDone : agent.color)
+        const current = wp.sequence === agent.nextWaypoint + 1
+        visual.tintBin(wp.stop.ref, done ? this.theme.binDone : current ? agent.color : pending)
         // A serviced stop has had stock taken off it, so its box has to come
         // down. The signature this pass is gated on only goes stale when a
         // waypoint is completed, which is exactly when that is true — so this
@@ -1125,10 +1136,11 @@ export class WarehouseScene {
     color: string,
     width: number,
     opacity: number,
+    variant: RibbonVariant = 'solid',
   ): PathRibbon {
     let ribbon = store.get(id)
     if (!ribbon) {
-      ribbon = new PathRibbon(color, width, 1024, opacity)
+      ribbon = new PathRibbon(color, width, 1024, opacity, variant)
       store.set(id, ribbon)
       this.scene.add(ribbon.mesh)
     }
@@ -1377,4 +1389,22 @@ function lerpAngle(from: number, to: number, t: number): number {
   if (delta > Math.PI) delta -= Math.PI * 2
   if (delta < -Math.PI) delta += Math.PI * 2
   return from + delta * t
+}
+
+const pickColorCache = new Map<string, number>()
+
+/**
+ * A queued (not-yet-current) pick stop's tint: the picker's identity colour,
+ * pulled two-thirds of the way towards the "done" grey. Still recognisably
+ * that picker's route, but visually receded behind whichever stop is next.
+ * Memoized per agent colour — this runs once per busy agent per tint
+ * refresh, not per bin, so the cache stays tiny.
+ */
+function mutePickColor(color: string, doneGrey: number): number {
+  const key = `${color}:${doneGrey}`
+  const cached = pickColorCache.get(key)
+  if (cached !== undefined) return cached
+  const muted = new THREE.Color(color).lerp(new THREE.Color(doneGrey), 0.65).getHex()
+  pickColorCache.set(key, muted)
+  return muted
 }

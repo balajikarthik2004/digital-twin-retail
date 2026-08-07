@@ -149,15 +149,21 @@ export function Minimap() {
       for (const agent of engine.agents) {
         if (!agent.route || agent.phase === 'idle' || !showPaths) continue
         const pts = agent.route.polyline
+
+        // Still to walk: dashed, so "planned" reads as a different kind of
+        // line from "done" instead of merely a fainter one.
         ctx.strokeStyle = agent.color
         ctx.lineWidth = 1
-        ctx.globalAlpha = 0.3
+        ctx.globalAlpha = 0.45
+        ctx.setLineDash([4, 3])
         ctx.beginPath()
         pts.forEach((p, i) => (i === 0 ? ctx.moveTo(px(p.x), py(p.y)) : ctx.lineTo(px(p.x), py(p.y))))
         ctx.stroke()
+        ctx.setLineDash([])
 
+        // Already walked: solid and bold.
         ctx.globalAlpha = 0.95
-        ctx.lineWidth = 1.8
+        ctx.lineWidth = 2
         ctx.beginPath()
         let started = false
         for (let i = 0; i < pts.length; i++) {
@@ -172,15 +178,34 @@ export function Minimap() {
         ctx.stroke()
         ctx.globalAlpha = 1
 
-        // Remaining pick stops.
+        // Remaining pick stops: the one the picker is walking to right now
+        // stands out with a ring; the rest of the queue is a dim dot so it
+        // doesn't compete with it. Mirrors the same three-tier hierarchy the
+        // 3D bin tints use.
         for (const wp of agent.route.waypoints) {
           const bin = model.binsById.get(wp.stop.ref)
           if (!bin) continue
           const done = wp.sequence <= agent.nextWaypoint
+          const current = wp.sequence === agent.nextWaypoint + 1
+          const x = px(bin.face.x)
+          const y = py(bin.face.z)
+          const r = large ? 2.4 : 1.6
+
+          if (current) {
+            ctx.strokeStyle = agent.color
+            ctx.lineWidth = 1.4
+            ctx.globalAlpha = 0.9
+            ctx.beginPath()
+            ctx.arc(x, y, r + 2, 0, Math.PI * 2)
+            ctx.stroke()
+            ctx.globalAlpha = 1
+          }
           ctx.fillStyle = done ? hex(T.binDone) : agent.color
+          ctx.globalAlpha = done || current ? 1 : 0.5
           ctx.beginPath()
-          ctx.arc(px(bin.face.x), py(bin.face.z), large ? 2.4 : 1.6, 0, Math.PI * 2)
+          ctx.arc(x, y, r, 0, Math.PI * 2)
           ctx.fill()
+          ctx.globalAlpha = 1
         }
       }
 
