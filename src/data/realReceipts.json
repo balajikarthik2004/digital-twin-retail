@@ -1,147 +1,179 @@
 {
   "receipts": [
     {
-      "ref": "GRN-60-Aug26B44",
-      "po": "GRN-60-Aug26B44",
-      "supplier": "KB-HYD-WARANGAL HANUMAKONDA",
+      "ref": "GRN-61-Aug26B01",
+      "po": "GRN-61-Aug26B01",
+      "supplier": "Arvind Limited",
       "unplanned": false,
       "lines": [
         {
           "skuId": "8907546684997",
-          "name": "zudio Mens Ethnic Legwear Black",
+          "name": "Fabindia Mens Ethnic Legwear Black",
           "category": "Mens Wear",
           "unitVolume": 1.0,
           "expectedQty": 5
         },
         {
-          "skuId": "8907546777712",
-          "name": "zudio Girls Graphic Tees Grape Royale",
-          "category": "Kids Wear",
-          "unitVolume": 1.0,
-          "expectedQty": 10
-        },
-        {
-          "skuId": "8909001065877",
-          "name": "zudio Girls Graphic Tees Lime Punch",
-          "category": "Kids Wear",
-          "unitVolume": 1.0,
-          "expectedQty": 5
-        },
-        {
-          "skuId": "8909001065884",
-          "name": "zudio Girls Graphic Tees Lime Punch",
-          "category": "Kids Wear",
-          "unitVolume": 1.0,
-          "expectedQty": 10
-        },
-        {
-          "skuId": "8909001115657",
-          "name": "zudio Womens Skirts Black",
-          "category": "Womens Westernwear",
-          "unitVolume": 1.0,
-          "expectedQty": 5
-        },
-        {
-          "skuId": "8909001115664",
-          "name": "zudio Womens Skirts Black",
-          "category": "Womens Westernwear",
-          "unitVolume": 1.0,
-          "expectedQty": 10
-        },
-        {
-          "skuId": "8909001115688",
-          "name": "zudio Womens Skirts Black",
-          "category": "Womens Westernwear",
-          "unitVolume": 1.0,
-          "expectedQty": 5
-        },
-        {
           "skuId": "8909001124765",
-          "name": "zudio Uss Knits Shaded Spruce",
+          "name": "Zudio Uss Knits Shaded Spruce",
           "category": "Mens Wear",
           "unitVolume": 1.0,
           "expectedQty": 5
         },
         {
           "skuId": "8909001124772",
-          "name": "zudio Uss Knits Shaded Spruce",
+          "name": "Zudio Uss Knits Shaded Spruce",
           "category": "Mens Wear",
           "unitVolume": 1.0,
           "expectedQty": 10
         },
         {
           "skuId": "8909001124789",
-          "name": "zudio Uss Knits Shaded Spruce",
+          "name": "Zudio Uss Knits Shaded Spruce",
           "category": "Mens Wear",
+          "unitVolume": 1.0,
+          "expectedQty": 10
+        }
+      ]
+    },
+    {
+      "ref": "GRN-62-Aug26B02",
+      "po": "GRN-62-Aug26B02",
+      "supplier": "Gokaldas Exports",
+      "unplanned": false,
+      "lines": [
+        {
+          "skuId": "8909001115657",
+          "name": "Zudio Womens Skirts Black",
+          "category": "Womens Westernwear",
+          "unitVolume": 1.0,
+          "expectedQty": 5
+        },
+        {
+          "skuId": "8909001115664",
+          "name": "Zudio Womens Skirts Black",
+          "category": "Womens Westernwear",
           "unitVolume": 1.0,
           "expectedQty": 10
         },
         {
+          "skuId": "8909001115688",
+          "name": "Zudio Womens Skirts Black",
+          "category": "Womens Westernwear",
+          "unitVolume": 1.0,
+          "expectedQty": 5
+        },
+        {
           "skuId": "8909001283523",
-          "name": "zudio Womens Tregging Black",
+          "name": "Only Womens Tregging Black",
           "category": "Womens Westernwear",
           "unitVolume": 1.0,
           "expectedQty": 5
         },
         {
           "skuId": "8909001283578",
-          "name": "zudio Womens Tregging Black",
+          "name": "Only Womens Tregging Black",
           "category": "Womens Westernwear",
           "unitVolume": 1.0,
           "expectedQty": 15
         },
         {
           "skuId": "8909001284063",
-          "name": "zudio Womens Tregging Black",
+          "name": "Only Womens Tregging Black",
           "category": "Womens Westernwear",
           "unitVolume": 1.0,
           "expectedQty": 10
-        },
+        }
+      ]
+    },
+    {
+      "ref": "GRN-63-Aug26B03",
+      "po": "GRN-63-Aug26B03",
+      "supplier": "Shahi Exports",
+      "unplanned": false,
+      "lines": [
         {
           "skuId": "8909001294765",
-          "name": "zudio Womens Essential Tees Walnut",
+          "name": "Zudio Womens Essential Tees Walnut",
           "category": "Womens Westernwear",
           "unitVolume": 1.0,
           "expectedQty": 5
         },
         {
           "skuId": "8909001309254",
-          "name": "zudio Womens Active Legwear Black",
+          "name": "Westside Womens Active Legwear Black",
           "category": "Womens Westernwear",
+          "unitVolume": 1.0,
+          "expectedQty": 5
+        }
+      ]
+    },
+    {
+      "ref": "GRN-64-Aug26B04",
+      "po": "GRN-64-Aug26B04",
+      "supplier": "Pearl Global Industries",
+      "unplanned": false,
+      "lines": [
+        {
+          "skuId": "8907546777712",
+          "name": "Gini & Jony Girls Graphic Tees Grape Royale",
+          "category": "Kids Wear",
+          "unitVolume": 1.0,
+          "expectedQty": 10
+        },
+        {
+          "skuId": "8909001065877",
+          "name": "Max Fashion Girls Graphic Tees Lime Punch",
+          "category": "Kids Wear",
           "unitVolume": 1.0,
           "expectedQty": 5
         },
         {
+          "skuId": "8909001065884",
+          "name": "Max Fashion Girls Graphic Tees Lime Punch",
+          "category": "Kids Wear",
+          "unitVolume": 1.0,
+          "expectedQty": 10
+        },
+        {
           "skuId": "8909001338759",
-          "name": "zudio Boys Graphic Tees Aloe Wash",
+          "name": "Gini & Jony Boys Graphic Tees Aloe Wash",
           "category": "Kids Wear",
           "unitVolume": 1.0,
           "expectedQty": 10
         },
         {
           "skuId": "8909001339411",
-          "name": "zudio Boys Graphic Tees Aloe Wash",
+          "name": "Gini & Jony Boys Graphic Tees Aloe Wash",
           "category": "Kids Wear",
           "unitVolume": 1.0,
           "expectedQty": 5
-        },
+        }
+      ]
+    },
+    {
+      "ref": "GRN-65-Aug26B05",
+      "po": "GRN-65-Aug26B05",
+      "supplier": "KPR Mill",
+      "unplanned": false,
+      "lines": [
         {
           "skuId": "8909001354520",
-          "name": "zudio Boys Core Tees Black",
+          "name": "Zudio Kids Boys Core Tees Black",
           "category": "Kids Wear",
           "unitVolume": 1.0,
           "expectedQty": 5
         },
         {
           "skuId": "8909001355145",
-          "name": "zudio Boys Core Tees Black",
+          "name": "Zudio Kids Boys Core Tees Black",
           "category": "Kids Wear",
           "unitVolume": 1.0,
           "expectedQty": 5
         },
         {
           "skuId": "8909001355503",
-          "name": "zudio Boys Core Tees Pewter",
+          "name": "Zudio Kids Boys Core Tees Pewter",
           "category": "Kids Wear",
           "unitVolume": 1.0,
           "expectedQty": 5

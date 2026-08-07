@@ -1,21 +1,21 @@
 ref,po,supplier,skuId,name,category,unitVolume,expectedQty
-GRN-60-Aug26B44,GRN-60-Aug26B44,KB-HYD-WARANGAL HANUMAKONDA,8907546684997,zudio Mens Ethnic Legwear Black,Mens Wear,1.0,5
-GRN-60-Aug26B44,GRN-60-Aug26B44,KB-HYD-WARANGAL HANUMAKONDA,8907546777712,zudio Girls Graphic Tees Grape Royale,Kids Wear,1.0,10
-GRN-60-Aug26B44,GRN-60-Aug26B44,KB-HYD-WARANGAL HANUMAKONDA,8909001065877,zudio Girls Graphic Tees Lime Punch,Kids Wear,1.0,5
-GRN-60-Aug26B44,GRN-60-Aug26B44,KB-HYD-WARANGAL HANUMAKONDA,8909001065884,zudio Girls Graphic Tees Lime Punch,Kids Wear,1.0,10
-GRN-60-Aug26B44,GRN-60-Aug26B44,KB-HYD-WARANGAL HANUMAKONDA,8909001115657,zudio Womens Skirts Black,Womens Westernwear,1.0,5
-GRN-60-Aug26B44,GRN-60-Aug26B44,KB-HYD-WARANGAL HANUMAKONDA,8909001115664,zudio Womens Skirts Black,Womens Westernwear,1.0,10
-GRN-60-Aug26B44,GRN-60-Aug26B44,KB-HYD-WARANGAL HANUMAKONDA,8909001115688,zudio Womens Skirts Black,Womens Westernwear,1.0,5
-GRN-60-Aug26B44,GRN-60-Aug26B44,KB-HYD-WARANGAL HANUMAKONDA,8909001124765,zudio Uss Knits Shaded Spruce,Mens Wear,1.0,5
-GRN-60-Aug26B44,GRN-60-Aug26B44,KB-HYD-WARANGAL HANUMAKONDA,8909001124772,zudio Uss Knits Shaded Spruce,Mens Wear,1.0,10
-GRN-60-Aug26B44,GRN-60-Aug26B44,KB-HYD-WARANGAL HANUMAKONDA,8909001124789,zudio Uss Knits Shaded Spruce,Mens Wear,1.0,10
-GRN-60-Aug26B44,GRN-60-Aug26B44,KB-HYD-WARANGAL HANUMAKONDA,8909001283523,zudio Womens Tregging Black,Womens Westernwear,1.0,5
-GRN-60-Aug26B44,GRN-60-Aug26B44,KB-HYD-WARANGAL HANUMAKONDA,8909001283578,zudio Womens Tregging Black,Womens Westernwear,1.0,15
-GRN-60-Aug26B44,GRN-60-Aug26B44,KB-HYD-WARANGAL HANUMAKONDA,8909001284063,zudio Womens Tregging Black,Womens Westernwear,1.0,10
-GRN-60-Aug26B44,GRN-60-Aug26B44,KB-HYD-WARANGAL HANUMAKONDA,8909001294765,zudio Womens Essential Tees Walnut,Womens Westernwear,1.0,5
-GRN-60-Aug26B44,GRN-60-Aug26B44,KB-HYD-WARANGAL HANUMAKONDA,8909001309254,zudio Womens Active Legwear Black,Womens Westernwear,1.0,5
-GRN-60-Aug26B44,GRN-60-Aug26B44,KB-HYD-WARANGAL HANUMAKONDA,8909001338759,zudio Boys Graphic Tees Aloe Wash,Kids Wear,1.0,10
-GRN-60-Aug26B44,GRN-60-Aug26B44,KB-HYD-WARANGAL HANUMAKONDA,8909001339411,zudio Boys Graphic Tees Aloe Wash,Kids Wear,1.0,5
-GRN-60-Aug26B44,GRN-60-Aug26B44,KB-HYD-WARANGAL HANUMAKONDA,8909001354520,zudio Boys Core Tees Black,Kids Wear,1.0,5
-GRN-60-Aug26B44,GRN-60-Aug26B44,KB-HYD-WARANGAL HANUMAKONDA,8909001355145,zudio Boys Core Tees Black,Kids Wear,1.0,5
-GRN-60-Aug26B44,GRN-60-Aug26B44,KB-HYD-WARANGAL HANUMAKONDA,8909001355503,zudio Boys Core Tees Pewter,Kids Wear,1.0,5
+GRN-61-Aug26B01,GRN-61-Aug26B01,Arvind Limited,8907546684997,Fabindia Mens Ethnic Legwear Black,Mens Wear,1.0,5
+GRN-61-Aug26B01,GRN-61-Aug26B01,Arvind Limited,8909001124765,Zudio Uss Knits Shaded Spruce,Mens Wear,1.0,5
+GRN-61-Aug26B01,GRN-61-Aug26B01,Arvind Limited,8909001124772,Zudio Uss Knits Shaded Spruce,Mens Wear,1.0,10
+GRN-61-Aug26B01,GRN-61-Aug26B01,Arvind Limited,8909001124789,Zudio Uss Knits Shaded Spruce,Mens Wear,1.0,10
+GRN-62-Aug26B02,GRN-62-Aug26B02,Gokaldas Exports,8909001115657,Zudio Womens Skirts Black,Womens Westernwear,1.0,5
+GRN-62-Aug26B02,GRN-62-Aug26B02,Gokaldas Exports,8909001115664,Zudio Womens Skirts Black,Womens Westernwear,1.0,10
+GRN-62-Aug26B02,GRN-62-Aug26B02,Gokaldas Exports,8909001115688,Zudio Womens Skirts Black,Womens Westernwear,1.0,5
+GRN-62-Aug26B02,GRN-62-Aug26B02,Gokaldas Exports,8909001283523,Only Womens Tregging Black,Womens Westernwear,1.0,5
+GRN-62-Aug26B02,GRN-62-Aug26B02,Gokaldas Exports,8909001283578,Only Womens Tregging Black,Womens Westernwear,1.0,15
+GRN-62-Aug26B02,GRN-62-Aug26B02,Gokaldas Exports,8909001284063,Only Womens Tregging Black,Womens Westernwear,1.0,10
+GRN-63-Aug26B03,GRN-63-Aug26B03,Shahi Exports,8909001294765,Zudio Womens Essential Tees Walnut,Womens Westernwear,1.0,5
+GRN-63-Aug26B03,GRN-63-Aug26B03,Shahi Exports,8909001309254,Westside Womens Active Legwear Black,Womens Westernwear,1.0,5
+GRN-64-Aug26B04,GRN-64-Aug26B04,Pearl Global Industries,8907546777712,Gini & Jony Girls Graphic Tees Grape Royale,Kids Wear,1.0,10
+GRN-64-Aug26B04,GRN-64-Aug26B04,Pearl Global Industries,8909001065877,Max Fashion Girls Graphic Tees Lime Punch,Kids Wear,1.0,5
+GRN-64-Aug26B04,GRN-64-Aug26B04,Pearl Global Industries,8909001065884,Max Fashion Girls Graphic Tees Lime Punch,Kids Wear,1.0,10
+GRN-64-Aug26B04,GRN-64-Aug26B04,Pearl Global Industries,8909001338759,Gini & Jony Boys Graphic Tees Aloe Wash,Kids Wear,1.0,10
+GRN-64-Aug26B04,GRN-64-Aug26B04,Pearl Global Industries,8909001339411,Gini & Jony Boys Graphic Tees Aloe Wash,Kids Wear,1.0,5
+GRN-65-Aug26B05,GRN-65-Aug26B05,KPR Mill,8909001354520,Zudio Kids Boys Core Tees Black,Kids Wear,1.0,5
+GRN-65-Aug26B05,GRN-65-Aug26B05,KPR Mill,8909001355145,Zudio Kids Boys Core Tees Black,Kids Wear,1.0,5
+GRN-65-Aug26B05,GRN-65-Aug26B05,KPR Mill,8909001355503,Zudio Kids Boys Core Tees Pewter,Kids Wear,1.0,5

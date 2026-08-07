@@ -8,7 +8,7 @@ exactly what three seams in the app already know how to consume:
 
   src/data/realCatalog.json   -- real product identity (id/name/category/price)
   src/data/sampleOrders.json  -- real orders, in importOrders()'s existing shape
-  src/data/realReceipts.json  -- the one real goods-in batch, in importReceipts()'s shape
+  src/data/realReceipts.json  -- the real goods-in batches, in importReceipts()'s shape
 
 Run once, offline: `python scripts/convert_real_data.py`. Never runs inside
 the app itself — this is a data-prep step, not a runtime dependency. Also
@@ -99,7 +99,7 @@ def build_catalog(inb: pd.DataFrame, outb: pd.DataFrame) -> list[dict]:
 
 
 def build_receipts(inb: pd.DataFrame) -> dict:
-    """Group the one real ASN by (WMS_ASN_NO, SKU), summing ASNQTY per line.
+    """Group the real ASN batches by (WMS_ASN_NO, SKU), summing ASNQTY per line.
     Every line is imported as 'expected' regardless of the source's historical
     PUTAWAY_QTY -- the twin hasn't received it yet, and replaying it as already
     received would skip the count-in -> plan -> putaway flow the Inbound tab
