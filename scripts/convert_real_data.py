@@ -59,7 +59,7 @@ def barcode_key(row, *cols) -> str | None:
 
 def real_name(row) -> str:
     """Brand + family + colour -- the raw `Name` column is a style-colour code,
-    not a human name (e.g. 'SU-MEL00001-123'), so it's never used here. Source
+    not a human name (e.g. 'KB-MEL00001-123'), so it's never used here. Source
     text is shouty all-caps; title-cased to read like the synthetic catalogue
     it's replacing (e.g. 'Nordvale Cola 12pk', not 'NORDVALE COLA 12PK')."""
     brand = title(clean_str(row.get("Product Brand")).lower())
