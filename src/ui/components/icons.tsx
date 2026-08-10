@@ -244,6 +244,82 @@ export function HistoryIcon(props: IconProps) {
   )
 }
 
+/** An open hand — steering the camera by pinch-and-move. */
+export function HandIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M5.6 8.4V3.6a1 1 0 0 1 2 0v3.8M7.6 7.2V2.9a1 1 0 0 1 2 0v4.3M9.6 7.4V3.7a1 1 0 0 1 2 0v5.1" />
+      <path d="M11.6 8.6V6.1a1 1 0 0 1 2 0v4.3c0 2.5-1.7 4.4-4.1 4.4H8.2c-1.3 0-2-.4-2.8-1.4L3 9.9a1.1 1.1 0 0 1 1.6-1.5l1 .9" />
+    </Icon>
+  )
+}
+
+/** A closed hand — the "hold to rotate" gesture. */
+export function FistIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="3.6" y="5.4" width="8.4" height="6.4" rx="2.4" />
+      <path d="M3.6 8.4h8.4" />
+      <path d="M2.6 7.1c-1 .3-1.4 1.5-.7 2.3l1.5 1.8" />
+    </Icon>
+  )
+}
+
+/** A point spinning around a centre — rotate/orbit. */
+export function OrbitIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M13.4 8A5.4 5.4 0 1 1 8 2.6" />
+      <path d="M13.4 4.4V8h-3.6" />
+      <circle cx="8" cy="8" r="1" fill="currentColor" stroke="none" />
+    </Icon>
+  )
+}
+
+/** A magnifier with a +/- gap — zoom in/out. */
+export function ZoomIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <circle cx="6.8" cy="6.8" r="4.4" />
+      <path d="M4.6 6.8h4.4M11.8 11.8l2.4 2.4" />
+    </Icon>
+  )
+}
+
+/** One finger extended, the rest curled — the "select an object" gesture. */
+export function PointIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="3.4" y="7.6" width="7.4" height="5.2" rx="2.1" />
+      <path d="M6.2 7.8V3.3a1 1 0 0 1 2 0v4.3" />
+      <path d="M2.4 9.9c-.9.3-1.2 1.3-.6 2l1.4 1.6" />
+    </Icon>
+  )
+}
+
+/** Thumb and index tip together — the "interact with the target" gesture. */
+export function PinchIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <circle cx="6" cy="6.2" r="1.5" />
+      <circle cx="9.6" cy="9" r="1.5" />
+      <path d="M11.4 4.4c1.1.4 1.9 1.3 2.2 2.4M13.6 9.4c-.2 1.2-1 2.2-2 2.8" />
+    </Icon>
+  )
+}
+
+/** Two hands spreading apart — zoom and 360° rotation together. */
+export function TwoHandIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <circle cx="5.6" cy="8" r="2.1" />
+      <circle cx="10.4" cy="8" r="2.1" />
+      <path d="M1.6 8h1M13.4 8h1" />
+      <path d="M1.6 8 3 6.8M1.6 8 3 9.2M14.4 8 13 6.8M14.4 8 13 9.2" />
+    </Icon>
+  )
+}
+
 /** The product mark: two racking bays. */
 export function RackMarkIcon({ size = 18, ...rest }: IconProps) {
   return (

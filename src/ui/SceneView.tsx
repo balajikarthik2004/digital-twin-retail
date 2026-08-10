@@ -4,6 +4,7 @@ import { WarehouseScene, type SceneHover } from '../scene/WarehouseScene'
 import { dockActivityOf } from '../simulation/dockActivity'
 import { useAppStore } from '../store/useAppStore'
 import { DockHoverCard } from './DockHoverCard'
+import { HandControlPanel } from './HandControlPanel'
 import { Inspector } from './Inspector'
 
 /** Pushing a loaded pallet is slower than walking a pick round. */
@@ -216,6 +217,10 @@ export function SceneView() {
       )}
       <DockHoverCard sceneRef={sceneRef} hover={hover} />
       <Inspector sceneRef={sceneRef} />
+
+      <div className="absolute right-4 top-4 z-20">
+        <HandControlPanel sceneRef={sceneRef} />
+      </div>
     </div>
   )
 }

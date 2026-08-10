@@ -110,6 +110,14 @@ const MIN_EYE = 1.4
 /** How far outside the building you may roam. */
 const ROAM_MARGIN = 14
 
+/** Radians/second of orbit at full stick deflection (hand-control rotate). */
+const ROTATE_RATE = 1.6
+/** Fraction of distance-to-target zoomed per second at full stick deflection. */
+const ZOOM_RATE = 1.1
+/** Kept off true vertical, same reasoning as the polar limit below — an orbit
+ *  that reaches exactly zenith/nadir loses azimuth and the view can snap. */
+const MIN_POLAR = 0.03
+
 const DEFAULT_OPTIONS: SceneOptions = {
   showPaths: true,
   showSequence: true,
@@ -183,6 +191,12 @@ export class WarehouseScene {
 
   private selection: SceneSelection = null
   private selectionBox: THREE.LineSegments
+  /** Wireframe glow for whatever the hand-pointing gesture is aimed at — kept
+   *  entirely separate from {@link selectionBox} so pointing can highlight
+   *  something without selecting it (selecting opens the Inspector; pointing
+   *  must not). */
+  private pointerBox: THREE.LineSegments
+  private pointerTarget: SceneSelection = null
   private hover: SceneHover = null
   /** Latest dock state, kept so a rebuilt visual can be re-stamped with it. */
   private dockStates: DockActivity[] = []
@@ -200,6 +214,8 @@ export class WarehouseScene {
   /** Last non-zero pad input, kept alive for {@link PAD_MIN_HOLD} after release. */
   private padLatched: MoveAxes = { ...ZERO_AXES }
   private padHoldLeft = 0
+  /** Rotate/zoom rates from the hand control's left hand / two-hand gestures. */
+  private handRotateZoom = { yaw: 0, pitch: 0, zoom: 0 }
 
   private raycaster = new THREE.Raycaster()
   private pointer = new THREE.Vector2()
@@ -208,6 +224,8 @@ export class WarehouseScene {
   private disposed = false
   private tmpA = new THREE.Vector3()
   private tmpB = new THREE.Vector3()
+  private tmpC = new THREE.Vector3()
+  private tmpSpherical = new THREE.Spherical()
   private tmpTarget = new THREE.Vector3()
   /** Cheap hash of route/progress/colour state, to skip redundant bin re-tinting. */
   private tintSignature = ''
@@ -295,6 +313,16 @@ export class WarehouseScene {
     this.selectionBox.visible = false
     this.selectionBox.renderOrder = 15
     this.scene.add(this.selectionBox)
+
+    // Same geometry, a warmer/amber colour so a pointed-at rack never reads as
+    // "selected" — pointing only ever highlights, pinch is what selects.
+    this.pointerBox = new THREE.LineSegments(
+      edges,
+      new THREE.LineBasicMaterial({ color: 0xffb648, transparent: true, opacity: 0.9 }),
+    )
+    this.pointerBox.visible = false
+    this.pointerBox.renderOrder = 15
+    this.scene.add(this.pointerBox)
 
     const dom = this.renderer.domElement
     dom.addEventListener('pointerdown', this.handlePointerDown)
@@ -693,6 +721,15 @@ export class WarehouseScene {
     this.padAxes = next
   }
 
+  /**
+   * Rotate/zoom rates from the hand control (left hand = orbit, both hands = zoom).
+   * Unlike {@link setPadAxes} this needs no tap-hold-over: the hand loop re-emits
+   * every tracked frame, including the zero it sends the instant a pinch releases.
+   */
+  setHandRotateZoom(patch: { yaw: number; pitch: number; zoom: number }): void {
+    this.handRotateZoom = patch
+  }
+
   /** Pad input, or the tail of a tap that has not had its time yet. */
   private effectivePadAxes(dt: number): MoveAxes {
     if (axesActive(this.padAxes)) return this.padAxes
@@ -773,6 +810,38 @@ export class WarehouseScene {
     }
   }
 
+  /**
+   * Orbit and dolly the camera around `controls.target` from the hand control's
+   * rotate/zoom channel — the same motion a mouse drag or wheel produces, just
+   * driven by a held rate instead of a delta. Reuses `OrbitControls`' own limits
+   * (`maxPolarAngle`, `minDistance`/`maxDistance`) so a hand can't do anything a
+   * mouse couldn't.
+   */
+  private applyHandOrbitZoom(dt: number): void {
+    const { yaw, pitch, zoom } = this.handRotateZoom
+    if (yaw === 0 && pitch === 0 && zoom === 0) return
+    // A preset fly-in would otherwise fight the input for the same camera.
+    this.tween.cancel()
+
+    const cam = this.camera.position
+    const target = this.controls.target
+    const offset = this.tmpC.subVectors(cam, target)
+    const spherical = this.tmpSpherical.setFromVector3(offset)
+
+    spherical.theta -= yaw * ROTATE_RATE * dt
+    spherical.phi = clamp(spherical.phi - pitch * ROTATE_RATE * dt, MIN_POLAR, this.controls.maxPolarAngle)
+    if (zoom !== 0) {
+      spherical.radius = clamp(
+        spherical.radius * (1 - zoom * ZOOM_RATE * dt),
+        this.controls.minDistance,
+        this.controls.maxDistance,
+      )
+    }
+
+    offset.setFromSpherical(spherical)
+    cam.copy(target).add(offset)
+  }
+
   private handleKeyDown = (event: KeyboardEvent) => {
     if (event.repeat || isTypingInto(event.target)) return
     if (event.ctrlKey || event.metaKey || event.altKey) return
@@ -802,6 +871,8 @@ export class WarehouseScene {
     this.keyAxes = { ...ZERO_AXES }
     this.padAxes = { ...ZERO_AXES }
     this.padHoldLeft = 0
+    this.handRotateZoom = { yaw: 0, pitch: 0, zoom: 0 }
+    this.setPointerTarget(null)
   }
 
   private recomputeKeyAxes(): void {
@@ -840,38 +911,68 @@ export class WarehouseScene {
   }
 
   private updateSelectionVisuals(): void {
-    const model = this.model
-    if (!model) return
-    this.selectionBox.visible = false
-
-    if (this.selection?.kind === 'bin') {
-      const bin = model.binsById.get(this.selection.id)
-      if (bin) {
-        const c = model.config
-        const slotWidth = c.bayWidth / c.slotsPerBay
-        this.selectionBox.scale.set(c.rackDepth * 0.8, c.levelHeight * 0.66, slotWidth * 0.96)
-        const facing = bin.side === 'L' ? 1 : -1
-        this.selectionBox.position.set(
-          bin.face.x - facing * (c.rackDepth * 0.36),
-          bin.face.y,
-          bin.face.z,
-        )
-        this.selectionBox.visible = true
-      }
-    } else if (this.selection?.kind === 'dock') {
-      const box = this.visual?.docks.boundsOf(this.selection.id)
-      if (box) {
-        this.selectionBox.scale.copy(box.size)
-        this.selectionBox.position.copy(box.center)
-        this.selectionBox.visible = true
-      }
-    }
+    this.placeBox(this.selectionBox, this.selection)
 
     // Ring colour/opacity is owned by the per-frame sync; only scale here.
     for (const [id, picker] of this.pickers) {
       const active = this.selection?.kind === 'agent' && this.selection.id === id
       picker.ring.scale.setScalar(active ? 1.25 : 1)
     }
+  }
+
+  /**
+   * Aim a wireframe box (selection or pointer) at a bin or dock. Shared by
+   * {@link updateSelectionVisuals} and {@link setPointerTarget} so the two
+   * highlights can never drift apart in how they size or place themselves.
+   */
+  private placeBox(box: THREE.LineSegments, target: SceneSelection): void {
+    const model = this.model
+    box.visible = false
+    if (!model || !target) return
+
+    if (target.kind === 'bin') {
+      const bin = model.binsById.get(target.id)
+      if (!bin) return
+      const c = model.config
+      const slotWidth = c.bayWidth / c.slotsPerBay
+      box.scale.set(c.rackDepth * 0.8, c.levelHeight * 0.66, slotWidth * 0.96)
+      const facing = bin.side === 'L' ? 1 : -1
+      box.position.set(bin.face.x - facing * (c.rackDepth * 0.36), bin.face.y, bin.face.z)
+      box.visible = true
+    } else if (target.kind === 'dock') {
+      const bounds = this.visual?.docks.boundsOf(target.id)
+      if (!bounds) return
+      box.scale.copy(bounds.size)
+      box.position.copy(bounds.center)
+      box.visible = true
+    }
+  }
+
+  /**
+   * What the hand-pointing gesture is currently aimed at — highlight only,
+   * never a selection. `null` clears the glow (hand lowered, lost the
+   * target, or something else took input priority).
+   *
+   * Bins and dock doors get the wireframe glow; pickers already carry their
+   * own highlight ring, and re-scaling it here would fight the per-frame sync
+   * in {@link syncAgents}, so an agent target just skips the 3D highlight and
+   * relies on the hand-control panel's name card instead.
+   */
+  setPointerTarget(target: SceneSelection): void {
+    if (sameTarget(this.pointerTarget, target)) return
+    this.pointerTarget = target
+    this.placeBox(this.pointerBox, target)
+  }
+
+  /**
+   * Raycast at an arbitrary point in NDC space (`[-1, 1]` on each axis),
+   * independent of the mouse pick/hover pipeline — used by hand-pointing so it
+   * can query "what's under this point" every tracked frame without touching
+   * `this.hover`, the cursor, or firing `onHover`/`onSelect`.
+   */
+  pickAt(ndcX: number, ndcY: number): SceneSelection {
+    this.pointer.set(ndcX, ndcY)
+    return this.pick()
   }
 
   selectionWorldPosition(): THREE.Vector3 | null {
@@ -923,6 +1024,7 @@ export class WarehouseScene {
     }
     // After the tween, so driving always wins over a preset still flying in.
     this.drive(dt)
+    this.applyHandOrbitZoom(dt)
 
     if (this.options.showPaths) tickRibbonFlow(dt)
     this.syncAgents(agents, dt)
@@ -1348,8 +1450,10 @@ export class WarehouseScene {
     this.scene.environment = null
     this.envMap?.dispose()
     this.envMap = null
-    this.selectionBox.geometry.dispose()
+    this.selectionBox.geometry.dispose() // shared with pointerBox; disposing twice is a harmless no-op
     ;(this.selectionBox.material as THREE.Material).dispose()
+    this.pointerBox.geometry.dispose()
+    ;(this.pointerBox.material as THREE.Material).dispose()
     this.renderer.dispose()
     if (dom.parentElement === this.container) this.container.removeChild(dom)
   }
@@ -1370,6 +1474,10 @@ function clampAxis(value: number): number {
 
 function axesActive(axes: MoveAxes): boolean {
   return axes.forward !== 0 || axes.right !== 0 || axes.up !== 0
+}
+
+function sameTarget(a: SceneSelection, b: SceneSelection): boolean {
+  return a?.kind === b?.kind && a?.id === b?.id
 }
 
 /**

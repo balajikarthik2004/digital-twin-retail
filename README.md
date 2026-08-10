@@ -85,6 +85,42 @@ or drop **Pickers on the floor** to see it work.
 In dev builds only, `window.__digitalTwinWMS` exposes `{ scene, store }` for poking at the twin
 from the console — e.g. `__digitalTwinWMS.store.getState().metrics`.
 
+### Hand control
+
+The **Hand control** pill (top-right of the 3D view) steers the camera from a webcam instead of
+the mouse/keyboard — useful for a hands-off walkthrough on a demo floor. It is strictly additive:
+mouse drag/scroll/pan and WASD keep working exactly as before, whether this is on or off; the
+toggle only ever adds a second source of input alongside them. Three gestures, one hand shape
+each, and only one is ever live at once:
+
+| Gesture | Does |
+| --- | --- |
+| 🤏 Pinch one hand | **Pan** — move front/back, left/right. Release the pinch and it stops dead. |
+| ✊ Close it into a fist | **Rotate** — a fixed, slow 360° spin. Not proportional to anything (position, speed) on purpose, so it can't feel like it's "getting away from you." Open the hand and it stops immediately. |
+| 🤏🤏 Pinch with both hands | **Zoom** — spread apart to zoom in, bring them back together to zoom out, like a two-finger pinch-zoom. Bounded by the same `OrbitControls` limits a mouse wheel is held to. |
+
+Deliberately **hand-agnostic**: it's the *shape* a hand makes that decides what happens, never
+which physical hand (left/right) is making it. An earlier version keyed navigation off MediaPipe's
+own left/right classification, which assumes the frame handed to the model is itself mirrored
+(selfie-style); ours isn't (only the `<video>` preview is, in CSS), so trusting it needed an
+inversion that was easy to get backwards — and getting it backwards silently swapped which hand
+drove what, which read exactly like "the camera is moving on its own." Reading shape instead of
+identity sidesteps the question entirely. Landmarks are smoothed frame to frame and every gesture
+reads through a hysteresis threshold, so a hand held nearly still, or caught exactly at a shape's
+edge, cannot flicker between two readings.
+
+Hand tracking is MediaPipe's `HandLandmarker`, run entirely in the browser (WASM/GPU, up to two
+hands, no frames ever leave the machine) — see [src/scene/handControl/](src/scene/handControl/),
+split into a camera/model wrapper (`HandTracker`), pure gesture-shape detection
+(`GestureDetector`), per-gesture controllers (`NavigationController`, `ZoomController`) and the
+priority state machine that arbitrates between them (`HandControlManager`). Rotate/zoom feed the
+exact same `MoveAxes` and rotate/zoom channels the on-screen pad already used
+(`WarehouseScene.setPadAxes`/`setHandRotateZoom`) — nothing about the existing camera code changed
+to add any of this. The runtime and model asset are vendored into `public/vision/` and
+`public/models/hand_landmarker.task` rather than fetched from a CDN, so the feature works offline
+once installed; both are lazy-loaded only when the pill is switched on, so they cost nothing on
+first paint or in the main bundle.
+
 ---
 
 ## Architecture
