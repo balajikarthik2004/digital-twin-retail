@@ -116,7 +116,7 @@ function CurrentTask({
         <button
           type="button"
           onClick={() => onSelect({ kind: 'bin', id: current.binId })}
-          className="w-full rounded-lg border border-accent/45 bg-accent/[0.07] px-2.5 py-2 text-left transition-colors hover:bg-accent/[0.12]"
+          className="w-full rounded-lg border border-accent/40 bg-gradient-to-br from-accent/10 to-accent-soft/5 px-2.5 py-2 text-left shadow-[inset_0_1px_1px_rgba(255,255,255,0.1),0_4px_12px_rgba(var(--accent)/0.2)] backdrop-blur-md transition-all hover:border-accent/60 hover:from-accent/15 hover:to-accent-soft/10"
           title="Show this location in the scene"
         >
           <div className="flex items-baseline justify-between gap-2">
@@ -244,7 +244,7 @@ function TaskList({
           what the auto-scroll above assumes. */}
       <ol
         ref={listRef}
-        className="relative max-h-[168px] space-y-px overflow-y-auto rounded-lg border border-ink-700/70 bg-ink-850/40 p-1"
+        className="relative max-h-[168px] space-y-px overflow-y-auto rounded-lg border border-ink-700/50 bg-ink-850/20 p-1 shadow-inner backdrop-blur-sm"
       >
         {agent.tasks.map((task) => (
           <TaskRow key={`${task.sequence}-${task.binId}`} task={task} color={agent.color} onSelect={onSelect} />
@@ -273,8 +273,8 @@ function TaskRow({
         onClick={() => onSelect({ kind: 'bin', id: task.binId })}
         title={`${task.skuName} — ${task.orderRef}`}
         className={cx(
-          'flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-left transition-colors',
-          current ? 'bg-accent/10' : 'hover:bg-ink-750/60',
+          'flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-left transition-all duration-200',
+          current ? 'bg-gradient-to-r from-accent/15 to-transparent shadow-[inset_2px_0_0_rgb(var(--accent))]' : 'hover:bg-ink-750/40 hover:shadow-sm',
         )}
       >
         <span

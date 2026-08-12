@@ -109,8 +109,8 @@ export function MetricsPanel() {
           className={cx(
             'mt-4 rounded-lg border p-2',
             metrics.congestionEvents > 0 || metrics.shortPicks > 0 || metrics.replenAlerts > 0
-              ? 'border-[var(--viz-warning)] bg-[var(--viz-warning)]/10'
-              : 'border-ink-800 bg-ink-900',
+              ? 'border-[var(--viz-warning)] bg-[var(--viz-warning)]/10 shadow-[0_4px_12px_rgba(var(--warn-rgb)/0.2)]'
+              : 'border-ink-700/50 bg-ink-850/30 shadow-sm backdrop-blur-sm',
           )}
         >
           <div
@@ -188,8 +188,8 @@ export function MetricsPanel() {
                 className={cx(
                   'w-full rounded-lg border px-2.5 py-2 text-left transition-all duration-150',
                   focusAgentId === agent.id
-                    ? 'border-ink-500 bg-ink-750/70'
-                    : 'border-ink-700/70 bg-ink-850/50 hover:border-ink-600 hover:bg-ink-750/50',
+                    ? 'border-accent/40 bg-gradient-to-br from-accent/10 to-accent-soft/5 shadow-[inset_0_1px_1px_rgba(255,255,255,0.1),0_4px_12px_rgba(var(--accent)/0.2)]'
+                    : 'border-ink-700/50 bg-ink-850/30 shadow-sm backdrop-blur-sm hover:border-ink-600/60 hover:bg-ink-800/40',
                 )}
               >
                 <div className="flex items-center gap-2">
@@ -333,7 +333,7 @@ function MiniStat({
   hint?: string
 }) {
   return (
-    <div className="rounded-lg border border-ink-700/70 bg-ink-850/50 py-1.5" title={hint}>
+    <div className="rounded-lg border border-ink-700/50 bg-ink-850/30 py-1.5 shadow-sm backdrop-blur-sm transition-colors hover:bg-ink-800/40" title={hint}>
       <div
         className={cx(
           'font-mono text-[15px] font-semibold tabular-nums',

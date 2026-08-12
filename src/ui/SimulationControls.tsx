@@ -25,7 +25,7 @@ export function SimulationControls() {
   const running = metrics?.running ?? false
 
   return (
-    <div className="shrink-0 border-b border-ink-700 bg-ink-900 px-3 py-2.5">
+    <div className="shrink-0 border-b border-accent/20 bg-transparent px-3 py-2.5">
       <div className="flex items-end justify-between gap-2">
         <div className="leading-tight">
           <div className="mini-label">Shift clock</div>

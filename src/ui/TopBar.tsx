@@ -1,5 +1,6 @@
 import { getStrategy } from '../pathfinding/strategies'
 import { useAppStore } from '../store/useAppStore'
+import { isReserveLevel } from '../warehouse/rackGeometry'
 import { cx } from './components/primitives'
 import { clock } from './format'
 import {
@@ -9,6 +10,25 @@ import {
   RackMarkIcon,
   SunIcon,
 } from './components/icons'
+
+/**
+ * One facility fact in the chrome: the number carries the weight, the unit
+ * recedes. Was a flat `.chip` per stat, where "8", "2,560" and "3,427" all sat
+ * at label weight and the row read as undifferentiated grey text.
+ */
+function FacilityStat({ value, label, title }: { value: string; label: string; title?: string }) {
+  return (
+    <span
+      title={title}
+      className="inline-flex items-baseline gap-1.5 rounded-md border border-accent/20 bg-gradient-to-br from-accent/5 to-ink-800 px-2 py-0.5 shadow-[inset_0_1px_1px_rgba(255,255,255,0.05),0_2px_4px_rgb(var(--accent)/0.1)] transition-colors hover:border-accent/40 hover:from-accent/10 hover:to-ink-800"
+    >
+      <span className="font-mono text-[11px] font-bold tabular-nums leading-none text-ink-100">
+        {value}
+      </span>
+      <span className="text-[9px] font-semibold uppercase tracking-widest text-ink-400">{label}</span>
+    </span>
+  )
+}
 
 export function TopBar() {
   const layouts = useAppStore((s) => s.layouts)
@@ -25,9 +45,13 @@ export function TopBar() {
   const toggle = useAppStore((s) => s.toggle)
 
   const strategy = getStrategy(settings.strategyId)
+  const pickFaceBins = model
+    ? model.bins.reduce((n, b) => n + (isReserveLevel(model.config, b.level) ? 0 : 1), 0)
+    : 0
+  const reserveBins = model ? model.bins.length - pickFaceBins : 0
 
   return (
-    <header className="z-30 flex h-14 shrink-0 items-center gap-3 border-b border-ink-700 bg-ink-900 px-3 shadow-panel">
+    <header className="z-30 flex h-14 shrink-0 items-center gap-3 border-b border-accent/40 bg-gradient-to-r from-accent/15 via-ink-900 to-accent-soft/15 px-3 shadow-[0_4px_32px_-12px_rgb(var(--accent)/0.3)] backdrop-blur-md">
       <button
         type="button"
         onClick={() => toggle('leftOpen')}
@@ -40,15 +64,15 @@ export function TopBar() {
 
       <div className="flex items-center gap-2.5">
         <div
-          className="grid h-8 w-8 place-items-center rounded-lg text-white shadow-sm"
-          style={{ background: 'rgb(var(--accent))' }}
+          className="grid h-8 w-8 place-items-center rounded-lg text-white shadow-[0_2px_10px_0_rgb(var(--accent)/0.3)] ring-1 ring-white/10 transition-transform duration-300 hover:scale-105"
+          style={{ background: 'linear-gradient(135deg, rgb(var(--accent-soft)), rgb(var(--accent)))' }}
         >
           {/* Racking mark — two shelf bays, the product's logo. */}
           <RackMarkIcon />
         </div>
         <div className="leading-tight">
-          <div className="text-[13px] font-semibold tracking-tight text-ink-100">Digital Twin WMS</div>
-          <div className="text-[10px] text-ink-400">Warehouse Management System</div>
+          <div className="text-[13px] font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-ink-100 to-ink-300">Digital Twin WMS</div>
+          <div className="text-[10px] font-medium text-ink-400">Warehouse Management System</div>
         </div>
       </div>
 
@@ -59,7 +83,14 @@ export function TopBar() {
         <select
           value={layoutId}
           onChange={(e) => selectLayout(e.target.value)}
-          className="rounded-lg border border-ink-600 bg-ink-800 px-2.5 py-1.5 text-xs text-ink-100 outline-none transition-colors hover:border-ink-500 focus:border-accent/60"
+          /*
+           * `text-xs` was the only use of Tailwind's default type scale in the
+           * chrome; everything around it is on the app's own bracket scale, so
+           * it rendered a step larger than its neighbours. Focus-visible is
+           * borrowed from `.btn` so keyboard focus is as clear here as on
+           * every other control in this bar.
+           */
+          className="rounded-lg border border-ink-600 bg-ink-800 px-2.5 py-1.5 text-[11.5px] font-medium text-ink-100 outline-none transition-colors hover:border-ink-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
         >
           {layouts.map((l) => (
             <option key={l.id} value={l.id}>
@@ -71,9 +102,25 @@ export function TopBar() {
 
       {model && (
         <div className="hidden items-center gap-1.5 xl:flex">
-          <span className="chip">{model.config.aisles} aisles</span>
-          <span className="chip">{model.bins.length.toLocaleString()} bins</span>
-          <span className="chip">{model.area.toLocaleString()} m²</span>
+          <FacilityStat value={String(model.config.aisles)} label="aisles" />
+          {/*
+            * Split rather than one total: the two tiers are stocked and worked
+            * so differently that a single "3,840 bins" hides the thing worth
+            * knowing about this facility — how much of it is reachable on foot.
+            */}
+          <FacilityStat
+            value={pickFaceBins.toLocaleString()}
+            label="pick face"
+            title={`${pickFaceBins.toLocaleString()} case-pick locations, reachable on foot`}
+          />
+          {reserveBins > 0 && (
+            <FacilityStat
+              value={reserveBins.toLocaleString()}
+              label="bulk"
+              title={`${reserveBins.toLocaleString()} pallet positions in the reserve tier above the pick face`}
+            />
+          )}
+          <FacilityStat value={model.area.toLocaleString()} label="m²" />
         </div>
       )}
 

@@ -348,6 +348,11 @@ export function RackMarkIcon({ size = 18, ...rest }: IconProps) {
       focusable="false"
       {...rest}
     >
+      {/* Colored boxes sitting on the rack shelves */}
+      <rect x="3.5" y="7.7" width="2" height="2.5" fill="#3b82f6" stroke="none" />
+      <rect x="6.0" y="8.2" width="2" height="2" fill="#10b981" stroke="none" />
+      <rect x="10.0" y="8.6" width="2" height="3" fill="#f97316" stroke="none" />
+      <rect x="12.5" y="9.6" width="2" height="2" fill="#ffffff" stroke="none" />
       <path d="M2.5 14.5V6l3.2-2 3.2 2v8.5M9 14.5V8.4l3.2-2 3.2 2v6.1M2.5 10.2h6.4M9 11.6h6.4" />
     </svg>
   )

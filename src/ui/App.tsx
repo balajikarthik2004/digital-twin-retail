@@ -78,7 +78,7 @@ export function App() {
         {/* Left: transport, then the four workspace sections */}
         <aside
           className={cx(
-            'relative z-20 shrink-0 overflow-hidden border-r border-ink-700 bg-ink-950 transition-[width] duration-300 ease-out',
+            'relative z-20 shrink-0 overflow-hidden border-r border-accent/30 bg-gradient-to-br from-accent/10 via-ink-950 to-ink-950 shadow-[4px_0_32px_-8px_rgb(var(--accent)/0.25)] transition-[width] duration-300 ease-out',
             leftOpen ? 'w-[340px]' : 'w-0',
           )}
         >
@@ -119,7 +119,7 @@ export function App() {
         {/* Right: live metrics & comparison */}
         <aside
           className={cx(
-            'relative z-20 shrink-0 overflow-hidden border-l border-ink-700 bg-ink-950 transition-[width] duration-300 ease-out',
+            'relative z-20 shrink-0 overflow-hidden border-l border-accent/30 bg-gradient-to-bl from-accent-soft/10 via-ink-950 to-ink-950 shadow-[-4px_0_32px_-8px_rgb(var(--accent)/0.25)] transition-[width] duration-300 ease-out',
             rightOpen ? 'w-[340px]' : 'w-0',
           )}
         >

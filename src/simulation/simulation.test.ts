@@ -4,6 +4,7 @@ import realCatalogDoc from '../data/realCatalog.json'
 import sampleOrdersDoc from '../data/sampleOrders.json'
 import type { CatalogEntry } from '../warehouse/catalog'
 import { generateWarehouse } from '../warehouse/generate'
+import { isReserveLevel } from '../warehouse/rackGeometry'
 import type { WarehouseConfig } from '../warehouse/types'
 import { compareStrategies } from './compare'
 import { AGENT_COLORS, MAX_AGENTS, SimulationEngine } from './engine'
@@ -105,6 +106,61 @@ describe('order generation & import', () => {
     expect(warnings).toEqual([])
     expect(orders).toHaveLength(doc.orders.length)
     expect(orders[0].ref).toBe(doc.orders[0].ref)
+  })
+
+  it('sends the bundled demo wave to the reserve tier as well as the pick face', () => {
+    /*
+     * The whole point of bulk being real storage is that real demand reaches
+     * it. Real catalogue products are deliberately slotted across both tiers
+     * so an imported wave — which resolves by the supplier's own item code and
+     * knows nothing about racking — naturally lands on some of them. If this
+     * ever returns to zero, the reserve tier is decoration again and every
+     * retrieval cost the engine models is unreachable.
+     */
+    const realModel = generateWarehouse(config, realCatalogDoc as unknown as CatalogEntry[])
+    const { orders } = importOrders(realModel, sampleOrdersDoc)
+    const lines = orders.flatMap((o) => o.lines)
+    const fromReserve = lines.filter((l) => {
+      const bin = realModel.binsById.get(l.binId)
+      return bin && isReserveLevel(config, bin.level)
+    })
+    expect(fromReserve.length).toBeGreaterThan(0)
+    // ...but the pick face still carries the clear majority of the work.
+    expect(fromReserve.length).toBeLessThan(lines.length / 2)
+  })
+
+  it('actually walks pickers to the reserve tier over a full demo wave', () => {
+    /*
+     * End-to-end rather than data-level: the test above proves bulk lines
+     * exist in the wave, this proves the engine dispatches, routes, services
+     * and completes them. A reserve stop costs several times a pick-face stop
+     * in dwell, so if those stops were ever silently dropped the wave would
+     * still finish — just implausibly fast — and nothing else would fail.
+     */
+    const realModel = generateWarehouse(config, realCatalogDoc as unknown as CatalogEntry[])
+    const { orders } = importOrders(realModel, sampleOrdersDoc)
+    const reserveBinIds = new Set(
+      realModel.bins.filter((b) => isReserveLevel(config, b.level)).map((b) => b.id),
+    )
+    const wanted = orders.flatMap((o) => o.lines).filter((l) => reserveBinIds.has(l.binId)).length
+    expect(wanted).toBeGreaterThan(0)
+
+    const engine = new SimulationEngine(realModel, { ...settings, agentCount: 4 })
+    engine.setOrders(orders)
+
+    // Every stop any picker was ever routed to, across the whole wave.
+    const visited = new Set<string>()
+    engine.start()
+    while (engine.time < 40000 && engine.running) {
+      engine.step(0.25)
+      for (const agent of engine.agents) {
+        for (const wp of agent.route?.waypoints ?? []) visited.add(wp.stop.ref)
+      }
+    }
+
+    const reserveVisited = [...visited].filter((id) => reserveBinIds.has(id))
+    expect(reserveVisited.length).toBeGreaterThan(0)
+    expect(engine.metrics().ordersCompleted).toBe(orders.length)
   })
 
   it('accepts bin ids and SKU ids as well as location codes', () => {

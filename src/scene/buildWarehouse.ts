@@ -659,14 +659,12 @@ export function buildWarehouse(model: WarehouseModel, themeMode: ThemeMode = 'li
   }
 
   binOrder.forEach((bin, i) => {
-    const reserve = isReserveLevel(config, bin.level)
     baseColor.setHex(VELOCITY_COLOR[bin.sku.velocity])
-    if (reserve) wrapped(baseColor)
     palettes.velocity[i * 3] = baseColor.r
     palettes.velocity[i * 3 + 1] = baseColor.g
     palettes.velocity[i * 3 + 2] = baseColor.b
+    
     baseColor.setHex(ZONE_COLORS[bin.aisle % ZONE_COLORS.length])
-    if (reserve) wrapped(baseColor)
     palettes.zone[i * 3] = baseColor.r
     palettes.zone[i * 3 + 1] = baseColor.g
     palettes.zone[i * 3 + 2] = baseColor.b

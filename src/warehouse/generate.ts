@@ -74,6 +74,14 @@ const RESERVE_OPENING_FILL: [number, number] = [0.55, 0.98]
 const RESERVE_EMPTY_SHARE = 0.05
 
 /**
+ * Share of real catalogue products slotted into bulk rather than the pick
+ * face, so an imported wave actually sends pickers up the rack. High enough to
+ * be visible in a 60-order demo wave, low enough that the pick face stays
+ * where the overwhelming majority of the work is.
+ */
+const REAL_ON_RESERVE_SHARE = 0.22
+
+/**
  * Build the entire warehouse — geometry descriptors, storage locations, SKU
  * catalogue and navigation graph — from a declarative config.
  *
@@ -411,23 +419,52 @@ export function generateWarehouse(
    */
   const realAssignment = new Map<string, CatalogEntry>()
   if (realCatalog.length > 0) {
-    const byAisle = new Map<number, typeof scored>()
-    for (const entry of scored) {
-      const list = byAisle.get(entry.bin.aisle)
-      if (list) list.push(entry)
-      else byAisle.set(entry.bin.aisle, [entry])
-    }
-    const aisleLists = [...byAisle.values()]
-    let cursor = 0
-    outer: for (let round = 0; ; round++) {
-      let placedThisRound = false
-      for (const list of aisleLists) {
-        if (round >= list.length) continue
-        if (cursor >= realCatalog.length) break outer
-        realAssignment.set(list[round].bin.id, realCatalog[cursor++])
-        placedThisRound = true
+    /** Round-robin one pass per aisle, so no aisle is filled before the next starts. */
+    const spreadByAisle = (entries: typeof scored) => {
+      const byAisle = new Map<number, typeof scored>()
+      for (const entry of entries) {
+        const list = byAisle.get(entry.bin.aisle)
+        if (list) list.push(entry)
+        else byAisle.set(entry.bin.aisle, [entry])
       }
-      if (!placedThisRound) break
+      const lists = [...byAisle.values()]
+      const out: typeof scored = []
+      for (let round = 0; ; round++) {
+        let placed = false
+        for (const list of lists) {
+          if (round >= list.length) continue
+          out.push(list[round])
+          placed = true
+        }
+        if (!placed) break
+      }
+      return out
+    }
+
+    /*
+     * Real products live on the pick face AND in bulk, interleaved at a fixed
+     * cadence.
+     *
+     * Without this, every real catalogue entry landed on the pick face, so an
+     * imported wave — which resolves its lines by the supplier's own item code
+     * — could never once send a picker to the reserve tier. Bulk would be real
+     * storage that real demand structurally never touched. Long-tail stock
+     * genuinely does live only in bulk in a real facility, so interleaving is
+     * both the honest model and what makes reserve retrieval visible in the
+     * bundled demo wave rather than only in synthetic demand.
+     */
+    const faceOrder = spreadByAisle(scored)
+    const reserveOrder = spreadByAisle(reserveScored)
+    const placementOrder: typeof scored = []
+    let ri = 0
+    faceOrder.forEach((entry, i) => {
+      placementOrder.push(entry)
+      const due = Math.floor((i + 1) * REAL_ON_RESERVE_SHARE) > Math.floor(i * REAL_ON_RESERVE_SHARE)
+      if (due && ri < reserveOrder.length) placementOrder.push(reserveOrder[ri++])
+    })
+
+    for (let cursor = 0; cursor < realCatalog.length && cursor < placementOrder.length; cursor++) {
+      realAssignment.set(placementOrder[cursor].bin.id, realCatalog[cursor])
     }
   }
 

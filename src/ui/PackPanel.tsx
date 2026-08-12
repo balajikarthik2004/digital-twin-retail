@@ -134,12 +134,12 @@ export function PackPanel() {
               <div
                 key={station.id}
                 className={cx(
-                  'rounded-lg border px-2.5 py-2',
+                  'rounded-lg border px-2.5 py-2 shadow-sm backdrop-blur-sm transition-all',
                   station.phase === 'mergeBlocked'
-                    ? 'border-[var(--viz-critical)]/45 bg-[var(--viz-critical)]/8'
+                    ? 'border-[var(--viz-critical)]/45 bg-[var(--viz-critical)]/10 shadow-[0_4px_12px_rgba(var(--crit-rgb)/0.2)]'
                     : station.staffed
-                      ? 'border-ink-700/70 bg-ink-850/50'
-                      : 'border-dashed border-ink-700 bg-transparent',
+                      ? 'border-ink-700/50 bg-ink-850/30 hover:border-ink-600/60 hover:bg-ink-800/40'
+                      : 'border-dashed border-ink-700/50 bg-transparent',
                 )}
               >
                 <div className="flex items-center gap-2">
@@ -213,10 +213,10 @@ export function PackPanel() {
                 type="button"
                 onClick={() => setSelection({ kind: 'dock', id: dock.id })}
                 className={cx(
-                  'w-full rounded-lg border px-2.5 py-2 text-left transition-all duration-150',
+                  'w-full rounded-lg border px-2.5 py-2 text-left transition-all duration-150 shadow-sm backdrop-blur-sm',
                   active
-                    ? 'border-ink-500 bg-ink-750/70'
-                    : 'border-ink-700/70 bg-ink-850/50 hover:border-ink-600',
+                    ? 'border-accent/40 bg-gradient-to-br from-accent/10 to-accent-soft/5 shadow-[inset_0_1px_1px_rgba(255,255,255,0.1),0_4px_12px_rgba(var(--accent)/0.2)]'
+                    : 'border-ink-700/50 bg-ink-850/30 hover:border-ink-600/60 hover:bg-ink-800/40',
                 )}
               >
                 <div className="flex items-center gap-2">
@@ -296,8 +296,8 @@ export function PackPanel() {
                     className={cx(
                       'w-full rounded-lg border px-2 py-1.5 text-left transition-all duration-150',
                       active
-                        ? 'border-ink-500 bg-ink-750/70'
-                        : 'border-ink-700/60 bg-ink-850/40 hover:border-ink-600',
+                        ? 'border-accent/40 bg-gradient-to-br from-accent/10 to-accent-soft/5 shadow-[inset_0_1px_1px_rgba(255,255,255,0.1),0_4px_12px_rgba(var(--accent)/0.2)]'
+                        : 'border-ink-700/50 bg-ink-850/20 shadow-sm backdrop-blur-sm hover:border-ink-600/60 hover:bg-ink-800/30',
                     )}
                   >
                     <div className="flex items-center gap-1.5">
@@ -366,10 +366,10 @@ function FlowStage({
       className={cx(
         'flex-1 rounded-md border px-1 py-1.5 text-center',
         warn
-          ? 'border-[var(--viz-critical)]/50 bg-[var(--viz-critical)]/10'
+          ? 'border-[var(--viz-critical)]/50 bg-[var(--viz-critical)]/10 shadow-[0_4px_12px_rgba(var(--crit-rgb)/0.2)] backdrop-blur-sm'
           : shown > 0
-            ? 'border-ink-600 bg-ink-850'
-            : 'border-ink-700/60 bg-transparent',
+            ? 'border-ink-600/60 bg-ink-850/40 shadow-inner backdrop-blur-sm'
+            : 'border-ink-700/40 bg-transparent',
       )}
     >
       <div

@@ -85,7 +85,7 @@ export function Segmented<T extends string | number>({
   size?: 'sm' | 'md'
 }) {
   return (
-    <div className="inline-flex rounded-lg border border-ink-700 bg-ink-850/80 p-0.5">
+    <div className="inline-flex rounded-lg border border-ink-700/60 bg-ink-850/40 p-0.5 shadow-inner backdrop-blur-sm">
       {options.map((opt) => (
         <button
           key={opt.value}
@@ -120,7 +120,7 @@ export function Toggle({
     <button
       type="button"
       onClick={() => onChange(!checked)}
-      className="flex w-full items-center justify-between gap-3 rounded-lg px-1 py-1 text-left transition-colors hover:bg-ink-750/50"
+      className="flex w-full items-center justify-between gap-3 rounded-lg px-1 py-1 text-left transition-colors hover:bg-ink-750/40"
     >
       <span>
         <span className="block text-[11px] font-medium text-ink-200">{label}</span>
@@ -165,7 +165,7 @@ export function StatTile({
           ? 'text-[var(--viz-warning)]'
           : 'text-ink-100'
   return (
-    <div className="rounded-lg border border-ink-700/70 bg-ink-850/60 px-2.5 py-2">
+    <div className="rounded-lg border border-ink-700/50 bg-ink-850/30 px-2.5 py-2 shadow-[inset_0_1px_1px_rgba(255,255,255,0.05),0_2px_4px_rgba(0,0,0,0.1)] backdrop-blur-sm transition-colors hover:bg-ink-800/40">
       <div className="stat-label">{label}</div>
       <div className="mt-1 flex items-baseline gap-1">
         <span className={cx('stat-value', toneClass)}>{value}</span>
@@ -188,7 +188,7 @@ export function EmptyState({
   action?: ReactNode
 }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-ink-700 bg-ink-850/40 px-4 py-6 text-center">
+    <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-ink-700/60 bg-ink-850/20 px-4 py-6 text-center backdrop-blur-sm transition-colors hover:bg-ink-850/30">
       {icon && <div className="text-ink-500">{icon}</div>}
       <div className="text-xs font-medium text-ink-200">{title}</div>
       {body && <p className="max-w-[24ch] text-[10.5px] leading-relaxed text-ink-400">{body}</p>}
