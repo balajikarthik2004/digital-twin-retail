@@ -2,7 +2,7 @@ import { ShortestPathOracle } from '../pathfinding/graph'
 import { buildRoute, createRoutingContext } from '../pathfinding/route'
 import { getStrategy } from '../pathfinding/strategies'
 import type { NodeId, Route, RouteStop, RoutingContext, Vec2 } from '../pathfinding/types'
-import { isReserveLevel, reserveTierIndex } from '../warehouse/rackGeometry'
+import { isReserveLevel, levelDeckTop, reserveTierIndex } from '../warehouse/rackGeometry'
 import type { Bin, WarehouseModel } from '../warehouse/types'
 import { PackLine } from './packLine'
 import { profileFor } from './pickerProfiles'
@@ -69,24 +69,35 @@ const BREAK_DURATION = 5 * 60
 const MAX_FATIGUE_LOSS = 0.12
 
 /**
- * Dwell multiplier for retrieving from the reserve tier rather than the pick
- * face, and the extra cost of each level further up it. Bulk retrieval is the
- * single most expensive thing a picker can be asked to do on a tour, which is
- * what makes "why is this order slow?" have a visible, physical answer.
+ * Dwell multiplier for working a bulk position rather than a case-pick slot,
+ * and the extra cost of each level further up the tier.
+ *
+ * Much smaller than it was. It used to carry the whole cost of bulk — 2.6x —
+ * because the journey up the rack was invisible: the picker stood at the same
+ * spot on the floor as for the shelf at knee height, so if the cost had not
+ * been in dwell it would not have existed at all. Now that bulk routes over
+ * the mezzanine, the climb is genuinely walked and paid for in distance, and
+ * leaving the old multiplier in place would charge for it a second time. What
+ * remains is what is actually left: breaking a pallet down is slower handling
+ * than picking a case off a front-facing shelf.
  */
-const RESERVE_PICK_FACTOR = 2.6
-const RESERVE_LEVEL_PENALTY = 0.45
+const RESERVE_PICK_FACTOR = 1.35
+const RESERVE_LEVEL_PENALTY = 0.12
 
 export interface SampledPose {
   pos: Vec2
   heading: number
+  /** Height of the walking surface under the picker, metres. */
+  elevation: number
 }
 
 /** Position + facing at a given arc length along a route. */
 export function sampleRoute(route: Route, arc: number): SampledPose {
-  const { polyline, cumulative } = route
-  if (polyline.length === 0) return { pos: { x: 0, y: 0 }, heading: 0 }
-  if (polyline.length === 1) return { pos: polyline[0], heading: 0 }
+  const { polyline, cumulative, elevations } = route
+  if (polyline.length === 0) return { pos: { x: 0, y: 0 }, heading: 0, elevation: 0 }
+  if (polyline.length === 1) {
+    return { pos: polyline[0], heading: 0, elevation: elevations?.[0] ?? 0 }
+  }
 
   const total = cumulative[cumulative.length - 1]
   const target = Math.max(0, Math.min(arc, total))
@@ -103,9 +114,15 @@ export function sampleRoute(route: Route, arc: number): SampledPose {
   const b = polyline[hi]
   const segLen = cumulative[hi] - cumulative[lo]
   const t = segLen > EPS ? (target - cumulative[lo]) / segLen : 0
+  const ea = elevations?.[lo] ?? 0
+  const eb = elevations?.[hi] ?? 0
   return {
     pos: { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t },
     heading: Math.atan2(b.x - a.x, b.y - a.y),
+    // Interpolated, so a stair edge — whose two ends sit on different storeys
+    // — carries the picker smoothly up the flight rather than snapping at the
+    // top. The staircase is the only edge in the graph where this differs.
+    elevation: ea + (eb - ea) * t,
   }
 }
 
@@ -313,11 +330,14 @@ export class SimulationEngine {
       phase: 'idle',
       pos: { ...home.pos },
       heading: 0,
+      elevation: 0,
       orders: [],
       route: null,
       arc: 0,
       nextWaypoint: 0,
       dwellRemaining: 0,
+      dwellTotal: 0,
+      lift: 0,
       currentBinId: null,
       thoughts: [],
       linesLoaded: 0,
@@ -596,6 +616,8 @@ export class SimulationEngine {
     agent.arc = 0
     agent.nextWaypoint = 0
     agent.dwellRemaining = 0
+    agent.dwellTotal = 0
+    agent.lift = 0
     agent.currentBinId = null
     agent.orderStartedAt = this.time
     agent.tourStartDistance = agent.distanceTraveled
@@ -696,6 +718,11 @@ export class SimulationEngine {
       for (let j = i + 1; j < moving.length; j++) {
         const a = moving[i]
         const b = moving[j]
+        // Two pickers on different storeys share a floor plan but not a floor:
+        // one on the mezzanine passes directly over one in the aisle below and
+        // neither is in the other's way. Without this the whole mezzanine
+        // network would gridlock against the ground network it mirrors.
+        if (Math.abs(a.elevation - b.elevation) > 1) continue
         const dx = a.pos.x - b.pos.x
         const dy = a.pos.y - b.pos.y
         if (dx * dx + dy * dy > radius * radius) continue
@@ -755,6 +782,7 @@ export class SimulationEngine {
     agent.phase = 'traveling'
     const pose = sampleRoute(next, 0)
     agent.pos = pose.pos
+    agent.elevation = pose.elevation
 
     this.think(
       agent,
@@ -799,10 +827,14 @@ export class SimulationEngine {
       case 'picking':
       case 'unloading': {
         agent.dwellRemaining -= dt
-        if (agent.phase === 'picking') agent.pickTime += dt
+        if (agent.phase === 'picking') {
+          agent.pickTime += dt
+          this.syncLift(agent)
+        }
         if (agent.dwellRemaining > 0) return
         const overflow = -agent.dwellRemaining
         agent.dwellRemaining = 0
+        agent.lift = 0
         if (agent.phase === 'unloading') {
           this.finishTour(agent)
         } else {
@@ -847,6 +879,7 @@ export class SimulationEngine {
         agent.walkTime += dt
         const pose = sampleRoute(route, agent.arc)
         agent.pos = pose.pos
+        agent.elevation = pose.elevation
         if (moved > EPS) agent.heading = pose.heading
 
         const onLastLeg = agent.nextWaypoint >= route.waypoints.length
@@ -869,9 +902,50 @@ export class SimulationEngine {
     if (!wp || agent.arc < wp.arcLength - 1e-4) return false
     agent.phase = 'picking'
     agent.dwellRemaining = wp.stop.serviceTime
+    agent.dwellTotal = wp.stop.serviceTime
     agent.currentBinId = wp.stop.ref
     agent.nextWaypoint++
+    this.syncLift(agent)
     return true
+  }
+
+  /**
+   * Raise the picker to the shelf it is working, then set it back down.
+   *
+   * Shaped as a trapezoid over the stop's own dwell — up over the first
+   * quarter, held while the line is actually picked, down over the last
+   * quarter — rather than integrated as its own free-running motion. Two
+   * reasons: the picker is then guaranteed to be back on the floor at the
+   * instant the dwell ends, so it can never slide across the building in
+   * mid-air; and the raise/lower automatically occupies a sensible share of
+   * whatever service time that stop was priced at, which for bulk is already
+   * several times a pick-face stop precisely because of this climb.
+   */
+  private syncLift(agent: PickerAgent): void {
+    const bin = agent.currentBinId ? this.model.binsById.get(agent.currentBinId) : null
+    if (!bin || !isReserveLevel(this.model.config, bin.level)) {
+      agent.lift = 0
+      return
+    }
+    const total = agent.dwellTotal
+    if (total <= EPS) {
+      agent.lift = 0
+      return
+    }
+    const p = Math.min(1, Math.max(0, 1 - agent.dwellRemaining / total))
+    const RAMP = 0.25
+    const shape = p < RAMP ? p / RAMP : p > 1 - RAMP ? (1 - p) / RAMP : 1
+    /*
+     * Reach ABOVE the surface already being stood on, not up from the ground.
+     *
+     * The picker walked to the mezzanine, so the lower reserve levels are at
+     * hand height and need no lift at all; only the upper ones do. Measuring
+     * from the deck the picker is standing on is what keeps the two mechanisms
+     * — walked elevation and reached lift — from double-counting the same
+     * metres.
+     */
+    const reach = levelDeckTop(this.model.config, bin.level) - agent.elevation
+    agent.lift = Math.max(0, reach) * shape
   }
 
   /** Apply stock effects for the pick that just finished. */

@@ -206,18 +206,42 @@ describe('warehouse generation', () => {
     expect(model.facilities.filter((f) => f.kind === 'pack')).toHaveLength(config.packStations)
   })
 
-  it('routes a reserve location to the same floor spot as the bay below it', () => {
-    // Bay-level routing is the invariant that lets bulk storage exist at all
-    // without touching the graph: the picker stands in exactly one place per
-    // bay, whatever height the line is at. If this ever diverges, every
-    // reserve pick silently becomes an extra walk.
+  it('routes a reserve location over the mezzanine, not the aisle below it', () => {
+    /*
+     * Bulk is worked from the walkway at the foot of the reserve tier, so its
+     * node sits directly above the bay's — same plan position, a storey up,
+     * and reachable only by a staircase. That separation is the whole reason a
+     * bulk trip costs what it does; if the two ever collapsed back onto one
+     * node, every reserve pick would silently become free.
+     */
     const reserve = model.bins.find((b) => isReserveLevel(config, b.level))!
     const below = model.bins.find(
       (b) => b.aisle === reserve.aisle && b.side === reserve.side && b.bay === reserve.bay && b.level === 0,
     )!
-    expect(reserve.node).toBe(below.node)
-    expect(reserve.pickPoint).toEqual(below.pickPoint)
+    expect(reserve.node).not.toBe(below.node)
+
+    const up = model.graph.nodes.get(reserve.node)!
+    const down = model.graph.nodes.get(below.node)!
+    expect(up.pos).toEqual(down.pos)
+    expect(up.elevation ?? 0).toBeGreaterThan(down.elevation ?? 0)
     expect(reserve.face.y).toBeGreaterThan(below.face.y)
+  })
+
+  it('makes the staircase the only way onto the mezzanine', () => {
+    // Every mezzanine node must be reachable, and the walk to one must cost
+    // more than the walk to the bay underneath it — that difference IS the
+    // climb. If a stray edge ever linked the two levels directly, bulk would
+    // quietly become as cheap as the pick face.
+    const reserve = model.bins.find(
+      (b) => isReserveLevel(config, b.level) && b.aisle === model.config.aisles - 1,
+    )!
+    const below = model.bins.find(
+      (b) => b.aisle === reserve.aisle && b.side === reserve.side && b.bay === reserve.bay && b.level === 0,
+    )!
+    const toBulk = ctx.distance(model.depot, reserve.node)
+    const toFace = ctx.distance(model.depot, below.node)
+    expect(Number.isFinite(toBulk)).toBe(true)
+    expect(toBulk).toBeGreaterThan(toFace)
   })
 
   it('emits every pick-face location before any reserve location', () => {

@@ -60,6 +60,15 @@ export interface PickerAgent {
   pos: Vec2
   /** Facing angle in radians (atan2 of travel direction), for the 3D mesh. */
   heading: number
+  /**
+   * Height of the walking surface the picker is standing on, metres — 0 on the
+   * ground floor, the mezzanine deck when working the reserve tier, and
+   * interpolated in between while on a staircase.
+   *
+   * Distinct from {@link lift}, which is how far it reaches *above* whatever
+   * surface it is standing on. The mesh sits at `elevation + lift`.
+   */
+  elevation: number
   /** Orders in the current tour. More than one means batch picking. */
   orders: Order[]
   route: Route | null
@@ -68,6 +77,18 @@ export interface PickerAgent {
   /** Index of the next un-serviced waypoint on the route. */
   nextWaypoint: number
   dwellRemaining: number
+  /** Service time this stop started with, so lift progress can be a fraction of it. */
+  dwellTotal: number
+  /**
+   * Height of the picker's platform above the floor, metres.
+   *
+   * Non-zero only while servicing a reserve location: the picker rises to the
+   * bulk level, works, and comes back down inside the (already much longer)
+   * dwell for that stop. Driven by the engine rather than tweened in the scene
+   * so it steps with the simulation clock — at 20× the lift is 20× faster,
+   * exactly like every other motion on the floor.
+   */
+  lift: number
   currentBinId: string | null
   /** Most recent decisions, newest last. */
   thoughts: Thought[]

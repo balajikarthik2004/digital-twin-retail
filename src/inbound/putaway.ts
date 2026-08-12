@@ -1,5 +1,6 @@
 import type { NodeId, RoutingContext } from '../pathfinding/types'
 import type { Bin, VelocityTier, WarehouseModel } from '../warehouse/types'
+import { isReserveLevel } from '../warehouse/rackGeometry'
 import { binFree, isEmpty, needsReplen } from './freeSpace'
 import type { PutawayCandidate, PutawayFit } from './types'
 
@@ -85,6 +86,18 @@ export function rankLocations(
 
   const scratch: Scratch[] = []
   for (const bin of model.bins) {
+    /*
+     * Case putaway is a pick-face job. Bulk positions are filled by pallet,
+     * off a truck, up the reserve tier — a different flow with different kit,
+     * and one this panel does not model.
+     *
+     * Excluding them is also what keeps the ranking honest: a bulk location's
+     * walking distance now includes the trip to a staircase and the climb, so
+     * leaving them in the candidate set put a 90 m outlier alongside 15 m
+     * shelf positions and flattened the distance term that is supposed to
+     * separate the near shelves from the far ones.
+     */
+    if (isReserveLevel(model.config, bin.level)) continue
     const topUp = request.skuId !== null && bin.sku.id === request.skuId
     const empty = isEmpty(bin)
     if (!topUp && !empty) continue

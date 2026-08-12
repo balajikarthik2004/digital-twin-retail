@@ -2,7 +2,7 @@ import { NavGraphBuilder } from '../pathfinding/graph'
 import type { NodeId } from '../pathfinding/types'
 import { makeCatalogEntry, type CatalogEntry } from './catalog'
 import { buildConveyorNetwork } from './conveyor'
-import { RESERVE_LEVELS, levelFaceY } from './rackGeometry'
+import { RESERVE_LEVELS, levelFaceY, mezzanineAccess, mezzanineFloorY } from './rackGeometry'
 import { createRng } from './random'
 import type {
   Bin,
@@ -218,6 +218,61 @@ export function generateWarehouse(
     }
   }
 
+  /*
+   * ── Mezzanine level ────────────────────────────────────────────────────────
+   *
+   * A mirror of the ground-floor aisle network, one storey up, joined to it
+   * only by the two staircases. Bulk locations hang off these nodes instead of
+   * the bay node underneath them, so reaching one is a genuine journey — cross
+   * the floor to the stairs, climb, walk back along the mezzanine — rather
+   * than a free teleport up the rack face.
+   *
+   * Edge costs stay plain walking distance in plan view, which is what keeps
+   * every routing strategy working unchanged; the stair edges carry their own
+   * explicit cost because their length is a slope, not a floor distance.
+   */
+  const mezzY = mezzanineFloorY(config)
+  const mezzNodeId = (a: number, b: number, k: number): NodeId => `n:mz:a${a}:b${b}:y${k}`
+
+  for (let a = 0; a < aisles; a++) {
+    for (let b = 0; b < blocks; b++) {
+      for (let k = 0; k < baysPerBlock; k++) {
+        g.addNode({
+          id: mezzNodeId(a, b, k),
+          pos: { x: aisleX[a], y: bayCenterZ(b, k) },
+          elevation: mezzY,
+          kind: 'aisle',
+          aisle: a,
+          rank: b * baysPerBlock + k,
+        })
+      }
+      for (let k = 1; k < baysPerBlock; k++) {
+        g.link(mezzNodeId(a, b, k - 1), mezzNodeId(a, b, k))
+      }
+    }
+  }
+
+  // Cross-aisle lanes up top, so a picker can change aisle without walking all
+  // the way back to a staircase.
+  const mezzCrossByAisle: Map<number, NodeId>[] = []
+  for (let c = 0; c <= blocks; c++) {
+    const byAisle = new Map<number, NodeId>()
+    const ids = aisleX.map((x, a) => {
+      const id = `n:mzc${c}:x${a}`
+      g.addNode({ id, pos: { x, y: crossZ[c] }, elevation: mezzY, kind: 'cross', aisle: a })
+      byAisle.set(a, id)
+      return id
+    })
+    for (let i = 1; i < ids.length; i++) g.link(ids[i - 1], ids[i])
+    mezzCrossByAisle.push(byAisle)
+  }
+  for (let a = 0; a < aisles; a++) {
+    for (let b = 0; b < blocks; b++) {
+      g.link(mezzCrossByAisle[b].get(a)!, mezzNodeId(a, b, 0))
+      g.link(mezzCrossByAisle[b + 1].get(a)!, mezzNodeId(a, b, baysPerBlock - 1))
+    }
+  }
+
   // ── Apron lane in front of the racking, linking docks/pack to cross aisle 0 ─
   const apron = buildLane('ap', apronLaneZ, facilityXs, 'staging')
   for (let a = 0; a < aisles; a++) {
@@ -235,6 +290,44 @@ export function generateWarehouse(
     })
     return best
   }
+
+  /*
+   * ── Staircases: the only way between the two levels ────────────────────────
+   *
+   * Both hug the outer face of aisle 0's left-hand rack, which is where the
+   * geometry draws them. Their anchors come from `mezzanineAccess` rather than
+   * being re-derived here, so a picker can never climb a flight that isn't
+   * where it is drawn.
+   *
+   * Each flight is four nodes: a landing on each floor plus the foot and head
+   * of the flight itself, with the climb carrying its own slope length as an
+   * explicit edge cost. Routing therefore prices a bulk trip honestly — the
+   * detour to the stairs and the climb both show up as distance walked.
+   */
+  const aisle0RackX0 = aisleX[0] - aisleWidth / 2 - rackDepth
+  const storageMaxZ = crossZ[crossZ.length - 1] + crossAisleWidth / 2
+  const stairs = mezzanineAccess(config, aisle0RackX0, storageMinZ, storageMaxZ)
+
+  const linkStair = (name: string, access: typeof stairs.front, block: number, bay: number) => {
+    const footId = `n:st:${name}:foot`
+    const headId = `n:st:${name}:head`
+    g.addNode({ id: footId, pos: { x: access.bottom.x, y: access.bottom.z }, kind: 'stair' })
+    g.addNode({
+      id: headId,
+      pos: { x: access.top.x, y: access.top.z },
+      elevation: mezzY,
+      kind: 'stair',
+    })
+    // The flight. Cost is the slope length, not the floor run.
+    g.link(footId, headId, access.length)
+    // Foot joins the ground network at the nearest aisle-0 bay; head joins the
+    // mezzanine at the matching bay above it.
+    g.link(footId, aisleNodeId(0, block, bay))
+    g.link(headId, mezzNodeId(0, block, bay))
+  }
+
+  linkStair('front', stairs.front, 0, 0)
+  linkStair('back', stairs.back, blocks - 1, baysPerBlock - 1)
 
   // ── Facilities ────────────────────────────────────────────────────────────
   const facilities: Facility[] = []
@@ -359,6 +452,12 @@ export function generateWarehouse(
            * One slot per bay rather than `slotsPerBay`: a pallet position
            * takes the full bay width, which is why bulk holds so much more
            * per location than the case-pick slots below it.
+           *
+           * Routed via the MEZZANINE node above the bay, not the bay node
+           * itself: bulk is worked from the walkway at the foot of the reserve
+           * tier, which is only reachable by climbing one of the two
+           * staircases. That detour is the real cost of putting stock up
+           * there, and it is priced as distance rather than hidden in dwell.
            */
           for (let r = 0; r < RESERVE_LEVELS; r++) {
             const level = levels + r
@@ -380,7 +479,7 @@ export function generateWarehouse(
                   z: zCenter,
                 },
                 pickPoint: { x: aisleX[a], y: zCenter },
-                node,
+                node: mezzNodeId(a, b, k),
               },
               // Lower levels of the tier are the ones a truck reaches first,
               // so they carry the marginally faster-moving of the bulk lines.

@@ -108,3 +108,82 @@ export function levelDeckTop(config: WarehouseConfig, level: number): number {
   if (!isReserveLevel(config, level)) return 0.16 + level * config.levelHeight + 0.045 / 2
   return reserveLevelY(config, reserveTierIndex(config, level)) + 0.08
 }
+
+/*
+ * ── Mezzanine & its staircases ───────────────────────────────────────────────
+ *
+ * The walkable floor at the foot of the reserve tier, and the two flights that
+ * reach it. Lives here rather than in the scene because BOTH the geometry that
+ * draws the stairs and the navigation graph that walks them have to agree on
+ * where they are, to the centimetre. A picker climbing a staircase that isn't
+ * quite where it is drawn is the exact class of bug this module exists to
+ * prevent — the same reason the rack heights are shared rather than re-derived.
+ */
+
+/** Ordinary industrial stair proportions, metres. */
+export const STEP_RISE = 0.2
+export const STEP_RUN = 0.28
+export const STAIR_WIDTH = 1.1
+/** Clear gap kept between a staircase and the rack it stands beside. */
+export const STAIR_RACK_CLEARANCE = 0.4
+/** Gap between the two flights of the back switchback. */
+export const SWITCHBACK_GAP = 0.5
+
+/** Walking surface of the mezzanine — a hair under the reserve tier's base. */
+export function mezzanineFloorY(config: WarehouseConfig): number {
+  return reserveBaseY(config) - 0.03
+}
+
+/** Number of steps in a flight climbing the full mezzanine height. */
+export function mezzanineStairSteps(config: WarehouseConfig): number {
+  return Math.max(4, Math.ceil(reserveBaseY(config) / STEP_RISE))
+}
+
+export interface StairAccess {
+  /** Where the flight meets the ground floor. */
+  bottom: { x: number; z: number }
+  /** Where it arrives on the mezzanine. */
+  top: { x: number; z: number }
+  /** Walking length along the flight, metres — the slope, not the run. */
+  length: number
+}
+
+/**
+ * The two staircases onto the mezzanine, derived from the same anchors the
+ * geometry uses: both hug the outer face of aisle 0's left-hand rack, where
+ * there is open floor all the way to the wall.
+ *
+ * @param rackX0 outer face (`x0`) of that rack — the side away from the aisle.
+ */
+export function mezzanineAccess(
+  config: WarehouseConfig,
+  rackX0: number,
+  storageMinZ: number,
+  storageMaxZ: number,
+): { front: StairAccess; back: StairAccess } {
+  const height = reserveBaseY(config)
+  const steps = mezzanineStairSteps(config)
+  const stairX = rackX0 - (STAIR_WIDTH / 2 + STAIR_RACK_CLEARANCE)
+
+  // Front: one straight flight up out of the apron, arriving at the floor edge.
+  const frontRun = steps * STEP_RUN
+  const front: StairAccess = {
+    bottom: { x: stairX, z: storageMinZ - frontRun },
+    top: { x: stairX, z: storageMinZ },
+    length: Math.hypot(height, frontRun),
+  }
+
+  // Back: a 180° switchback, because the margin behind the last rack row is
+  // nowhere near deep enough for a single straight flight at this height.
+  const lowerSteps = Math.ceil(steps / 2)
+  const upperSteps = steps - lowerSteps
+  const stairX2 = stairX - (STAIR_WIDTH + SWITCHBACK_GAP)
+  const turnZ = storageMaxZ + lowerSteps * STEP_RUN
+  const back: StairAccess = {
+    bottom: { x: stairX, z: storageMaxZ },
+    top: { x: stairX2, z: turnZ - upperSteps * STEP_RUN },
+    length: Math.hypot(height, steps * STEP_RUN) + STAIR_WIDTH,
+  }
+
+  return { front, back }
+}

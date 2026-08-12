@@ -2,7 +2,15 @@ import * as THREE from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import type { ThemeMode } from '../ui/theme'
 import type { WarehouseModel } from '../warehouse/types'
-import { reserveBaseY } from '../warehouse/rackGeometry'
+import {
+  STAIR_RACK_CLEARANCE as RACK_CLEARANCE,
+  STAIR_WIDTH,
+  STEP_RISE,
+  STEP_RUN,
+  SWITCHBACK_GAP,
+  mezzanineFloorY,
+  reserveBaseY,
+} from '../warehouse/rackGeometry'
 import { sceneTheme } from './theme'
 
 /**
@@ -25,16 +33,14 @@ export interface MezzanineVisual {
   dispose(): void
 }
 
-/** Ordinary industrial stair proportions, metres. */
-const STEP_RISE = 0.2
-const STEP_RUN = 0.28
-const STAIR_WIDTH = 1.1
+/*
+ * Stair proportions and the mezzanine's own height live in
+ * `warehouse/rackGeometry` — the navigation graph walks these exact flights,
+ * so a second copy of the arithmetic here would let a picker climb a
+ * staircase that isn't where it is drawn.
+ */
 /** Handrail height above each tread. */
 const RAIL_HEIGHT = 0.95
-/** Clear gap kept between a staircase and the rack it stands beside. */
-const RACK_CLEARANCE = 0.4
-/** Gap between the two flights of the back switchback, and its landing depth. */
-const SWITCHBACK_GAP = 0.5
 
 export function buildMezzanine(model: WarehouseModel, themeMode: ThemeMode): MezzanineVisual {
   const theme = sceneTheme(themeMode)
@@ -47,7 +53,7 @@ export function buildMezzanine(model: WarehouseModel, themeMode: ThemeMode): Mez
   const half = config.crossAisleWidth / 2
   const storageMinZ = model.crossZ[0] - half
   const storageMaxZ = model.crossZ[model.crossZ.length - 1] + half
-  const floorY = reserveBaseY(config) - 0.03
+  const floorY = mezzanineFloorY(config)
   const totalHeight = reserveBaseY(config)
 
   // ── Glass/grating floor over the storage block ─────────────────────────────

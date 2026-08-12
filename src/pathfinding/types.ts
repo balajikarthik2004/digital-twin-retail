@@ -16,8 +16,18 @@ export type NodeId = string
 export interface NavNode {
   id: NodeId
   pos: Vec2
+  /**
+   * Height of the walking surface at this node, metres. Absent means the
+   * ground floor.
+   *
+   * The graph stays a 2D floor plan for routing purposes — edge costs are
+   * still walking distance and strategies still reason in plan view — but a
+   * node now knows which storey it is on, so a picker on the mezzanine is
+   * drawn on the mezzanine and cannot collide with one underneath it.
+   */
+  elevation?: number
   /** Coarse classification, used by strategies that reason about topology. */
-  kind: 'aisle' | 'cross' | 'dock' | 'pack' | 'staging'
+  kind: 'aisle' | 'cross' | 'dock' | 'pack' | 'staging' | 'stair'
   /** Aisle index for `aisle` nodes and cross-aisle nodes that sit on an aisle. */
   aisle?: number
   /** Cross-aisle index for `cross` nodes. */
@@ -102,6 +112,8 @@ export interface Route {
   nodePath: NodeId[]
   /** Ordered floor positions matching `nodePath`. */
   polyline: Vec2[]
+  /** Walking-surface height at each polyline point, metres. Parallel array. */
+  elevations: number[]
   /** Cumulative arc length at each polyline point; `cumulative[0] === 0`. */
   cumulative: number[]
   /** Stops in visiting order, projected onto the polyline. */

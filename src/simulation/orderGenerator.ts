@@ -1,4 +1,5 @@
 import type { Bin, VelocityTier, WarehouseModel } from '../warehouse/types'
+import { isReserveLevel } from '../warehouse/rackGeometry'
 import { createRng, type Rng } from '../warehouse/random'
 import { slaFor } from './sla'
 import type { Order, OrderLine } from './types'
@@ -24,6 +25,9 @@ const CHANNELS: Order['channel'][] = ['Ecommerce', 'Store Replen', 'Click & Coll
  */
 const DEMAND_WEIGHT: Record<VelocityTier, number> = { fast: 0.6, medium: 0.3, slow: 0.1 }
 
+/** Share of lines drawn from the reserve tier rather than the pick face. */
+const RESERVE_DEMAND_SHARE = 0.05
+
 let orderSeq = 1
 
 export function resetOrderSequence(): void {
@@ -34,7 +38,7 @@ export function generateOrders(model: WarehouseModel, options: OrderGenOptions):
   const rng = createRng(options.seed ?? 20260803)
   const pools = buildPools(model)
   const tiers: VelocityTier[] = ['fast', 'medium', 'slow']
-  const weights = tiers.map((t) => (pools[t].length > 0 ? DEMAND_WEIGHT[t] : 0))
+  const weights = tiers.map((t) => (pools.pickFace[t].length > 0 ? DEMAND_WEIGHT[t] : 0))
 
   const orders: Order[] = []
   let t = options.startAt ?? 0
@@ -77,33 +81,63 @@ export function generateOrders(model: WarehouseModel, options: OrderGenOptions):
   return orders
 }
 
-function buildPools(model: WarehouseModel): Record<VelocityTier, Bin[]> {
-  const pools: Record<VelocityTier, Bin[]> = { fast: [], medium: [], slow: [] }
+function buildPools(model: WarehouseModel): { pickFace: Record<VelocityTier, Bin[]>; reserve: Bin[] } {
+  const pools = {
+    pickFace: { fast: [], medium: [], slow: [] } as Record<VelocityTier, Bin[]>,
+    reserve: [] as Bin[],
+  }
   for (const bin of model.bins) {
-    if (bin.sku.stock > 0) pools[bin.sku.velocity].push(bin)
+    if (bin.sku.stock > 0) {
+      if (isReserveLevel(model.config, bin.level)) {
+        pools.reserve.push(bin)
+      } else {
+        pools.pickFace[bin.sku.velocity].push(bin)
+      }
+    }
   }
   return pools
 }
 
 function drawBin(
   rng: Rng,
-  pools: Record<VelocityTier, Bin[]>,
+  pools: { pickFace: Record<VelocityTier, Bin[]>; reserve: Bin[] },
   tiers: VelocityTier[],
   weights: number[],
   used: Set<string>,
 ): Bin | null {
+  /*
+   * Occasionally send a line to bulk, so the reserve tier is visibly worked.
+   *
+   * Kept low on purpose. A bulk line is now a genuine journey — cross to the
+   * staircase, climb, walk back along the mezzanine, and the same again in
+   * reverse — so at 15% it swamped every other dynamic the twin exists to
+   * show: walking dominated the shift so completely that an under-staffed
+   * pack wall stopped being a bottleneck at all. Real bulk retrieval is
+   * occasional, and modelling it that way is both truer and lets the rest of
+   * the model breathe.
+   */
+  if (rng.float(0, 1) < RESERVE_DEMAND_SHARE && pools.reserve.length > 0) {
+    for (let attempt = 0; attempt < 10; attempt++) {
+      const bin = pools.reserve[rng.int(0, pools.reserve.length - 1)]
+      if (!used.has(bin.id)) return bin
+    }
+  }
+
   for (let attempt = 0; attempt < 12; attempt++) {
     const tier = rng.weighted(tiers, weights)
-    const pool = pools[tier]
+    const pool = pools.pickFace[tier]
     if (pool.length === 0) continue
     const bin = pool[rng.int(0, pool.length - 1)]
     if (!used.has(bin.id)) return bin
   }
   // Fall back to a linear scan so tiny warehouses still produce full orders.
   for (const tier of tiers) {
-    const found = pools[tier].find((b) => !used.has(b.id))
+    const found = pools.pickFace[tier].find((b) => !used.has(b.id))
     if (found) return found
   }
+  const foundReserve = pools.reserve.find((b) => !used.has(b.id))
+  if (foundReserve) return foundReserve
+
   return null
 }
 
