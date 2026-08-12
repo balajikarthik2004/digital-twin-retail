@@ -104,6 +104,25 @@ function CurrentTask({
         <span className={cx('text-[11px] font-semibold', PHASE_TONE[agent.phase])}>
           {PHASE_LABEL[agent.phase]}
         </span>
+        {/*
+          * Where the picker is vertically. The phase can't carry this —
+          * "Travelling" looks the same whether it is crossing the apron or
+          * halfway up a flight — and with a third of the wave coming out of
+          * bulk, "why has this one gone quiet?" usually has the answer
+          * "it is upstairs".
+          */}
+        {agent.storey !== 'ground' && (
+          <span
+            className={cx(
+              'inline-flex items-center gap-1 rounded-md border px-1.5 py-px text-[9px] font-semibold uppercase tracking-wider',
+              agent.storey === 'stairs'
+                ? 'border-warn/45 bg-warn/10 text-[var(--viz-warning)]'
+                : 'border-accent/45 bg-accent/10 text-accent-soft',
+            )}
+          >
+            {agent.storey === 'stairs' ? 'On the stairs' : 'Mezzanine'}
+          </span>
+        )}
         <span className="flex-1" />
         {agent.orderRefs.length > 0 && (
           <span className="truncate font-mono text-[9.5px] text-ink-400">

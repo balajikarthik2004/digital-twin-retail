@@ -384,6 +384,16 @@ export interface AgentMetrics {
   color: string
   kind: PickerKind
   phase: AgentPhase
+  /**
+   * Which storey the picker is on: the ground floor, a staircase, or the
+   * mezzanine that serves the reserve tier.
+   *
+   * The phase alone can't say this — "traveling" looks identical whether the
+   * picker is crossing the apron or halfway up a flight — and a third of the
+   * demo wave is now retrieved from bulk, so where somebody is vertically is
+   * a real part of reading the floor.
+   */
+  storey: 'ground' | 'stairs' | 'mezzanine'
   distance: number
   picks: number
   orders: number

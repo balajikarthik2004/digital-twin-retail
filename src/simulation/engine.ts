@@ -2,7 +2,12 @@ import { ShortestPathOracle } from '../pathfinding/graph'
 import { buildRoute, createRoutingContext } from '../pathfinding/route'
 import { getStrategy } from '../pathfinding/strategies'
 import type { NodeId, Route, RouteStop, RoutingContext, Vec2 } from '../pathfinding/types'
-import { isReserveLevel, levelDeckTop, reserveTierIndex } from '../warehouse/rackGeometry'
+import {
+  isReserveLevel,
+  levelDeckTop,
+  mezzanineFloorY,
+  reserveTierIndex,
+} from '../warehouse/rackGeometry'
 import type { Bin, WarehouseModel } from '../warehouse/types'
 import { PackLine } from './packLine'
 import { profileFor } from './pickerProfiles'
@@ -921,6 +926,13 @@ export class SimulationEngine {
    * whatever service time that stop was priced at, which for bulk is already
    * several times a pick-face stop precisely because of this climb.
    */
+  /** Which storey a picker is on, from the height of the surface under it. */
+  private storeyOf(agent: PickerAgent): AgentMetrics['storey'] {
+    const mezz = mezzanineFloorY(this.model.config)
+    if (agent.elevation < 0.3) return 'ground'
+    return agent.elevation >= mezz - 0.3 ? 'mezzanine' : 'stairs'
+  }
+
   private syncLift(agent: PickerAgent): void {
     const bin = agent.currentBinId ? this.model.binsById.get(agent.currentBinId) : null
     if (!bin || !isReserveLevel(this.model.config, bin.level)) {
@@ -1193,6 +1205,7 @@ export class SimulationEngine {
       color: a.color,
       kind: a.kind,
       phase: a.phase,
+      storey: this.storeyOf(a),
       distance: a.distanceTraveled,
       picks: a.picksDone,
       orders: a.ordersDone,

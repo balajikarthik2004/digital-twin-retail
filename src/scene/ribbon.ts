@@ -160,8 +160,17 @@ export class PathRibbon {
     ;(this.mesh.material as THREE.MeshBasicMaterial).opacity = opacity
   }
 
-  /** Replace the ribbon path. `points` are floor coords; `y` is the height. */
-  setPath(points: Vec2[], y: number): void {
+  /**
+   * Replace the ribbon path.
+   *
+   * `points` are floor coords and `y` is the clearance held above whatever
+   * surface the path runs on. `elevations` gives that surface per point, so a
+   * route that climbs a staircase onto the mezzanine carries its trail up with
+   * it; omit it and the whole ribbon lies on the ground floor as before.
+   * Without this a picker working the reserve tier floats a storey above its
+   * own trail, which reads as the path belonging to somebody else.
+   */
+  setPath(points: Vec2[], y: number, elevations?: number[]): void {
     const n = Math.min(points.length, this.maxPoints)
     if (n < 2) {
       this.geometry.setDrawRange(0, 0)
@@ -192,12 +201,13 @@ export class PathRibbon {
       const u = arc / FLOW_PERIOD_METRES
 
       const p = points[i]
+      const py = y + (elevations?.[i] ?? 0)
       const o = i * 6
       arr[o] = p.x + nx
-      arr[o + 1] = y
+      arr[o + 1] = py
       arr[o + 2] = p.y + nz
       arr[o + 3] = p.x - nx
-      arr[o + 4] = y
+      arr[o + 4] = py
       arr[o + 5] = p.y - nz
 
       const uo = i * 4
@@ -233,12 +243,19 @@ export class PathRibbon {
  * Resample a polyline so it only covers `[0, arc]` — used to draw the portion
  * of the route a picker has already walked.
  */
-export function polylineUpTo(points: Vec2[], cumulative: number[], arc: number): Vec2[] {
-  if (points.length === 0) return []
+export function polylineUpTo(
+  points: Vec2[],
+  cumulative: number[],
+  arc: number,
+  elevations?: number[],
+): { points: Vec2[]; elevations: number[] } {
+  if (points.length === 0) return { points: [], elevations: [] }
   const out: Vec2[] = [points[0]]
+  const outY: number[] = [elevations?.[0] ?? 0]
   for (let i = 1; i < points.length; i++) {
     if (cumulative[i] <= arc) {
       out.push(points[i])
+      outY.push(elevations?.[i] ?? 0)
       continue
     }
     const segLen = cumulative[i] - cumulative[i - 1]
@@ -248,8 +265,13 @@ export function polylineUpTo(points: Vec2[], cumulative: number[], arc: number):
         x: points[i - 1].x + (points[i].x - points[i - 1].x) * t,
         y: points[i - 1].y + (points[i].y - points[i - 1].y) * t,
       })
+      // Interpolated too, so the walked trail climbs the staircase at exactly
+      // the rate the picker does rather than stepping up a storey at once.
+      const a = elevations?.[i - 1] ?? 0
+      const b = elevations?.[i] ?? 0
+      outY.push(a + (b - a) * t)
     }
     break
   }
-  return out
+  return { points: out, elevations: outY }
 }

@@ -553,7 +553,7 @@ export class WarehouseScene {
     this.putawayRibbon.setOpacity(P.routeOpacity)
     // Sits just above the pick-path ribbons so the roadmap stays readable when
     // it happens to share an aisle with a picker's route.
-    this.putawayRibbon.setPath(route.polyline, 0.07)
+    this.putawayRibbon.setPath(route.polyline, 0.07, route.elevations)
 
     const next = new Map<string, number>()
     for (const entry of shortlist) {
@@ -1268,7 +1268,13 @@ export class WarehouseScene {
 
     walked.setColor(agent.color)
     walked.setOpacity(this.theme.ribbonWalked)
-    walked.setPath(polylineUpTo(agent.route.polyline, agent.route.cumulative, agent.arc), 0.05)
+    const trail = polylineUpTo(
+      agent.route.polyline,
+      agent.route.cumulative,
+      agent.arc,
+      agent.route.elevations,
+    )
+    walked.setPath(trail.points, 0.05, trail.elevations)
 
     // The planned route is immutable for the life of the route, so rebuilding
     // its ribbon every frame was pure waste — dominant cost of the agent sync.
@@ -1276,7 +1282,7 @@ export class WarehouseScene {
       this.planRibbonRoute.set(agent.id, agent.route)
       plan.setColor(agent.color)
       plan.setOpacity(this.theme.ribbonPlan)
-      plan.setPath(agent.route.polyline, 0.03)
+      plan.setPath(agent.route.polyline, 0.03, agent.route.elevations)
     }
 
     // Tint every bin on this route so the pick face is findable from a distance.
