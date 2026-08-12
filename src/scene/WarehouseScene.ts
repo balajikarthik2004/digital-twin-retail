@@ -1189,9 +1189,17 @@ export class WarehouseScene {
       }
 
       // Smooth the pose so the mesh never snaps, even at 20x time scale.
-      const target = this.tmpTarget.set(agent.pos.x, 0, agent.pos.y)
+      const target = this.tmpTarget.set(agent.pos.x, agent.lift, agent.pos.y)
       const lerp = Math.min(1, dt * 14)
-      const groundSpeed = dt > 1e-5 ? picker.group.position.distanceTo(target) / dt : 0
+      /*
+       * Horizontal speed only — the vertical component is the picker being
+       * raised to a bulk shelf, and feeding that into the gait would have its
+       * legs striding while it stands still on a rising platform.
+       */
+      const groundSpeed =
+        dt > 1e-5
+          ? Math.hypot(target.x - picker.group.position.x, target.z - picker.group.position.z) / dt
+          : 0
       picker.group.position.lerp(target, lerp)
       picker.group.rotation.y = lerpAngle(picker.group.rotation.y, agent.heading, lerp)
 

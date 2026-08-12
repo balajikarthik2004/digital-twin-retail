@@ -2,7 +2,7 @@ import { ShortestPathOracle } from '../pathfinding/graph'
 import { buildRoute, createRoutingContext } from '../pathfinding/route'
 import { getStrategy } from '../pathfinding/strategies'
 import type { NodeId, Route, RouteStop, RoutingContext, Vec2 } from '../pathfinding/types'
-import { isReserveLevel, reserveTierIndex } from '../warehouse/rackGeometry'
+import { isReserveLevel, levelDeckTop, reserveTierIndex } from '../warehouse/rackGeometry'
 import type { Bin, WarehouseModel } from '../warehouse/types'
 import { PackLine } from './packLine'
 import { profileFor } from './pickerProfiles'
@@ -318,6 +318,8 @@ export class SimulationEngine {
       arc: 0,
       nextWaypoint: 0,
       dwellRemaining: 0,
+      dwellTotal: 0,
+      lift: 0,
       currentBinId: null,
       thoughts: [],
       linesLoaded: 0,
@@ -596,6 +598,8 @@ export class SimulationEngine {
     agent.arc = 0
     agent.nextWaypoint = 0
     agent.dwellRemaining = 0
+    agent.dwellTotal = 0
+    agent.lift = 0
     agent.currentBinId = null
     agent.orderStartedAt = this.time
     agent.tourStartDistance = agent.distanceTraveled
@@ -799,10 +803,14 @@ export class SimulationEngine {
       case 'picking':
       case 'unloading': {
         agent.dwellRemaining -= dt
-        if (agent.phase === 'picking') agent.pickTime += dt
+        if (agent.phase === 'picking') {
+          agent.pickTime += dt
+          this.syncLift(agent)
+        }
         if (agent.dwellRemaining > 0) return
         const overflow = -agent.dwellRemaining
         agent.dwellRemaining = 0
+        agent.lift = 0
         if (agent.phase === 'unloading') {
           this.finishTour(agent)
         } else {
@@ -869,9 +877,42 @@ export class SimulationEngine {
     if (!wp || agent.arc < wp.arcLength - 1e-4) return false
     agent.phase = 'picking'
     agent.dwellRemaining = wp.stop.serviceTime
+    agent.dwellTotal = wp.stop.serviceTime
     agent.currentBinId = wp.stop.ref
     agent.nextWaypoint++
+    this.syncLift(agent)
     return true
+  }
+
+  /**
+   * Raise the picker to the shelf it is working, then set it back down.
+   *
+   * Shaped as a trapezoid over the stop's own dwell — up over the first
+   * quarter, held while the line is actually picked, down over the last
+   * quarter — rather than integrated as its own free-running motion. Two
+   * reasons: the picker is then guaranteed to be back on the floor at the
+   * instant the dwell ends, so it can never slide across the building in
+   * mid-air; and the raise/lower automatically occupies a sensible share of
+   * whatever service time that stop was priced at, which for bulk is already
+   * several times a pick-face stop precisely because of this climb.
+   */
+  private syncLift(agent: PickerAgent): void {
+    const bin = agent.currentBinId ? this.model.binsById.get(agent.currentBinId) : null
+    if (!bin || !isReserveLevel(this.model.config, bin.level)) {
+      agent.lift = 0
+      return
+    }
+    const total = agent.dwellTotal
+    if (total <= EPS) {
+      agent.lift = 0
+      return
+    }
+    const p = Math.min(1, Math.max(0, 1 - agent.dwellRemaining / total))
+    const RAMP = 0.25
+    const shape = p < RAMP ? p / RAMP : p > 1 - RAMP ? (1 - p) / RAMP : 1
+    // Stand at the deck, not at the face centre — the platform floor is what
+    // the picker's feet are on.
+    agent.lift = levelDeckTop(this.model.config, bin.level) * shape
   }
 
   /** Apply stock effects for the pick that just finished. */

@@ -1,4 +1,5 @@
 import type { Bin, VelocityTier, WarehouseModel } from '../warehouse/types'
+import { isReserveLevel } from '../warehouse/rackGeometry'
 import { createRng, type Rng } from '../warehouse/random'
 import { slaFor } from './sla'
 import type { Order, OrderLine } from './types'
@@ -34,7 +35,7 @@ export function generateOrders(model: WarehouseModel, options: OrderGenOptions):
   const rng = createRng(options.seed ?? 20260803)
   const pools = buildPools(model)
   const tiers: VelocityTier[] = ['fast', 'medium', 'slow']
-  const weights = tiers.map((t) => (pools[t].length > 0 ? DEMAND_WEIGHT[t] : 0))
+  const weights = tiers.map((t) => (pools.pickFace[t].length > 0 ? DEMAND_WEIGHT[t] : 0))
 
   const orders: Order[] = []
   let t = options.startAt ?? 0
@@ -77,33 +78,53 @@ export function generateOrders(model: WarehouseModel, options: OrderGenOptions):
   return orders
 }
 
-function buildPools(model: WarehouseModel): Record<VelocityTier, Bin[]> {
-  const pools: Record<VelocityTier, Bin[]> = { fast: [], medium: [], slow: [] }
+function buildPools(model: WarehouseModel): { pickFace: Record<VelocityTier, Bin[]>; reserve: Bin[] } {
+  const pools = {
+    pickFace: { fast: [], medium: [], slow: [] } as Record<VelocityTier, Bin[]>,
+    reserve: [] as Bin[],
+  }
   for (const bin of model.bins) {
-    if (bin.sku.stock > 0) pools[bin.sku.velocity].push(bin)
+    if (bin.sku.stock > 0) {
+      if (isReserveLevel(model.config, bin.level)) {
+        pools.reserve.push(bin)
+      } else {
+        pools.pickFace[bin.sku.velocity].push(bin)
+      }
+    }
   }
   return pools
 }
 
 function drawBin(
   rng: Rng,
-  pools: Record<VelocityTier, Bin[]>,
+  pools: { pickFace: Record<VelocityTier, Bin[]>; reserve: Bin[] },
   tiers: VelocityTier[],
   weights: number[],
   used: Set<string>,
 ): Bin | null {
+  // 15% chance to force a pick from the reserve tier (top rack) to ensure it's heavily utilized
+  if (rng.float(0, 1) < 0.15 && pools.reserve.length > 0) {
+    for (let attempt = 0; attempt < 10; attempt++) {
+      const bin = pools.reserve[rng.int(0, pools.reserve.length - 1)]
+      if (!used.has(bin.id)) return bin
+    }
+  }
+
   for (let attempt = 0; attempt < 12; attempt++) {
     const tier = rng.weighted(tiers, weights)
-    const pool = pools[tier]
+    const pool = pools.pickFace[tier]
     if (pool.length === 0) continue
     const bin = pool[rng.int(0, pool.length - 1)]
     if (!used.has(bin.id)) return bin
   }
   // Fall back to a linear scan so tiny warehouses still produce full orders.
   for (const tier of tiers) {
-    const found = pools[tier].find((b) => !used.has(b.id))
+    const found = pools.pickFace[tier].find((b) => !used.has(b.id))
     if (found) return found
   }
+  const foundReserve = pools.reserve.find((b) => !used.has(b.id))
+  if (foundReserve) return foundReserve
+
   return null
 }
 
