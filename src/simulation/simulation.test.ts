@@ -862,6 +862,24 @@ describe('reserve tier picking', () => {
     expect(engine.agents.every((a) => a.elevation === 0)).toBe(true)
   })
 
+  it('reports which storey each picker is on', () => {
+    // The dashboard reads this rather than deriving it, so all three states
+    // have to actually occur over a wave — including `stairs`, which only
+    // exists for the few seconds a picker is mid-flight.
+    const realModel = generateWarehouse(config, realCatalogDoc as unknown as CatalogEntry[])
+    const { orders } = importOrders(realModel, sampleOrdersDoc)
+    const engine = new SimulationEngine(realModel, { ...settings, agentCount: 4 })
+    engine.setOrders(orders)
+
+    const seen = new Set<string>()
+    engine.start()
+    while (engine.time < 40000 && engine.running) {
+      engine.step(0.25)
+      for (const a of engine.metrics().agents) seen.add(a.storey)
+    }
+    expect([...seen].sort()).toEqual(['ground', 'mezzanine', 'stairs'])
+  })
+
   it('raises the picker to bulk shelves and always sets it back down', () => {
     const realModel = generateWarehouse(config, realCatalogDoc as unknown as CatalogEntry[])
     const { orders } = importOrders(realModel, sampleOrdersDoc)
