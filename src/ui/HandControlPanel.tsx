@@ -8,7 +8,7 @@ import {
 } from '../scene/handControl'
 import type { WarehouseScene } from '../scene/WarehouseScene'
 import { cx, Slider } from './components/primitives'
-import { FistIcon, InfoIcon, PinchIcon, TwoFingerIcon } from './components/icons'
+import { FistIcon, InfoIcon, OrbitIcon, PinchIcon, TwoFingerIcon } from './components/icons'
 
 /** Persisted across sessions so a user who tunes it once doesn't have to again. */
 const SENSITIVITY_KEY = 'picktwin.hand-sensitivity'
@@ -37,6 +37,12 @@ function saveSensitivity(v: number): void {
 
 const LEGEND = [
   {
+    Icon: OrbitIcon,
+    tone: 'text-warn',
+    label: 'Pinch + hold 2s',
+    detail: 'Rotate — then move your hand to turn, as far round as you like; open the fingers to stop',
+  },
+  {
     Icon: PinchIcon,
     tone: 'text-good',
     label: 'Thumb + index',
@@ -48,11 +54,14 @@ const LEGEND = [
     label: 'Index + middle',
     detail: 'Pan — hold together and move your hand, like scrolling with two fingers',
   },
-  { Icon: FistIcon, tone: 'text-warn', label: 'Make a fist', detail: 'Rotate — a slow 360° spin; open your hand to stop' },
+  { Icon: FistIcon, tone: 'text-warn', label: 'Make a fist', detail: 'Rotate — same turn, no hold; open your hand to stop' },
 ]
 
 /** Small status dot + label, same convention as the sim's running/paused indicator. */
-function statusIndicator(mode: HandControlMode): { dotClass: string; label: string } {
+function statusIndicator(mode: HandControlMode, arming: boolean): { dotClass: string; label: string } {
+  // Nothing is driving the camera yet during the pinch hold, but something is
+  // definitely happening — say so, or a two-second wait looks like "Ready".
+  if (mode === 'idle' && arming) return { dotClass: 'animate-pulse bg-warn', label: 'Holding to rotate' }
   switch (mode) {
     case 'pan':
       return { dotClass: 'animate-pulse bg-accent', label: 'Panning' }
@@ -71,12 +80,14 @@ function statusIndicator(mode: HandControlMode): { dotClass: string; label: stri
  * hand's two-finger drag is the one actually panning must not light up as if
  * it were rotating something; nothing is.
  */
-function toneFor(mode: HandControlMode, active: boolean): 'accent' | 'warn' | 'good' | 'neutral' {
+function toneFor(mode: HandControlMode, active: boolean, arming: boolean): 'accent' | 'warn' | 'good' | 'neutral' {
   if (!active) return 'neutral'
   if (mode === 'pan') return 'accent'
   if (mode === 'rotate') return 'warn'
   if (mode === 'zoom') return 'good'
-  return 'neutral'
+  // A hand mid-pinch-hold already wears rotate's colour, so the dot doesn't
+  // change identity at the moment the hold completes.
+  return arming ? 'warn' : 'neutral'
 }
 
 /**
@@ -90,10 +101,15 @@ function toneFor(mode: HandControlMode, active: boolean): 'accent' | 'warn' | 'g
  * `WarehouseScene.setPadAxes` (pan) and `WarehouseScene.setHandRotateZoom`
  * (rotate/zoom).
  *
- * Three gestures, one hand, one active at a time (see `HandControlManager`
- * for the priority order): thumb + index to zoom, index + middle held
- * together to pan, or a closed fist to rotate — the same finger pairings a
- * phone or touchpad already uses, so there's nothing new to learn.
+ * Four gestures, one hand, one active at a time (see `HandControlManager` for
+ * the priority order that guarantees it): pinch and hold two seconds then drag
+ * to rotate, thumb + index to zoom, index + middle held together to pan, or a
+ * closed fist to rotate without the hold — mostly the same finger pairings a
+ * phone or touchpad already uses, so there's little new to learn.
+ *
+ * The pinch hold is the one gesture with no instant feedback of its own (by
+ * definition — it is a wait), so the wait is drawn: the status line names it,
+ * the message counts down, and a bar fills across the bottom of the preview.
  *
  * The `<video>` element is mounted once and never unmounted (only hidden), so
  * the underlying `HandCameraControl` — and the camera stream it owns —
@@ -158,7 +174,9 @@ export function HandControlPanel({ sceneRef }: { sceneRef: RefObject<WarehouseSc
 
   const loading = snapshot.status === 'starting'
   const failed = snapshot.status === 'denied' || snapshot.status === 'unsupported' || snapshot.status === 'error'
-  const indicator = statusIndicator(snapshot.mode)
+  // Mid-pinch-hold: counting up to rotate, nothing driving the camera yet.
+  const arming = snapshot.mode === 'idle' && snapshot.armProgress > 0
+  const indicator = statusIndicator(snapshot.mode, arming)
 
   return (
     <div className="flex flex-col items-end gap-2">
@@ -178,8 +196,17 @@ export function HandControlPanel({ sceneRef }: { sceneRef: RefObject<WarehouseSc
 
           {!failed &&
             snapshot.hands.map((hand, i) => (
-              <HandDot key={i} point={hand} tone={toneFor(snapshot.mode, hand.active)} />
+              <HandDot key={i} point={hand} tone={toneFor(snapshot.mode, hand.active, arming)} />
             ))}
+
+          {arming && (
+            <div className="absolute inset-x-0 bottom-0 h-[3px] bg-ink-950/60">
+              <div
+                className="h-full bg-warn transition-[width] duration-100 ease-linear"
+                style={{ width: `${snapshot.armProgress * 100}%` }}
+              />
+            </div>
+          )}
 
           {(loading || snapshot.status === 'idle') && (
             <div className="absolute inset-0 grid place-items-center bg-ink-950/70">

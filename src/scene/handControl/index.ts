@@ -44,7 +44,7 @@ export class HandCameraControl {
         if (this.disposed) return
         this.deps.onSnapshot({ ...HAND_CONTROL_IDLE, status, message })
       },
-      (landmarksList) => this.onFrame(landmarksList),
+      (landmarksList, timestamp) => this.onFrame(landmarksList, timestamp),
     )
   }
 
@@ -67,9 +67,9 @@ export class HandCameraControl {
     this.tracker.dispose()
   }
 
-  private onFrame(landmarksList: NormalizedLandmark[][]): void {
+  private onFrame(landmarksList: NormalizedLandmark[][], timestamp: number): void {
     if (this.disposed) return
-    const { snapshot, intent } = this.manager.handleGesture(landmarksList)
+    const { snapshot, intent } = this.manager.handleGesture(landmarksList, timestamp)
     this.deps.onSnapshot(snapshot)
     this.deps.onIntent(intent)
   }

@@ -1,6 +1,7 @@
 import type { NormalizedLandmark } from '@mediapipe/tasks-vision'
 import { HandShapeTracker, pinchRatio } from './GestureDetector'
 import { NavigationController } from './NavigationController'
+import { orbitFromDrag, PinchRotateController, type PinchPhase } from './PinchRotateController'
 import { LandmarkSmoother } from './smoothing'
 import {
   HAND_CONTROL_IDLE,
@@ -25,10 +26,22 @@ import { ZoomController } from './ZoomController'
  * that's the point: this should feel familiar on first try, not learned —
  *
  * ```
- * 1. Thumb + index extended   zoom  (spread the tips apart -> in, together -> out)
- * 2. Index + middle together  pan   (drag the hand to steer, release to stop)
- * 3. A closed fist            rotate (fixed slow spin, open the hand to stop)
+ * 1. Pinch held shut 2s       rotate (then drag to turn, 360° and past it)
+ * 2. Thumb + index extended   zoom  (spread the tips apart -> in, together -> out)
+ * 3. Index + middle together  pan   (drag the hand to steer, release to stop)
+ * 4. A closed fist            rotate (drag to turn, open the hand to stop)
  * ```
+ *
+ * **Exactly one channel is live per frame, always.** The priority above is a
+ * total order over hands *and* gestures: the winning branch drives its channel,
+ * zeroes the others in the returned intent, and every controller it didn't pick
+ * is disengaged on the way past — so no controller can hold a stale reference
+ * and no two can drive the camera in the same frame. The one pair that could
+ * genuinely collide is pinch-hold rotate and zoom, which share a hand pose
+ * (a shut pinch is the closed end of zoom's range): they are separated by the
+ * two-second dwell, and a hand pinched shut has its zoom output suppressed for
+ * as long as it stays shut, so the camera never zooms and rotates at once, and
+ * never zooms while you are waiting out the hold.
  *
  * Deliberately **hand-agnostic** — it is the *shape* a hand is making that
  * decides what happens, never which physical hand (left/right) is making it.
@@ -48,6 +61,9 @@ export class HandControlManager {
   private nav = new NavigationController()
   private rotateNav = new NavigationController()
   private zoomCtrl = new ZoomController()
+  /** One per hand slot, so a second hand in frame can never inherit the first
+   *  one's dwell timer or its rotate reference. */
+  private pinchRotators = [new PinchRotateController(), new PinchRotateController()]
   private sensitivity = 1
 
   setSensitivity(v: number): void {
@@ -57,13 +73,23 @@ export class HandControlManager {
   reset(): void {
     this.smoothers.forEach((s) => s.reset())
     this.shapeTrackers.forEach((t) => t.reset())
+    this.pinchRotators.forEach((p) => p.reset())
     this.nav.disengage()
     this.rotateNav.disengage()
     this.zoomCtrl.reset()
   }
 
-  /** One tracked video frame in, one fully-resolved control decision out. */
-  handleGesture(rawHands: NormalizedLandmark[][]): { snapshot: HandControlSnapshot; intent: HandDriveIntent } {
+  /**
+   * One tracked video frame in, one fully-resolved control decision out.
+   *
+   * `now` is the frame's own timestamp (`performance.now()`, the same clock
+   * handed to the tracker), passed in rather than read here so the timed
+   * pinch-hold is a pure function of its inputs and testable without a clock.
+   */
+  handleGesture(
+    rawHands: NormalizedLandmark[][],
+    now: number,
+  ): { snapshot: HandControlSnapshot; intent: HandDriveIntent } {
     if (rawHands.length === 0) {
       this.reset()
       return {
@@ -78,22 +104,76 @@ export class HandControlManager {
     for (let i = hands.length; i < 2; i++) {
       this.smoothers[i].reset()
       this.shapeTrackers[i].reset()
+      this.pinchRotators[i].reset()
     }
 
-    // Priority 1 — zoom: require the 'point' shape (index extended, others curled).
-    // This acts as a clutch: to stop zooming, simply open your hand naturally
-    // (which breaks the 'point' shape) and the camera will instantly freeze.
-    const zoomHand = hands.find((h) => h.shape === 'point')
-    if (zoomHand) {
+    // Advance every hand's pinch-hold clock first — the winning gesture is
+    // chosen from the resolved phases below, so the decision reads in one place.
+    //
+    // A hand may only *start* a hold from the shapes that have no rotate of
+    // their own: 'point' (the zoom hand, whose pinch is the point of this
+    // gesture) and 'other' (a hand mid-pinch that matches nothing cleanly).
+    // A fist is excluded on purpose — its curled thumb can measure as a pinch,
+    // and if it could arm here, holding a fist for two seconds would hand the
+    // same turn to two controllers and snap the view as the reference reset.
+    const phases: PinchPhase[] = hands.map((h, i) =>
+      this.pinchRotators[i].update(
+        now,
+        h.pinch,
+        h.point,
+        h.shape === 'point' || h.shape === 'other',
+      ),
+    )
+
+    // Priority 1 — a pinch held shut past the dwell: drag to rotate, freely
+    // past a full turn. First armed hand wins and any other is stood down, so
+    // two pinched hands can never fight over the same camera.
+    const rotateSlot = phases.indexOf('armed')
+    if (rotateSlot >= 0) {
+      this.pinchRotators.forEach((p, i) => {
+        if (i !== rotateSlot) p.reset()
+      })
       this.nav.disengage()
       this.rotateNav.disengage()
-      const zoom = this.zoomCtrl.drive(zoomHand.pinch) * this.sensitivity
+      this.zoomCtrl.reset()
+      const hand = hands[rotateSlot]
+      const orbit = this.pinchRotators[rotateSlot].drive(hand.point, this.sensitivity)
+      const turning = orbit.yaw !== 0 || orbit.pitch !== 0
+      return this.finish(
+        'rotate',
+        turning ? 'Rotating — move back to centre to stop' : 'Pinch held — move your hand to turn',
+        hands,
+        [hand],
+        { pan: ZERO_AXES, orbitYaw: orbit.yaw, orbitPitch: orbit.pitch, zoom: 0 },
+        1,
+      )
+    }
+
+    // Priority 2 — zoom: require the 'point' shape (index extended, others curled).
+    // This acts as a clutch: to stop zooming, simply open your hand naturally
+    // (which breaks the 'point' shape) and the camera will instantly freeze.
+    //
+    // A hand that is pinched shut is skipped ('arming', not 'off'): the closed
+    // end of the pinch range belongs to the rotate hold, so zoom drives across
+    // the open range only. That is what keeps the two from cancelling each
+    // other — waiting out the two seconds never dollies the camera.
+    const zoomSlot = hands.findIndex((h, i) => h.shape === 'point' && phases[i] === 'off')
+    if (zoomSlot >= 0) {
+      this.nav.disengage()
+      this.rotateNav.disengage()
+      const hand = hands[zoomSlot]
+      const zoom = this.zoomCtrl.drive(hand.pinch) * this.sensitivity
       const message = zoom > 0 ? 'Zooming in' : zoom < 0 ? 'Zooming out' : 'Thumb + index to zoom'
-      return this.finish('zoom', message, hands, [zoomHand], { pan: ZERO_AXES, orbitYaw: 0, orbitPitch: 0, zoom })
+      return this.finish('zoom', message, hands, [hand], {
+        pan: ZERO_AXES,
+        orbitYaw: 0,
+        orbitPitch: 0,
+        zoom,
+      })
     }
     this.zoomCtrl.reset()
 
-    // Priority 2 — index + middle held together: pan, like a two-finger drag
+    // Priority 3 — index + middle held together: pan, like a two-finger drag
     // on a touchpad or phone screen.
     const panHand = hands.find((h) => h.shape === 'twoFinger')
     if (panHand) {
@@ -109,26 +189,41 @@ export class HandControlManager {
     }
     this.nav.disengage()
 
-    // Priority 3 — a closed fist: grab to rotate.
-    // Like panning, it uses the navigation controller to track hand displacement,
-    // but feeds those axes to the camera's rotation channels instead of panning.
+    // Priority 4 — a closed fist: grab to rotate, no hold needed. Same drag
+    // reading as panning, mapped to the orbit channels through the same
+    // `orbitFromDrag` the pinch hold uses, so both rotates turn identically.
     const fisted = hands.find((h) => h.shape === 'fist')
     if (fisted) {
       this.rotateNav.engage(fisted.point)
-      const drag = this.rotateNav.drive(fisted.point, this.sensitivity)
+      const orbit = orbitFromDrag(this.rotateNav.drive(fisted.point, this.sensitivity))
       return this.finish('rotate', 'Grabbed — drag to rotate', hands, [fisted], {
         pan: ZERO_AXES,
-        // Scale drag by 3.0 to make it responsive for rotation
-        orbitYaw: drag.right * 3.0,
-        orbitPitch: drag.up * -3.0,
+        orbitYaw: orbit.yaw,
+        orbitPitch: orbit.pitch,
         zoom: 0,
       })
     }
     this.rotateNav.disengage()
 
+    // Nothing is driving. If a pinch is mid-hold, say how much is left — a
+    // silent two-second wait reads as the tracker having lost the hand.
+    const armingSlot = phases.indexOf('arming')
+    if (armingSlot >= 0) {
+      const rotator = this.pinchRotators[armingSlot]
+      const seconds = (rotator.remainingMs / 1000).toFixed(1)
+      return this.finish(
+        'idle',
+        `Hold the pinch — rotate in ${seconds}s`,
+        hands,
+        [hands[armingSlot]],
+        ZERO_INTENT,
+        rotator.progress,
+      )
+    }
+
     return this.finish(
       'idle',
-      'Thumb+index to zoom · index+middle to pan · fist to rotate',
+      'Pinch and hold 2s to rotate · thumb+index to zoom · index+middle to pan',
       hands,
       [],
       ZERO_INTENT,
@@ -161,6 +256,7 @@ export class HandControlManager {
     hands: HandReading[],
     active: HandReading[],
     intent: HandDriveIntent,
+    armProgress = 0,
   ): { snapshot: HandControlSnapshot; intent: HandDriveIntent } {
     const points: HandPoint[] = hands.map((h) => ({
       x: h.point.x,
@@ -168,6 +264,6 @@ export class HandControlManager {
       shape: h.shape,
       active: active.includes(h),
     }))
-    return { snapshot: { status: 'tracking', message, mode, hands: points }, intent }
+    return { snapshot: { status: 'tracking', message, mode, hands: points, armProgress }, intent }
   }
 }

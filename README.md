@@ -90,14 +90,29 @@ from the console — e.g. `__digitalTwinWMS.store.getState().metrics`.
 The **Hand control** pill (top-right of the 3D view) steers the camera from a webcam instead of
 the mouse/keyboard — useful for a hands-off walkthrough on a demo floor. It is strictly additive:
 mouse drag/scroll/pan and WASD keep working exactly as before, whether this is on or off; the
-toggle only ever adds a second source of input alongside them. Three gestures, one hand shape
-each, and only one is ever live at once:
+toggle only ever adds a second source of input alongside them. Four gestures, one hand each, and
+only one is ever live at once:
 
 | Gesture | Does |
 | --- | --- |
+| 🤏 Pinch thumb + index shut and **hold 2s** | **Rotate** — the hold hands the camera over (a bar fills in the preview while you wait, and nothing moves until it completes); after that, moving your hand turns the view for as long as you hold it there, freely past a full 360°. Open the fingers and it stops instantly. |
 | ✌️ Index + middle fingers together | **Pan** — move front/back, left/right. Drag the hand to steer, release to stop. |
-| ✊ Close it into a fist | **Rotate** — a fixed, slow 360° spin. Not proportional to anything (position, speed) on purpose, so it can't feel like it's "getting away from you." Open the hand and it stops immediately. |
-| 🖐️ Open hand | **Zoom** — spread apart thumb and index to zoom in, bring them back together to zoom out, like a two-finger pinch-zoom. Bounded by the same `OrbitControls` limits a mouse wheel is held to. |
+| 🖐️ Thumb + index apart | **Zoom** — spread the tips apart to zoom in, bring them back together to zoom out, like a two-finger pinch-zoom. Bounded by the same `OrbitControls` limits a mouse wheel is held to. |
+| ✊ Close it into a fist | **Rotate**, with no hold to wait out — the same turn, driven the same way, for when you already know the gesture. Open the hand and it stops immediately. |
+
+Rotate is a held **rate**, not a delta: how far the hand sits from where it grabbed sets how fast
+the view turns, and it keeps turning while the hand stays out there — which is what lets a small
+hand movement carry a full turn without the hand ever leaving frame. The rate is clamped before
+the sensitivity slider is applied, so sensitivity changes how little hand travel reaches full
+speed but can never raise the ceiling.
+
+The two gestures that could genuinely collide are pinch-hold rotate and zoom, because a shut pinch
+*is* the closed end of zoom's range. They're separated in time rather than in space: a pinch that
+closes and reopens is a zoom-out, a pinch that closes and stays closed is a request to rotate — and
+a hand that is pinched shut has its zoom output suppressed for as long as it stays shut, so the
+camera can never zoom and rotate at once, nor dolly while you wait out the hold. A fist is barred
+from arming the hold at all (its curled thumb measures as a pinch, and letting it arm would hand
+the same turn to two controllers two seconds in, snapping the view).
 
 Deliberately **hand-agnostic**: it's the *shape* a hand makes that decides what happens, never
 which physical hand (left/right) is making it. An earlier version keyed navigation off MediaPipe's
@@ -112,8 +127,9 @@ edge, cannot flicker between two readings.
 Hand tracking is MediaPipe's `HandLandmarker`, run entirely in the browser (WASM/GPU, up to two
 hands, no frames ever leave the machine) — see [src/scene/handControl/](src/scene/handControl/),
 split into a camera/model wrapper (`HandTracker`), pure gesture-shape detection
-(`GestureDetector`), per-gesture controllers (`NavigationController`, `ZoomController`) and the
-priority state machine that arbitrates between them (`HandControlManager`). Rotate/zoom feed the
+(`GestureDetector`), per-gesture controllers (`NavigationController`, `ZoomController`,
+`PinchRotateController`) and the priority state machine that arbitrates between them
+(`HandControlManager`, covered by `handControl.test.ts`). Rotate/zoom feed the
 exact same `MoveAxes` and rotate/zoom channels the on-screen pad already used
 (`WarehouseScene.setPadAxes`/`setHandRotateZoom`) — nothing about the existing camera code changed
 to add any of this. The runtime and model asset are vendored into `public/vision/` and
