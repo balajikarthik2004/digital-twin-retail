@@ -15,6 +15,7 @@ import { VELOCITY_LABEL, velocityHex } from '../scene/theme'
 import { useAppStore } from '../store/useAppStore'
 import type { VelocityTier } from '../warehouse/types'
 import { Bar, Card, EmptyState, Segmented, cx } from './components/primitives'
+import { CheckIcon, ChevronRightIcon } from './components/icons'
 import { compact, metres, mmss, pct, shortDuration } from './format'
 import { chartPalette } from './theme'
 
@@ -107,7 +108,7 @@ function Stepper({ step }: { step: number }) {
               )}
               aria-current={active ? 'step' : undefined}
             >
-              {done ? '✓' : n}
+              {done ? <CheckIcon size={11} /> : n}
             </span>
             <span
               className={cx(
@@ -363,7 +364,9 @@ function LineRow({
       </div>
       <div className="mt-0.5 flex items-center gap-1.5 text-[9px] text-ink-400">
         {stored ? (
-          <span className="text-[var(--viz-good)]">✓ put away at {line.storedCode}</span>
+          <span className="inline-flex items-center gap-1 text-[var(--viz-good)]">
+            <CheckIcon size={9} /> put away at {line.storedCode}
+          </span>
         ) : line.status === 'expected' ? (
           <span>
             advised · {line.skuId ? 'top-up' : 'new line'} · tap to count in
@@ -442,7 +445,7 @@ function UnplannedCard() {
           aria-expanded={open}
           aria-label={open ? 'Collapse' : 'Expand'}
         >
-          {open ? '−' : '+'}
+          <ChevronRightIcon className={cx('transition-transform duration-150', open && 'rotate-90')} />
         </button>
       }
     >
@@ -942,7 +945,7 @@ function RecommendedLocation({ candidate }: { candidate: PutawayCandidate }) {
       <ul className="mt-2 space-y-1">
         {candidate.reasons.map((reason) => (
           <li key={reason} className="flex gap-1.5 text-[10px] leading-snug text-ink-300">
-            <span className="shrink-0 text-[var(--viz-good)]">✓</span>
+            <CheckIcon size={10} className="mt-0.5 shrink-0 text-[var(--viz-good)]" />
             <span>{reason}</span>
           </li>
         ))}

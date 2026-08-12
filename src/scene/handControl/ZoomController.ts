@@ -1,46 +1,50 @@
 import { clamp } from './types'
 
 /**
- * Both-hands-pinched zoom: the change in inter-hand distance since both hands
- * clutched together drives a dolly rate — spread apart to zoom in, pinch back
- * together to zoom out, exactly like a two-finger pinch-zoom on a touchscreen.
+ * One-hand pinch-zoom: extend thumb and index (the other three fingers
+ * curled — MediaPipe's `point` shape) and the change in tip-to-tip distance
+ * since that shape engaged drives a dolly rate — spread thumb and index
+ * apart to zoom in, bring them back together to zoom out. Same gesture as a
+ * two-finger pinch-zoom on a touchscreen, just performed with one hand's own
+ * two fingers instead of two separate touch points.
  *
  * No activation delay, unlike the navigation/rotate gestures needing none
- * either: pinching with *both* hands at once is already a deliberate, unusual
- * hand shape (unlike two open palms, which is just how hands often rest), so
- * it can arm the instant it happens without a hold-still window.
+ * either: index-extended-others-curled is already a deliberate, unusual hand
+ * shape (unlike an open palm, which is just how a hand often rests), so it
+ * can arm the instant it happens without a hold-still window.
  */
 
-/** Reads the *relative* change in distance, so it works the same whether the
- *  hands start close together or already apart. */
-const ZOOM_DEAD_ZONE = 0.06
-const ZOOM_MAX_REACH = 0.6
-
-function zoomAxisFrom(raw: number): number {
-  const magnitude = Math.abs(raw)
-  if (magnitude < ZOOM_DEAD_ZONE) return 0
-  const eased = (magnitude - ZOOM_DEAD_ZONE) / (ZOOM_MAX_REACH - ZOOM_DEAD_ZONE)
-  return Math.sign(raw) * clamp(eased, 0, 1)
-}
-
 export class ZoomController {
-  /** Inter-hand distance captured the instant both hands became pinched together. */
-  private reference: number | null = null
+  private lastPinch: number | null = null
 
-  /** Call every frame both hands read as pinched, with the raw (unmirrored)
-   *  distance between them — `WarehouseScene.applyHandOrbitZoom` already
-   *  clamps the resulting orbit radius to `OrbitControls.minDistance/maxDistance`,
-   *  the same limits a mouse wheel is held to, so this can never zoom through
-   *  the building or dolly out past where the mouse could take it either. */
-  drive(distance: number): number {
-    if (this.reference === null) this.reference = distance
-    const relativeChange = (distance - this.reference) / Math.max(this.reference, 0.05)
-    return zoomAxisFrom(relativeChange)
+  drive(pinchRatio: number): number {
+    if (this.lastPinch === null) {
+      this.lastPinch = pinchRatio
+      return 0
+    }
+
+    // Prevent division by zero if fingers touch completely
+    const currentPinch = Math.max(pinchRatio, 0.01)
+    const prevPinch = Math.max(this.lastPinch, 0.01)
+
+    // Geometric scale: if you spread fingers 2x wider, radius halves (zoom in 2x).
+    // If you bring them 2x closer, radius doubles (zoom out 2x).
+    // WarehouseScene applies: radius * (1 - zoom)
+    // So we need: 1 - zoom = prevPinch / currentPinch
+    const scale = prevPinch / currentPinch
+    const zoomDelta = 1 - scale
+
+    this.lastPinch = currentPinch
+    
+    // Ignore microscopic tracking noise to make it feel completely rock-solid
+    if (Math.abs(zoomDelta) < 0.005) {
+      return 0
+    }
+
+    return zoomDelta
   }
 
-  /** Call the instant both hands stop being pinched together — the next time
-   *  zoom arms, it starts from a fresh reference instead of the stale one. */
   reset(): void {
-    this.reference = null
+    this.lastPinch = null
   }
 }

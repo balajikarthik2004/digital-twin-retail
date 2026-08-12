@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import type { ThemeMode } from '../ui/theme'
 import type { WarehouseModel } from '../warehouse/types'
+import { totalRackHeight } from '../warehouse/rackGeometry'
 import { sceneTheme } from './theme'
 
 /**
@@ -68,7 +69,9 @@ export function buildShell(model: WarehouseModel, themeMode: ThemeMode): ShellVi
   const centerX = (minX + maxX) / 2
   const centerZ = (minZ + maxZ) / 2
 
-  const rackHeight = 0.16 + config.levels * config.levelHeight
+  // Includes the reserve tier stacked above the pick face — the roof has to
+  // clear the whole racking structure, not just the part a picker walks under.
+  const rackHeight = totalRackHeight(config)
   const clearHeight = Math.max(rackHeight + HEAD_ROOM, MIN_CLEAR_HEIGHT)
 
   // ── Walls ─────────────────────────────────────────────────────────────────

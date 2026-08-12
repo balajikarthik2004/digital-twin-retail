@@ -2,37 +2,45 @@ import type { NormalizedLandmark } from '@mediapipe/tasks-vision'
 import { distance, type HandShape } from './types'
 
 /**
- * Turns one hand's 21 smoothed landmarks into a shape: `fist`, `pinch`,
- * `point`, `open`, or `other`. Stateless one-shot detector functions are
+ * Turns one hand's 21 smoothed landmarks into a shape: `fist`, `point`,
+ * `twoFinger`, `open`, or `other`. Stateless one-shot detector functions are
  * exported for reuse/testing; the pipeline itself goes through
  * {@link HandShapeTracker}, which adds hysteresis so a shape doesn't flicker
  * right at its threshold — the single biggest source of "the camera twitched
  * for no reason" bug reports in gesture UIs.
  */
 
-/** A finger counts as curled when its tip sits closer to the wrist than its
- *  own knuckle does — rotation-invariant (works with the hand held sideways
- *  or upside down), unlike comparing on-screen y-coordinates. */
-const FIST_CURL_RATIO = 0.85
-
-/** Pinch distance / palm size. Two thresholds (engage lower than release) so
- *  the clutch doesn't chatter right at the edge — see {@link ThresholdTracker}. */
-const PINCH_ENGAGE = 0.55
-const PINCH_RELEASE = 0.72
-
 /** Landmark indices, MediaPipe's Hand model. */
 const WRIST = 0
+const THUMB_MCP = 2
+const THUMB_IP = 3
 const THUMB_TIP = 4
 const INDEX_MCP = 5
+const INDEX_PIP = 6
 const INDEX_TIP = 8
 const MIDDLE_MCP = 9
+const MIDDLE_PIP = 10
 const MIDDLE_TIP = 12
 const RING_MCP = 13
+const RING_PIP = 14
 const RING_TIP = 16
 const PINKY_MCP = 17
+const PINKY_PIP = 18
 const PINKY_TIP = 20
 
+/** Below this bend angle (degrees) a finger counts as curled; at or above it,
+ *  extended. A dead-straight finger measures close to 180°; a fully curled
+ *  one well under 90°. 150° leaves room for a finger that doesn't fully
+ *  straighten (common for ring/pinky on a real hand) while still rejecting a
+ *  relaxed, half-open one. */
+const FINGER_CURL_ANGLE = 150
+/** The thumb's IP joint sits with more natural bend than the other fingers'
+ *  PIP even when the thumb reads as "extended" (anatomy, not tracking noise),
+ *  so it needs its own, lower bar to count as curled. */
+const THUMB_CURL_ANGLE = 140
+
 interface FingerCurl {
+  thumb: boolean
   index: boolean
   middle: boolean
   ring: boolean
@@ -43,56 +51,87 @@ function palmSize(landmarks: NormalizedLandmark[]): number {
   return Math.max(distance(landmarks[WRIST], landmarks[MIDDLE_MCP]), 0.02)
 }
 
+/**
+ * The bend angle at a finger's middle joint (PIP for the four fingers, IP
+ * for the thumb), in degrees — the angle between the MCP→joint and
+ * joint→tip vectors. ~180° is dead straight; the more a finger curls toward
+ * the palm, the smaller this gets.
+ *
+ * This is what makes curl detection hold up regardless of how the hand is
+ * angled to the camera, unlike comparing tip-to-wrist distance (the
+ * previous approach here): a straight finger pointed *at* the camera
+ * foreshortens and can measure "closer to the wrist" than a curled one
+ * angled across the frame, misreading as curled. A joint's own bend doesn't
+ * care which way the hand is turned — it uses all three spatial axes
+ * (MediaPipe landmarks carry a relative-depth `z`, not just `x`/`y`), so
+ * tilting or rolling the hand changes the vectors' orientation but not the
+ * angle between them.
+ */
+function jointAngleDeg(landmarks: NormalizedLandmark[], mcp: number, joint: number, tip: number): number {
+  const a = landmarks[mcp]
+  const b = landmarks[joint]
+  const c = landmarks[tip]
+  const v1 = { x: a.x - b.x, y: a.y - b.y, z: (a.z ?? 0) - (b.z ?? 0) }
+  const v2 = { x: c.x - b.x, y: c.y - b.y, z: (c.z ?? 0) - (b.z ?? 0) }
+  const mag1 = Math.hypot(v1.x, v1.y, v1.z)
+  const mag2 = Math.hypot(v2.x, v2.y, v2.z)
+  if (mag1 < 1e-6 || mag2 < 1e-6) return 180
+  const cos = (v1.x * v2.x + v1.y * v2.y + v1.z * v2.z) / (mag1 * mag2)
+  return (Math.acos(Math.max(-1, Math.min(1, cos))) * 180) / Math.PI
+}
+
+/** Every finger's curl state, thumb included — the full-hand reading every
+ *  shape below is built from. */
 function fingerCurl(landmarks: NormalizedLandmark[]): FingerCurl {
-  const wrist = landmarks[WRIST]
-  const curled = (tip: number, mcp: number) =>
-    distance(landmarks[tip], wrist) < distance(landmarks[mcp], wrist) * FIST_CURL_RATIO
   return {
-    index: curled(INDEX_TIP, INDEX_MCP),
-    middle: curled(MIDDLE_TIP, MIDDLE_MCP),
-    ring: curled(RING_TIP, RING_MCP),
-    pinky: curled(PINKY_TIP, PINKY_MCP),
+    thumb: jointAngleDeg(landmarks, THUMB_MCP, THUMB_IP, THUMB_TIP) < THUMB_CURL_ANGLE,
+    index: jointAngleDeg(landmarks, INDEX_MCP, INDEX_PIP, INDEX_TIP) < FINGER_CURL_ANGLE,
+    middle: jointAngleDeg(landmarks, MIDDLE_MCP, MIDDLE_PIP, MIDDLE_TIP) < FINGER_CURL_ANGLE,
+    ring: jointAngleDeg(landmarks, RING_MCP, RING_PIP, RING_TIP) < FINGER_CURL_ANGLE,
+    pinky: jointAngleDeg(landmarks, PINKY_MCP, PINKY_PIP, PINKY_TIP) < FINGER_CURL_ANGLE,
   }
 }
 
 /** thumb+index tip distance, normalized by palm size so it reads the same
- *  whether the hand is close to the lens or halfway out of frame. */
+ *  whether the hand is close to the lens or halfway out of frame. The
+ *  continuous value one-hand pinch-zoom drives off of — see {@link ZoomController}. */
 export function pinchRatio(landmarks: NormalizedLandmark[]): number {
   return distance(landmarks[THUMB_TIP], landmarks[INDEX_TIP]) / palmSize(landmarks)
 }
 
-/** All four fingers extended — the "stop/navigate" hand. One-shot, no hysteresis. */
+/** All five fingers extended, thumb included — the "stop/navigate" hand.
+ *  One-shot, no hysteresis. */
 export function detectOpenPalm(landmarks: NormalizedLandmark[]): boolean {
   const c = fingerCurl(landmarks)
-  return !c.index && !c.middle && !c.ring && !c.pinky
+  return !c.thumb && !c.index && !c.middle && !c.ring && !c.pinky
 }
 
-/** All four fingers curled in — the "emergency stop" hand. One-shot, no hysteresis. */
+/** All five fingers curled in, thumb included — the "emergency stop"/rotate
+ *  hand. Requiring the thumb is what keeps a pinch (thumb tucked against a
+ *  curled index, the other three fingers loose) from reading as a fist: a
+ *  real fist tucks every finger in, a pinch only tucks two. One-shot, no
+ *  hysteresis. */
 export function detectFist(landmarks: NormalizedLandmark[]): boolean {
   const c = fingerCurl(landmarks)
-  return [c.index, c.middle, c.ring, c.pinky].filter(Boolean).length >= 3
+  return c.thumb && [c.index, c.middle, c.ring, c.pinky].filter(Boolean).length >= 3
 }
 
-/** Index extended, the other three curled — the "select" hand. One-shot, no hysteresis. */
+/** Index extended, the other three fingers all curled — the "pinch-zoom"
+ *  hand (thumb tip moves freely; it's how far it is from the index tip that
+ *  drives zoom, not its curl). All three of middle/ring/pinky have to be
+ *  curled — a deliberate, unambiguous shape, unlike a relaxed half-open
+ *  hand. One-shot, no hysteresis. */
 export function detectPointing(landmarks: NormalizedLandmark[]): boolean {
   const c = fingerCurl(landmarks)
-  return !c.index && [c.middle, c.ring, c.pinky].filter(Boolean).length >= 2
+  return !c.index && c.middle && c.ring && c.pinky
 }
 
-/** Thumb and index tip close together — the "interact" hand. */
-export function detectPinch(landmarks: NormalizedLandmark[], threshold = PINCH_ENGAGE): boolean {
-  return pinchRatio(landmarks) < threshold
-}
-
-/** Both hands confidently tracked — the gate for two-hand mode even starting
- *  to consider itself, before either hand's shape is looked at. */
-export function detectTwoHands(handCount: number): boolean {
-  return handCount === 2
-}
-
-/** Straight-line distance between two hands' raw centroids. */
-export function calculateHandDistance(a: { rawX: number; rawY: number }, b: { rawX: number; rawY: number }): number {
-  return Math.hypot(a.rawX - b.rawX, a.rawY - b.rawY)
+/** Index and middle extended together, ring and pinky curled — the
+ *  "two-finger drag" hand, like scrolling/panning with two fingers on a
+ *  touchpad or phone screen. One-shot, no hysteresis. */
+export function detectTwoFinger(landmarks: NormalizedLandmark[]): boolean {
+  const c = fingerCurl(landmarks)
+  return !c.index && !c.middle && c.ring && c.pinky
 }
 
 /** How far a hand moved between two frames, in the same normalized space both points are given in. */
@@ -130,27 +169,39 @@ class ThresholdTracker {
  * {@link HandShape} out, with hysteresis on every shape so a hand caught
  * exactly at a threshold doesn't flicker between two readings frame to frame.
  *
- * Checked in a fixed priority — fist, then pinch, then point, then open —
+ * Checked in a fixed priority — fist, then point, then twoFinger, then open —
  * because a closing fist passes through hand-shapes that can momentarily
  * satisfy more than one detector at once, and fist (the emergency stop) must
- * always win that ambiguity, never something less safety-critical.
+ * always win that ambiguity, never something less safety-critical. `point`
+ * and `twoFinger` never actually compete (one requires the middle finger
+ * curled, the other requires it extended), so their relative order doesn't
+ * matter beyond that.
  */
 export class HandShapeTracker {
+  // Full fist, thumb included — gating on the thumb is what stops a
+  // thumb-index pinch (which curls at most the index/middle) from reading as
+  // "grab to rotate."
   private fist = new ThresholdTracker(
     (v) => v >= 3,
     (v) => v <= 1,
   )
-  private pinch = new ThresholdTracker(
-    (v) => v < PINCH_ENGAGE,
-    (v) => v > PINCH_RELEASE,
-  )
+  // Index extended, the rest curled — the one-hand pinch-zoom shape. Thumb
+  // position is deliberately not part of this gate: it stays this shape
+  // across the whole thumb-index spread range so zoom has a stable trigger
+  // to sit inside from fully pinched to fully spread.
   private point = new ThresholdTracker(
     (v) => v >= 3,
     (v) => v <= 1,
   )
-  // Engages on at most one borderline finger (a pinky or ring finger that
-  // doesn't fully straighten is common) — strict zero-tolerance made the
-  // "open palm" gesture fail for real hands more often than it should.
+  // Index and middle extended together, ring and pinky curled — the
+  // two-finger pan/drag shape.
+  private twoFinger = new ThresholdTracker(
+    (v) => v >= 3,
+    (v) => v <= 1,
+  )
+  // Engages on at most one borderline finger (a pinky or thumb that doesn't
+  // fully straighten is common) — strict zero-tolerance made the "open palm"
+  // gesture fail for real hands more often than it should.
   private open = new ThresholdTracker(
     (v) => v <= 1,
     (v) => v >= 3,
@@ -158,25 +209,35 @@ export class HandShapeTracker {
 
   classify(landmarks: NormalizedLandmark[]): HandShape {
     const c = fingerCurl(landmarks)
-    const curledCount = [c.index, c.middle, c.ring, c.pinky].filter(Boolean).length
-    const pointScore = (c.index ? 0 : 1) + [c.middle, c.ring, c.pinky].filter(Boolean).length
+    const curledCount4 = [c.index, c.middle, c.ring, c.pinky].filter(Boolean).length
 
-    const isFist = this.fist.update(curledCount)
-    const isPinch = this.pinch.update(pinchRatio(landmarks))
+    // Fist: thumb curled is a hard gate, then tolerate one borderline finger
+    // among the other four (full fist = 4, still engages at 3).
+    const fistScore = c.thumb ? curledCount4 : 0
+
+    // Point: index extended, middle/ring/pinky all strictly curled.
+    const pointScore = !c.index && c.middle && c.ring && c.pinky ? 4 : 0
+    // TwoFinger: index and middle strictly extended, ring/pinky strictly curled.
+    const twoFingerScore = !c.index && !c.middle && c.ring && c.pinky ? 4 : 0
+    // Open: every finger relaxed open, thumb included.
+    const curledCount5 = curledCount4 + (c.thumb ? 1 : 0)
+
+    const isFist = this.fist.update(fistScore)
     const isPoint = this.point.update(pointScore)
-    const isOpen = this.open.update(curledCount)
+    const isTwoFinger = this.twoFinger.update(twoFingerScore)
+    const isOpen = this.open.update(curledCount5)
 
     if (isFist) return 'fist'
-    if (isPinch) return 'pinch'
     if (isPoint) return 'point'
+    if (isTwoFinger) return 'twoFinger'
     if (isOpen) return 'open'
     return 'other'
   }
 
   reset(): void {
     this.fist.reset()
-    this.pinch.reset()
     this.point.reset()
+    this.twoFinger.reset()
     this.open.reset()
   }
 }

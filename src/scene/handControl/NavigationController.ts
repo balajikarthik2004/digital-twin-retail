@@ -2,14 +2,16 @@ import type { MoveAxes } from '../WarehouseScene'
 import { clamp, ZERO_AXES } from './types'
 
 /**
- * Right-hand-open navigation: left/right pans the view, up/down elevates it.
- * Feeds the same {@link MoveAxes} channel the on-screen pad already drives
- * (`WarehouseScene.setPadAxes`), so no camera-drive code changes to add this.
+ * Two-finger-drag navigation: hold index and middle together (like a
+ * two-finger swipe on a phone or touchpad) and move your hand — left/right
+ * pans the view, up/down elevates it. Feeds the same {@link MoveAxes} channel
+ * the on-screen pad already drives (`WarehouseScene.setPadAxes`), so no
+ * camera-drive code changes to add this.
  *
  * Movement is *relative to where the hand was when navigation last engaged*,
  * not to the centre of the webcam frame — see {@link engage}. That is what
- * stops the camera jumping the instant you open your palm: the very first
- * reading is always its own reference, so its own delta is zero.
+ * stops the camera jumping the instant you make the two-finger shape: the
+ * very first reading is always its own reference, so its own delta is zero.
  */
 
 /** Ignore hand drift under this fraction of the frame — a "dead zone" so
@@ -36,14 +38,14 @@ export class NavigationController {
     return this.reference !== null
   }
 
-  /** Called every frame the right hand reads as an open palm. Only the first
+  /** Called every frame a hand reads as the two-finger shape. Only the first
    *  call after {@link disengage} actually captures a reference — later calls
    *  in the same engagement are no-ops, so the reference never drifts. */
   engage(point: { x: number; y: number }): void {
     if (!this.reference) this.reference = { ...point }
   }
 
-  /** Called the instant the right hand stops being an open palm (closed,
+  /** Called the instant the hand stops making the two-finger shape (closed,
    *  lowered, lost, or superseded by a higher-priority gesture). */
   disengage(): void {
     this.reference = null

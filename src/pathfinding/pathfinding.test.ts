@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import layoutsDoc from '../data/layouts.json'
 import { generateWarehouse } from '../warehouse/generate'
+import { RESERVE_LEVELS, isReserveLevel } from '../warehouse/rackGeometry'
 import type { WarehouseConfig } from '../warehouse/types'
 import { NavGraphBuilder, ShortestPathOracle, dijkstra } from './graph'
 import { buildRoute, createRoutingContext, tourLength } from './route'
@@ -193,14 +194,54 @@ describe('routing strategies', () => {
 
 describe('warehouse generation', () => {
   it('derives geometry and slotting from the config', () => {
-    const expectedBins =
-      config.aisles * 2 * config.blocks * config.baysPerBlock * config.levels * config.slotsPerBay
+    const bays = config.aisles * 2 * config.blocks * config.baysPerBlock
+    // Every bay carries `levels * slotsPerBay` case-pick slots on the pick
+    // face, plus one full-width pallet position per reserve level above it.
+    const expectedBins = bays * (config.levels * config.slotsPerBay + RESERVE_LEVELS)
     expect(model.bins).toHaveLength(expectedBins)
     expect(model.racks).toHaveLength(config.aisles * 2 * config.blocks)
     expect(model.aisleX).toHaveLength(config.aisles)
     expect(model.crossZ).toHaveLength(config.blocks + 1)
     expect(model.facilities.filter((f) => f.kind === 'dock')).toHaveLength(config.dockDoors)
     expect(model.facilities.filter((f) => f.kind === 'pack')).toHaveLength(config.packStations)
+  })
+
+  it('routes a reserve location to the same floor spot as the bay below it', () => {
+    // Bay-level routing is the invariant that lets bulk storage exist at all
+    // without touching the graph: the picker stands in exactly one place per
+    // bay, whatever height the line is at. If this ever diverges, every
+    // reserve pick silently becomes an extra walk.
+    const reserve = model.bins.find((b) => isReserveLevel(config, b.level))!
+    const below = model.bins.find(
+      (b) => b.aisle === reserve.aisle && b.side === reserve.side && b.bay === reserve.bay && b.level === 0,
+    )!
+    expect(reserve.node).toBe(below.node)
+    expect(reserve.pickPoint).toEqual(below.pickPoint)
+    expect(reserve.face.y).toBeGreaterThan(below.face.y)
+  })
+
+  it('emits every pick-face location before any reserve location', () => {
+    // `buildWarehouse` trims `InstancedMesh.count` to hide bulk stock in a
+    // plan view, which only works while the reserve bins are a contiguous
+    // tail of the array.
+    const firstReserve = model.bins.findIndex((b) => isReserveLevel(config, b.level))
+    expect(firstReserve).toBeGreaterThan(0)
+    expect(model.bins.slice(firstReserve).every((b) => isReserveLevel(config, b.level))).toBe(true)
+  })
+
+  it('keeps fast movers off the reserve tier', () => {
+    // Bulk is long-tail stock by construction — a fast mover up there would
+    // mean the busiest lines were the most expensive ones to reach.
+    const reserveBins = model.bins.filter((b) => isReserveLevel(config, b.level))
+    expect(reserveBins.length).toBeGreaterThan(0)
+    expect(reserveBins.some((b) => b.sku.velocity === 'fast')).toBe(false)
+  })
+
+  it('gives a bulk position more capacity than a case-pick slot', () => {
+    const avg = (bins: typeof model.bins) => bins.reduce((t, b) => t + b.capacity, 0) / bins.length
+    const reserveAvg = avg(model.bins.filter((b) => isReserveLevel(config, b.level)))
+    const faceAvg = avg(model.bins.filter((b) => !isReserveLevel(config, b.level)))
+    expect(reserveAvg).toBeGreaterThan(faceAvg)
   })
 
   it('is deterministic for a given seed', () => {

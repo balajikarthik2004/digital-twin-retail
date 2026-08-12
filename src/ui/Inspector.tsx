@@ -267,7 +267,7 @@ export function Inspector({ sceneRef }: { sceneRef: RefObject<WarehouseScene | n
           >
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
-                <div className="text-[10px] font-medium uppercase tracking-[0.12em] text-ink-400">
+                <div className="mini-label">
                   {bin ? 'Storage location' : parcel ? 'Parcel' : dock ? 'Dock door' : 'Picker'}
                 </div>
                 <div className="truncate font-mono text-sm font-semibold text-ink-100">
@@ -339,7 +339,7 @@ export function Inspector({ sceneRef }: { sceneRef: RefObject<WarehouseScene | n
                   </div>
                   <Bar
                     value={bin.sku.stockInitial > 0 ? bin.sku.stock / bin.sku.stockInitial : 0}
-                    color={needsReplen ? '#d03b3b' : VELOCITY_HEX[bin.sku.velocity]}
+                    color={needsReplen ? 'var(--viz-critical)' : VELOCITY_HEX[bin.sku.velocity]}
                   />
                   {needsReplen && (
                     <div className="mt-1.5 flex items-center gap-1.5 rounded-md border border-crit/45 bg-crit/10 px-1.5 py-1 text-[9.5px] font-medium text-crit">
@@ -385,7 +385,7 @@ export function Inspector({ sceneRef }: { sceneRef: RefObject<WarehouseScene | n
                   </div>
                   <Bar
                     value={dock.outbound.load}
-                    color={dock.outbound.full ? '#d03b3b' : FLOW_HEX.outbound}
+                    color={dock.outbound.full ? 'var(--viz-critical)' : FLOW_HEX.outbound}
                   />
                   <div className="mt-1 text-[9.5px] text-ink-400">
                     {dock.outbound.staged === 0
@@ -483,7 +483,7 @@ export function Inspector({ sceneRef }: { sceneRef: RefObject<WarehouseScene | n
                   />
                   <span className="text-[10.5px] font-medium text-ink-200">{parcel.channel}</span>
                   {parcel.priority === 'express' && (
-                    <span className="chip !px-1 !py-0 !text-[8.5px] !text-[var(--viz-warning)]">
+                    <span className="chip !px-1 !py-0 !text-[8px] !text-[var(--viz-warning)]">
                       express
                     </span>
                   )}
@@ -500,7 +500,7 @@ export function Inspector({ sceneRef }: { sceneRef: RefObject<WarehouseScene | n
                   </div>
                   <Bar
                     value={parcel.pathLength > 0 ? parcel.arc / parcel.pathLength : 1}
-                    color={parcel.blocked ? '#d03b3b' : CHANNEL_HEX[parcel.channel]}
+                    color={parcel.blocked ? 'var(--viz-critical)' : CHANNEL_HEX[parcel.channel]}
                   />
                 </div>
 

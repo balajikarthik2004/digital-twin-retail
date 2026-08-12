@@ -103,14 +103,14 @@ export function TopBar() {
           </span>
 
           <div className="leading-tight">
-            <div className="text-[9px] uppercase tracking-[0.12em] text-ink-400">Shift</div>
+            <div className="mini-label">Shift</div>
             <div className="font-mono text-[12px] font-semibold tabular-nums text-ink-100">
               {clock(metrics.time)}
             </div>
           </div>
 
           <div className="hidden leading-tight lg:block">
-            <div className="text-[9px] uppercase tracking-[0.12em] text-ink-400">Shipped</div>
+            <div className="mini-label">Shipped</div>
             <div className="font-mono text-[12px] font-semibold tabular-nums text-ink-100">
               {metrics.ordersCompleted}
               <span className="text-ink-400">/{metrics.ordersTotal}</span>
@@ -123,7 +123,7 @@ export function TopBar() {
 
       <div className="flex items-center gap-2">
         <div className="hidden text-right leading-tight 2xl:block">
-          <div className="text-[9.5px] uppercase tracking-[0.12em] text-ink-400">Routing</div>
+          <div className="mini-label">Routing</div>
           <div className="text-[11px] font-medium text-accent-soft">{strategy.name}</div>
         </div>
 

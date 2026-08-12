@@ -2,7 +2,7 @@ import type { NormalizedLandmark } from '@mediapipe/tasks-vision'
 import type { MoveAxes } from '../WarehouseScene'
 
 /** The shapes gestures are built from. One shape per hand per frame. */
-export type HandShape = 'fist' | 'pinch' | 'point' | 'open' | 'other'
+export type HandShape = 'fist' | 'point' | 'twoFinger' | 'open' | 'other'
 
 /** Which control channel is currently live. Only ever one at a time — see
  *  {@link ../HandControlManager.ts} for the priority order that guarantees it. */
@@ -51,8 +51,8 @@ export interface HandDriveIntent {
   orbitPitch: number
   /** -1..1, consumed by `WarehouseScene.applyHandOrbitZoom` as a dolly rate:
    *  positive shrinks the orbit radius (zoom in/closer), negative grows it
-   *  (zoom out/further) — spreading hands apart is positive, matching the
-   *  pinch-to-zoom gesture on a touchscreen. */
+   *  (zoom out/further) — spreading one hand's thumb and index tip apart is
+   *  positive, matching pinch-to-zoom on a touchscreen. */
   zoom: number
 }
 
@@ -69,6 +69,9 @@ export interface HandReading {
   rawX: number
   rawY: number
   shape: HandShape
+  /** Thumb-to-index tip distance, normalized by palm size — the continuous
+   *  value the one-hand zoom gesture drives off of. See {@link pinchRatio}. */
+  pinch: number
 }
 
 export function clamp(v: number, lo: number, hi: number): number {

@@ -5,6 +5,20 @@ import type { ThemeMode } from '../ui/theme'
 import type { Bin, WarehouseModel } from '../warehouse/types'
 import { buildDocks, type DockVisual } from './dockMesh'
 import { makeTextSprite } from './labels'
+import { buildMezzanine } from './mezzanine'
+import {
+  RESERVE_GAP,
+  RESERVE_LEVELS,
+  RESERVE_POST_SIZE,
+  SEPARATOR_BEAM_H,
+  isReserveLevel,
+  levelDeckTop,
+  pickRackHeight,
+  reserveBaseY,
+  reserveLevelHeight,
+  reserveLevelY,
+} from '../warehouse/rackGeometry'
+import { buildSafetyProps } from './safetyProps'
 import { buildShell } from './shell'
 import { sceneTheme, velocityColors, zoneColors, type SceneTheme } from './theme'
 
@@ -66,10 +80,25 @@ export interface WarehouseVisual {
   roof: THREE.Group
   /** Underside of the roof deck, metres. */
   roofHeight: number
+  /**
+   * The reserve/overstock tier stacked above the pick face, so the scene can
+   * drop it for a near-vertical plan-view shot — the same reason `roof` is
+   * droppable, but on its own trigger: the roof hides once the camera climbs
+   * above it, while this hides once the camera looks straight down through
+   * it, which happens at ordinary hero-shot heights too.
+   */
+  reserve: THREE.Group
   binsMesh: THREE.InstancedMesh
   /** instance index -> bin */
   binOrder: Bin[]
   binIndexById: Map<string, number>
+  /**
+   * Instances `[0, pickFaceBinCount)` are the on-foot pick face; the rest are
+   * the reserve tier. Setting `binsMesh.count` to this drops bulk stock from a
+   * plan view without disturbing any of the per-instance colour buffers — see
+   * `WarehouseScene.syncReserveTier`.
+   */
+  pickFaceBinCount: number
   /** Dock doors: their live boards, lamps, shutters and hitboxes. */
   docks: DockVisual
   setColorMode(mode: BinColorMode): void
@@ -118,6 +147,11 @@ export function buildWarehouse(model: WarehouseModel, themeMode: ThemeMode = 'li
   const group = new THREE.Group()
   group.name = 'warehouse'
   const disposables: (THREE.BufferGeometry | THREE.Material | THREE.Texture)[] = []
+  // Its own group, dropped by the scene for a near-vertical plan-view shot —
+  // see `WarehouseVisual.reserve`.
+  const reserve = new THREE.Group()
+  reserve.name = 'reserveTier'
+  group.add(reserve)
 
   const width = bounds.maxX - bounds.minX
   const depth = bounds.maxZ - bounds.minZ
@@ -186,9 +220,24 @@ export function buildWarehouse(model: WarehouseModel, themeMode: ThemeMode = 'li
   const uprightGeos: THREE.BufferGeometry[] = []
   const deckGeos: THREE.BufferGeometry[] = []
   const beamGeos: THREE.BufferGeometry[] = []
-  const rackHeight = 0.16 + config.levels * config.levelHeight
+  const rackHeight = pickRackHeight(config)
   const postSize = 0.1
 
+  // ── Reserve tier: a bulk-storage rack unit stacked above the pick face ────
+  // The pick face above stays reachable on foot; this unit is turret-truck
+  // territory, exactly like the overstock shelf above a store backroom's pick
+  // shelving. It gets its own uprights, its own beam colour, and a load-rated
+  // splice beam plus flue-guard mesh across the gap, so the join reads as two
+  // rack units bolted together rather than one shelf that grew taller.
+  const separatorGeos: THREE.BufferGeometry[] = []
+  const meshGeos: THREE.BufferGeometry[] = []
+  const reserveUprightGeos: THREE.BufferGeometry[] = []
+  const reserveDeckGeos: THREE.BufferGeometry[] = []
+  const reserveBeamGeos: THREE.BufferGeometry[] = []
+  const reservePalletGeos: THREE.BufferGeometry[] = []
+  const reserveH = RESERVE_LEVELS * reserveLevelHeight(config)
+  const reserveY0 = reserveBaseY(config)
+  const reserveTop = reserveY0 + reserveH
   for (const rack of model.racks) {
     const runDepth = rack.x1 - rack.x0
     const bays = Math.round((rack.z1 - rack.z0) / config.bayWidth)
@@ -243,6 +292,75 @@ export function buildWarehouse(model: WarehouseModel, themeMode: ThemeMode = 'li
         rack.z1 - rack.z0 - 0.05,
       ),
     )
+
+    // ── Reserve tier over this run ──────────────────────────────────────────
+    const zMid = (rack.z0 + rack.z1) / 2
+    const zSpan = rack.z1 - rack.z0 - 0.05
+
+    // Splice beam capping the pick face, then the flue-guard mesh filling the
+    // gap above it — the visible "separator" between the two rack units.
+    separatorGeos.push(
+      boxAt((rack.x0 + rack.x1) / 2, rackHeight + SEPARATOR_BEAM_H / 2, zMid, runDepth * 0.98, SEPARATOR_BEAM_H, rack.z1 - rack.z0),
+    )
+    meshGeos.push(
+      boxAt(
+        rack.facing === 1 ? rack.x1 - 0.015 : rack.x0 + 0.015,
+        rackHeight + SEPARATOR_BEAM_H + RESERVE_GAP / 2,
+        zMid,
+        0.03,
+        RESERVE_GAP * 0.86,
+        zSpan,
+      ),
+    )
+
+    // Reserve tier's own uprights, one size heavier than the pick face's —
+    // planted at the same bay lines so the two units share a footprint.
+    for (let i = 0; i <= bays; i++) {
+      const z = rack.z0 + i * config.bayWidth
+      for (const x of [rack.x0 + RESERVE_POST_SIZE / 2, rack.x1 - RESERVE_POST_SIZE / 2]) {
+        reserveUprightGeos.push(boxAt(x, reserveY0 + reserveH / 2, z, RESERVE_POST_SIZE, reserveH, RESERVE_POST_SIZE))
+      }
+    }
+    // A deck and load beam at every reserve level — the same construction as
+    // the pick face has at each of its own — plus a capping rail at the very
+    // top of the stack and one back panel spanning the full reserve height.
+    for (let lvl = 0; lvl < RESERVE_LEVELS; lvl++) {
+      const y = reserveLevelY(config, lvl)
+      reserveDeckGeos.push(boxAt((rack.x0 + rack.x1) / 2, y + 0.05, zMid, runDepth * 0.94, 0.06, zSpan))
+      reserveBeamGeos.push(boxAt(faceX - rack.facing * 0.055, y + 0.12, zMid, 0.11, 0.17, zSpan))
+    }
+    reserveBeamGeos.push(boxAt(faceX - rack.facing * 0.055, reserveTop - 0.05, zMid, 0.1, 0.1, zSpan))
+    reserveDeckGeos.push(
+      boxAt(
+        rack.facing === 1 ? rack.x0 + 0.02 : rack.x1 - 0.02,
+        reserveY0 + reserveH / 2,
+        zMid,
+        0.04,
+        reserveH * 0.94,
+        zSpan,
+      ),
+    )
+
+    /*
+     * A bare pallet under every reserve position.
+     *
+     * The load that sits on it is no longer scattered decoration: reserve
+     * locations are real storage now, drawn from `model.bins` by the same
+     * instanced mesh the pick face uses, so they carry their SKU's colour and
+     * shrink as they are picked. All that is left to build here is the timber
+     * the stock stands on, which is genuinely fixed to the rack rather than a
+     * property of what is stored.
+     */
+    const pW = Math.min(config.bayWidth * 0.78, 1.5)
+    const pD = config.rackDepth * 0.8
+    for (let lvl = 0; lvl < RESERVE_LEVELS; lvl++) {
+      const deckTop = reserveLevelY(config, lvl) + 0.08
+      for (let i = 0; i < bays; i++) {
+        const z = rack.z0 + (i + 0.5) * config.bayWidth
+        const px = (rack.x0 + rack.x1) / 2
+        reservePalletGeos.push(boxAt(px, deckTop + 0.05, z, pW, 0.1, pD))
+      }
+    }
   }
 
   const uprightMat = new THREE.MeshStandardMaterial({
@@ -260,7 +378,44 @@ export function buildWarehouse(model: WarehouseModel, themeMode: ThemeMode = 'li
     roughness: 0.42,
     metalness: 0.72,
   })
-  disposables.push(uprightMat, deckMat, beamMat)
+  // Reserve tier: heavier, cooler steel than the pick face, so it reads as a
+  // distinct unit rather than more of the same shelving continuing upward.
+  const reserveUprightMat = new THREE.MeshStandardMaterial({
+    color: SCENE_THEME.reserveRack.upright,
+    roughness: 0.4,
+    metalness: 0.62,
+  })
+  const reserveDeckMat = new THREE.MeshStandardMaterial({
+    color: SCENE_THEME.reserveRack.deck,
+    roughness: 0.78,
+    metalness: 0.2,
+  })
+  const reserveBeamMat = new THREE.MeshStandardMaterial({
+    color: SCENE_THEME.reserveRack.beam,
+    roughness: 0.4,
+    metalness: 0.75,
+  })
+  // Splice beam at the join — a load-rated caution colour, the same visual
+  // convention as an at-replen shelf, borrowed here for "overhead loads".
+  const separatorMat = new THREE.MeshStandardMaterial({
+    color: SCENE_THEME.reserveRack.separator,
+    roughness: 0.5,
+    metalness: 0.35,
+  })
+  // Reserve pallets: the same kit as the staging lanes' loads, so bulk stock
+  // reads as the same physical stuff wherever it sits in the building. The
+  // load standing on them is drawn by the shared bin mesh, not here.
+  const reservePalletMat = new THREE.MeshStandardMaterial({ color: SCENE_THEME.props.pallet, roughness: 0.92 })
+  disposables.push(
+    uprightMat,
+    deckMat,
+    beamMat,
+    reserveUprightMat,
+    reserveDeckMat,
+    reserveBeamMat,
+    separatorMat,
+    reservePalletMat,
+  )
 
   for (const [geos, mat] of [
     [uprightGeos, uprightMat],
@@ -277,6 +432,50 @@ export function buildWarehouse(model: WarehouseModel, themeMode: ThemeMode = 'li
     disposables.push(merged)
   }
 
+  // Flue-guard mesh and the stretch film over the reserve loads both need
+  // transparency, so they merge separately rather than joining the opaque loop.
+  const flueMeshMat = new THREE.MeshStandardMaterial({
+    color: SCENE_THEME.reserveRack.mesh,
+    roughness: 0.6,
+    metalness: 0.3,
+    transparent: true,
+    opacity: SCENE_THEME.reserveRack.meshOpacity,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+  })
+  disposables.push(flueMeshMat)
+
+  /*
+   * The reserve tier goes into its own `reserve` group, not `group` directly,
+   * so the scene can drop it for a near-vertical plan-view shot. Without that,
+   * a plan view would look straight down onto a solid deck of reserve pallets
+   * instead of the colour-coded pick locations underneath — the one thing the
+   * plan view exists to show. Unlike the roof, this can't key off camera
+   * height alone: the overview hero shot sits just as high and is exactly the
+   * angle this tier is meant to be seen from, so the scene watches the
+   * camera's tilt instead (see `WarehouseScene.syncReserveTier`).
+   */
+  for (const [geos, mat, cast] of [
+    [reserveUprightGeos, reserveUprightMat, true],
+    [reserveDeckGeos, reserveDeckMat, true],
+    [reserveBeamGeos, reserveBeamMat, true],
+    [separatorGeos, separatorMat, true],
+    [reservePalletGeos, reservePalletMat, true],
+    [meshGeos, flueMeshMat, false],
+  ] as const) {
+    // `mergeGeometries` reads `geometries[0].index` without a length check, so
+    // an empty batch throws rather than returning null. A batch legitimately
+    // empties out when a layout switches something off, so guard it here.
+    const merged = geos.length > 0 ? mergeGeometries(geos) : null
+    geos.forEach((g) => g.dispose())
+    if (!merged) continue
+    const mesh = new THREE.Mesh(merged, mat)
+    mesh.castShadow = cast
+    mesh.receiveShadow = true
+    reserve.add(mesh)
+    disposables.push(merged)
+  }
+
   // ── Bins: one InstancedMesh for every storage location ────────────────────
   const slotWidth = config.bayWidth / config.slotsPerBay
   const binDepth = config.rackDepth * 0.7
@@ -285,12 +484,16 @@ export function buildWarehouse(model: WarehouseModel, themeMode: ThemeMode = 'li
   const binGeo = new THREE.BoxGeometry(binDepth, config.levelHeight * 0.5, slotWidth * 0.78)
   
   // Shrink-wrapped cases on a shelf, not moulded plastic: mostly matte, with
-  // just enough clearcoat for the film to catch the high bays.
+  // just enough clearcoat for the film to catch the high bays. Trimmed down
+  // from an earlier, glossier pass — a strong clearcoat highlight on a
+  // saturated velocity colour reads as the case gleaming forward off the
+  // shelf rather than sitting matte on it, worst at the close range of the
+  // aisle-level camera.
   const binMat = new THREE.MeshPhysicalMaterial({
-    roughness: 0.55,
+    roughness: 0.62,
     metalness: 0.04,
-    clearcoat: 0.22,
-    clearcoatRoughness: 0.35,
+    clearcoat: 0.12,
+    clearcoatRoughness: 0.45,
   })
 
   binMat.onBeforeCompile = (shader) => {
@@ -313,12 +516,21 @@ export function buildWarehouse(model: WarehouseModel, themeMode: ThemeMode = 'li
       // give the bin volume, not to change the colour it is encoding, and under
       // ACES tone mapping a hard multiply flattens every tier to the same
       // over-saturated primary.
+      //
+      // On top of that soft ramp, a second, much tighter term darkens just the
+      // bottom sliver of the case — a fake contact shadow where it meets the
+      // deck. Without it a box's silhouette floats against its own gradient
+      // with nothing pinning its base to the shelf, which is a big part of why
+      // a wall of bright velocity colour on dark rack steel reads as stock
+      // hovering in front of the racking rather than resting in it.
       `#include <color_fragment>
        float localHalfHeight = ${(config.levelHeight * 0.25).toFixed(5)};
        float normY = smoothstep(-localHalfHeight, localHalfHeight, vLocalPos.y);
        vec3 gradientBottom = diffuseColor.rgb * 0.52;
-       vec3 gradientTop = diffuseColor.rgb * 1.12;
-       diffuseColor.rgb = mix(gradientBottom, gradientTop, normY);`
+       vec3 gradientTop = diffuseColor.rgb * 1.05;
+       diffuseColor.rgb = mix(gradientBottom, gradientTop, normY);
+       float contact = smoothstep(-localHalfHeight, -localHalfHeight * 0.45, vLocalPos.y);
+       diffuseColor.rgb *= mix(0.6, 1.0, contact);`
     )
   }
 
@@ -333,12 +545,53 @@ export function buildWarehouse(model: WarehouseModel, themeMode: ThemeMode = 'li
   // buffer is genuinely dynamic — a handful of writes a second, not a rebuild.
   binsMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
 
+  /*
+   * Pick-face locations occupy instances `[0, pickFaceBinCount)` and reserve
+   * locations the tail, because `generateWarehouse` emits them in that order.
+   *
+   * That ordering is load-bearing, not incidental: dropping the reserve tier
+   * for a near-vertical plan view is then just `binsMesh.count =
+   * pickFaceBinCount` — no second mesh, no second index space for the tint and
+   * palette buffers to stay in step with, and no per-frame matrix rewriting.
+   * Three.js honours `count` for raycasting too, so a hidden bulk location
+   * also stops being clickable, which is what you want when it is not on
+   * screen.
+   */
+  const pickFaceBinCount = binOrder.findIndex((b) => isReserveLevel(config, b.level))
+  const firstReserveIndex = pickFaceBinCount < 0 ? binOrder.length : pickFaceBinCount
+
   const matrix = new THREE.Matrix4()
   const binPos = new THREE.Vector3()
   const binScale = new THREE.Vector3(1, 1, 1)
   const noRotation = new THREE.Quaternion()
   const binHeight = config.levelHeight * 0.5
   const binIndexById = new Map<string, number>()
+
+  /*
+   * A bulk position is a pallet, not a case slot: it takes the full bay width
+   * and most of the rack's depth. The instanced geometry is sized for the pick
+   * face, so reserve instances are scaled up to their real footprint rather
+   * than given a second geometry — one mesh keeps the whole tint/palette/
+   * refresh path single-index, which is the thing worth protecting here.
+   */
+  const reserveScaleX = (config.rackDepth * 0.72) / binDepth
+  const reserveScaleZ = (config.bayWidth * 0.74) / (slotWidth * 0.78)
+  const reserveBinHeight = reserveLevelHeight(config) * 0.46
+
+  /**
+   * How far a bin's front face sits behind the rack's own front line — the
+   * plane the aisle-facing upright, load beam and kick rail all share.
+   *
+   * Was a *negative* inset (i.e. an overhang) on one side and a positive one
+   * on the other, an artefact of `facing` flipping sign between `L` and `R`
+   * racks without the offset flipping with it: `L` bins sat 2cm proud of the
+   * beam while `R` bins sat flush. At close range (aisle-level camera, or a
+   * side elevation) that reads as stock spilling forward past the shelf
+   * structure rather than sitting on it. Both sides now recess by the same
+   * margin, well inside the slack `rackDepth` already leaves behind a
+   * `binDepth` that is only 70% of it.
+   */
+  const BIN_FRONT_INSET = 0.06
 
   /**
    * Place one location's box: scaled to its fill and sitting on its shelf deck,
@@ -347,9 +600,26 @@ export function buildWarehouse(model: WarehouseModel, themeMode: ThemeMode = 'li
   const writeBinMatrix = (bin: Bin, index: number) => {
     const facing = bin.side === 'L' ? 1 : -1
     const fill = binFill(bin)
-    const deck = bin.face.y - binHeight / 2
-    binPos.set(bin.face.x - facing * (binDepth / 2 - 0.02), deck + (binHeight * fill) / 2, bin.face.z)
-    binScale.set(1, fill, 1)
+    const reserve = isReserveLevel(config, bin.level)
+    /*
+     * Rest the box on the shelf it actually sits on, not on a point derived
+     * from `bin.face.y` — that field carries a deliberate upward offset
+     * (30% of the level pitch, see `generate.ts`) so a picker's camera target
+     * and the inspector's selection box land mid-case rather than at floor
+     * level, and reusing it here left the case's underside floating ~3-4cm
+     * above the deck it should be resting on. `levelDeckTop` instead derives
+     * from the same shared rack arithmetic the deck geometry is built from,
+     * for either tier, so the two can never drift apart.
+     */
+    const deckTop = levelDeckTop(config, bin.level)
+    // Pallet deck under a bulk position, so its stock stands on the timber.
+    const base = reserve ? deckTop + 0.1 : deckTop
+    const height = reserve ? reserveBinHeight : binHeight
+    const depthScale = reserve ? reserveScaleX : 1
+    const inset = reserve ? (binDepth * depthScale) / 2 + 0.04 : binDepth / 2 + BIN_FRONT_INSET
+
+    binPos.set(bin.face.x - facing * inset, base + (height * fill) / 2, bin.face.z)
+    binScale.set(depthScale, (height * fill) / binHeight, reserve ? reserveScaleZ : 1)
     matrix.compose(binPos, noRotation, binScale)
     binsMesh.setMatrixAt(index, matrix)
   }
@@ -369,12 +639,34 @@ export function buildWarehouse(model: WarehouseModel, themeMode: ThemeMode = 'li
     velocity: new Float32Array(binOrder.length * 3),
     zone: new Float32Array(binOrder.length * 3),
   }
+  /**
+   * Stretch film over a bulk pallet: lift the colour towards white and drop
+   * its saturation, without changing which hue it is.
+   *
+   * Physically this is just what a wrapped pallet looks like — you read the
+   * product through several turns of milky film, not in the open. It also
+   * fixes a real hierarchy problem the moment bulk became real storage: a
+   * reserve position is many times the volume of a case slot and sits above
+   * eye line across the whole module, so at full saturation the tier reads as
+   * a wall of colour and buries the pick face underneath it. The pick face is
+   * where the work happens, so it keeps the vivid end of the palette.
+   */
+  const WRAP_LIFT = 0.62
+  const wrapped = (c: THREE.Color) => {
+    c.r += (1 - c.r) * WRAP_LIFT
+    c.g += (1 - c.g) * WRAP_LIFT
+    c.b += (1 - c.b) * WRAP_LIFT
+  }
+
   binOrder.forEach((bin, i) => {
+    const reserve = isReserveLevel(config, bin.level)
     baseColor.setHex(VELOCITY_COLOR[bin.sku.velocity])
+    if (reserve) wrapped(baseColor)
     palettes.velocity[i * 3] = baseColor.r
     palettes.velocity[i * 3 + 1] = baseColor.g
     palettes.velocity[i * 3 + 2] = baseColor.b
     baseColor.setHex(ZONE_COLORS[bin.aisle % ZONE_COLORS.length])
+    if (reserve) wrapped(baseColor)
     palettes.zone[i * 3] = baseColor.r
     palettes.zone[i * 3 + 1] = baseColor.g
     palettes.zone[i * 3 + 2] = baseColor.b
@@ -445,13 +737,29 @@ export function buildWarehouse(model: WarehouseModel, themeMode: ThemeMode = 'li
   const docks = buildDocks(model, themeMode)
   group.add(docks.group)
 
+  // ── Site safety kit ───────────────────────────────────────────────────────
+  // Rack-end impact guards and the reach trucks staged near the aisles that
+  // service the reserve tier — see `safetyProps.ts`.
+  const safety = buildSafetyProps(model, themeMode)
+  group.add(safety.group)
+
+  // ── Mezzanine: the floor and stair that make the reserve tier walkable ────
+  // Nested under `reserve`, not `group` — it has to hide in the same
+  // near-vertical plan view the rest of the reserve tier already does, or a
+  // glass floor spanning the whole storage block would sit right between the
+  // camera and every pick location under it.
+  const mezzanine = buildMezzanine(model, themeMode)
+  reserve.add(mezzanine.group)
+
   const visual: WarehouseVisual = {
     group,
     roof: shell.roof,
     roofHeight: shell.roofHeight,
+    reserve,
     binsMesh,
     binOrder,
     binIndexById,
+    pickFaceBinCount: firstReserveIndex,
     docks,
     setColorMode(next) {
       mode = next
@@ -523,6 +831,8 @@ export function buildWarehouse(model: WarehouseModel, themeMode: ThemeMode = 'li
       binsMesh.dispose()
       shell.dispose()
       docks.dispose()
+      safety.dispose()
+      mezzanine.dispose()
       for (const d of disposables) d.dispose()
       group.traverse((obj) => {
         if (obj instanceof THREE.Sprite) {

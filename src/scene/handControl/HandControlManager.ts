@@ -1,5 +1,5 @@
 import type { NormalizedLandmark } from '@mediapipe/tasks-vision'
-import { calculateHandDistance, HandShapeTracker } from './GestureDetector'
+import { HandShapeTracker, pinchRatio } from './GestureDetector'
 import { NavigationController } from './NavigationController'
 import { LandmarkSmoother } from './smoothing'
 import {
@@ -31,12 +31,15 @@ const ROTATE_SPEED = 0.35
 /**
  * The central `handleGesture()` of the feature: every tracked frame, turns up
  * to two hands' shapes into exactly one active control channel, in a fixed
- * priority, so the three gestures can never conflict —
+ * priority, so the gestures can never conflict — and every one of them is a
+ * one-hand gesture, mirroring how you'd zoom, scroll and... well, rotate
+ * isn't quite a phone gesture, but pinch-zoom and two-finger-drag are, and
+ * that's the point: this should feel familiar on first try, not learned —
  *
  * ```
- * 1. Both hands pinched   zoom  (spread apart -> in, together -> out)
- * 2. One hand pinched     pan   (move to steer, release to stop)
- * 3. A closed fist         rotate (fixed slow spin, open the hand to stop)
+ * 1. Thumb + index extended   zoom  (spread the tips apart -> in, together -> out)
+ * 2. Index + middle together  pan   (drag the hand to steer, release to stop)
+ * 3. A closed fist            rotate (fixed slow spin, open the hand to stop)
  * ```
  *
  * Deliberately **hand-agnostic** — it is the *shape* a hand is making that
@@ -47,12 +50,15 @@ const ROTATE_SPEED = 0.35
  * CSS), so trusting it needs an inversion that is trivial to get backwards —
  * and getting it backwards silently swaps which hand drives what, which reads
  * exactly like "the camera moved on its own." Reading shape instead of
- * identity sidesteps the question entirely.
+ * identity sidesteps the question entirely. It also means a second hand in
+ * frame is never required — every gesture here resolves off a single hand's
+ * shape, the first one found wearing it.
  */
 export class HandControlManager {
   private smoothers = [new LandmarkSmoother(), new LandmarkSmoother()]
   private shapeTrackers = [new HandShapeTracker(), new HandShapeTracker()]
   private nav = new NavigationController()
+  private rotateNav = new NavigationController()
   private zoomCtrl = new ZoomController()
   private sensitivity = 1
 
@@ -64,6 +70,7 @@ export class HandControlManager {
     this.smoothers.forEach((s) => s.reset())
     this.shapeTrackers.forEach((t) => t.reset())
     this.nav.disengage()
+    this.rotateNav.disengage()
     this.zoomCtrl.reset()
   }
 
@@ -85,25 +92,27 @@ export class HandControlManager {
       this.shapeTrackers[i].reset()
     }
 
-    const pinched = hands.filter((h) => h.shape === 'pinch')
-
-    // Priority 1 — both hands pinched: zoom. The only gesture that needs both
-    // hands committed at once, so it wins over a lone pinch trying to pan.
-    if (pinched.length >= 2) {
+    // Priority 1 — zoom: require the 'point' shape (index extended, others curled).
+    // This acts as a clutch: to stop zooming, simply open your hand naturally
+    // (which breaks the 'point' shape) and the camera will instantly freeze.
+    const zoomHand = hands.find((h) => h.shape === 'point')
+    if (zoomHand) {
       this.nav.disengage()
-      const distance = calculateHandDistance(pinched[0], pinched[1])
-      const zoom = clamp(this.zoomCtrl.drive(distance) * this.sensitivity, -1, 1)
-      const message = zoom > 0 ? 'Zooming in' : zoom < 0 ? 'Zooming out' : 'Zoom — spread or pinch your hands'
-      return this.finish('zoom', message, hands, pinched, { pan: ZERO_AXES, orbitYaw: 0, orbitPitch: 0, zoom })
+      this.rotateNav.disengage()
+      const zoom = this.zoomCtrl.drive(zoomHand.pinch) * this.sensitivity
+      const message = zoom > 0 ? 'Zooming in' : zoom < 0 ? 'Zooming out' : 'Thumb + index to zoom'
+      return this.finish('zoom', message, hands, [zoomHand], { pan: ZERO_AXES, orbitYaw: 0, orbitPitch: 0, zoom })
     }
     this.zoomCtrl.reset()
 
-    // Priority 2 — one hand pinched: pan.
-    if (pinched.length === 1) {
-      const hand = pinched[0]
-      this.nav.engage(hand.point)
-      const pan = this.nav.drive(hand.point, this.sensitivity)
-      return this.finish('pan', 'Panning — release the pinch to stop', hands, [hand], {
+    // Priority 2 — index + middle held together: pan, like a two-finger drag
+    // on a touchpad or phone screen.
+    const panHand = hands.find((h) => h.shape === 'twoFinger')
+    if (panHand) {
+      this.rotateNav.disengage()
+      this.nav.engage(panHand.point)
+      const pan = this.nav.drive(panHand.point, this.sensitivity)
+      return this.finish('pan', 'Panning — release to stop', hands, [panHand], {
         pan,
         orbitYaw: 0,
         orbitPitch: 0,
@@ -112,20 +121,26 @@ export class HandControlManager {
     }
     this.nav.disengage()
 
-    // Priority 3 — a closed fist: rotate, fixed slow spin, until it opens.
+    // Priority 3 — a closed fist: grab to rotate.
+    // Like panning, it uses the navigation controller to track hand displacement,
+    // but feeds those axes to the camera's rotation channels instead of panning.
     const fisted = hands.find((h) => h.shape === 'fist')
     if (fisted) {
-      return this.finish('rotate', 'Rotating — open your hand to stop', hands, [fisted], {
+      this.rotateNav.engage(fisted.point)
+      const drag = this.rotateNav.drive(fisted.point, this.sensitivity)
+      return this.finish('rotate', 'Grabbed — drag to rotate', hands, [fisted], {
         pan: ZERO_AXES,
-        orbitYaw: ROTATE_SPEED * this.sensitivity,
-        orbitPitch: 0,
+        // Scale drag by 3.0 to make it responsive for rotation
+        orbitYaw: drag.right * 3.0,
+        orbitPitch: drag.up * -3.0,
         zoom: 0,
       })
     }
+    this.rotateNav.disengage()
 
     return this.finish(
       'idle',
-      'Pinch to pan · make a fist to rotate · pinch with both hands to zoom',
+      'Thumb+index to zoom · index+middle to pan · fist to rotate',
       hands,
       [],
       ZERO_INTENT,
@@ -135,6 +150,7 @@ export class HandControlManager {
   private readHand(landmarks: NormalizedLandmark[], slot: number): HandReading {
     const smoothed = this.smoothers[slot].smooth(landmarks)
     const shape = this.shapeTrackers[slot].classify(smoothed)
+    const pinch = pinchRatio(smoothed)
 
     let sumX = 0
     let sumY = 0
@@ -148,7 +164,7 @@ export class HandControlManager {
     // The preview is mirrored (CSS `scaleX(-1)`) so the feed reads like a
     // mirror; MediaPipe's coordinates are not, so the mirrored position is
     // `1 - raw`.
-    return { point: { x: 1 - rawX, y: rawY }, rawX, rawY, shape }
+    return { point: { x: 1 - rawX, y: rawY }, rawX, rawY, shape, pinch }
   }
 
   private finish(

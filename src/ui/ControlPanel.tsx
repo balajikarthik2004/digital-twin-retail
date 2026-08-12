@@ -18,32 +18,49 @@ const SHORT_KIND: Record<string, string> = {
   amr: 'AMR robot',
 }
 
-/** Tiny inline silhouette so each embodiment is identifiable in the selector. */
+/**
+ * Tiny inline silhouette so each embodiment is identifiable in the selector.
+ *
+ * Draws in `currentColor` and picks up its colour from the wrapping element's
+ * text colour, same convention as the shared icon set (`components/icons.tsx`)
+ * — so it re-themes with light/dark like everything around it, rather than the
+ * literal dark-theme hex values it used to carry regardless of mode.
+ */
 function PickerGlyph({ kind, active }: { kind: string; active: boolean }) {
-  const stroke = active ? '#67e8f9' : '#8b9aab'
   return (
-    <svg width="14" height="16" viewBox="0 0 14 16" fill="none" aria-hidden className="shrink-0">
+    <svg
+      width="14"
+      height="16"
+      viewBox="0 0 14 16"
+      fill="none"
+      aria-hidden
+      className={cx('shrink-0', active ? 'text-accent-soft' : 'text-ink-300')}
+    >
       {kind === 'amr' ? (
         <>
-          <rect x="1.5" y="7" width="11" height="6" rx="1.4" stroke={stroke} strokeWidth="1.3" />
-          <path d="M4 7V4.5h6V7" stroke={stroke} strokeWidth="1.3" />
-          <circle cx="7" cy="2.6" r="1" fill={stroke} />
+          <rect x="1.5" y="7" width="11" height="6" rx="1.4" stroke="currentColor" strokeWidth="1.3" />
+          <path d="M4 7V4.5h6V7" stroke="currentColor" strokeWidth="1.3" />
+          <circle cx="7" cy="2.6" r="1" fill="currentColor" />
         </>
       ) : (
         <>
-          <circle cx="5" cy="2.8" r="1.9" stroke={stroke} strokeWidth="1.3" />
-          <path d="M5 4.9v4.3M5 9.2 3.2 14M5 9.2 6.8 14M2.6 6.4h4.8" stroke={stroke} strokeWidth="1.3" />
+          <circle cx="5" cy="2.8" r="1.9" stroke="currentColor" strokeWidth="1.3" />
+          <path
+            d="M5 4.9v4.3M5 9.2 3.2 14M5 9.2 6.8 14M2.6 6.4h4.8"
+            stroke="currentColor"
+            strokeWidth="1.3"
+          />
           {kind === 'cart' && (
-            <rect x="8.8" y="7.4" width="4.4" height="5" rx="0.8" stroke={stroke} strokeWidth="1.3" />
+            <rect x="8.8" y="7.4" width="4.4" height="5" rx="0.8" stroke="currentColor" strokeWidth="1.3" />
           )}
           {kind === 'palletJack' && (
             <>
-              <rect x="8.4" y="6.2" width="5" height="4" rx="0.6" stroke={stroke} strokeWidth="1.3" />
-              <path d="M8.2 12.6h5.4" stroke={stroke} strokeWidth="1.3" />
+              <rect x="8.4" y="6.2" width="5" height="4" rx="0.6" stroke="currentColor" strokeWidth="1.3" />
+              <path d="M8.2 12.6h5.4" stroke="currentColor" strokeWidth="1.3" />
             </>
           )}
           {kind === 'person' && (
-            <rect x="7.6" y="8" width="3.4" height="3" rx="0.6" stroke={stroke} strokeWidth="1.3" />
+            <rect x="7.6" y="8" width="3.4" height="3" rx="0.6" stroke="currentColor" strokeWidth="1.3" />
           )}
         </>
       )}
@@ -65,6 +82,7 @@ export function ControlPanel() {
   const showSequence = useAppStore((s) => s.showSequence)
   const showParcels = useAppStore((s) => s.showParcels)
   const showOccupancy = useAppStore((s) => s.showOccupancy)
+  const showReserve = useAppStore((s) => s.showReserve)
 
   const updateSettings = useAppStore((s) => s.updateSettings)
   const setBinColorMode = useAppStore((s) => s.setBinColorMode)
@@ -97,6 +115,7 @@ export function ControlPanel() {
     <div className="flex h-full flex-col gap-3 overflow-y-auto p-3">
       <Card
         title="Picker type"
+        dense
         action={<span className="chip">{profile.capacityLines} lines / tour</span>}
       >
         <div className="grid grid-cols-2 gap-1.5">
@@ -139,7 +158,7 @@ export function ControlPanel() {
         <p className="mt-2 text-[10px] leading-snug text-ink-400">{profile.blurb}</p>
       </Card>
 
-      <Card title="Staff allocation">
+      <Card title="Staff allocation" dense>
         <div className="space-y-3.5">
           <Slider
             label="Pickers on the floor"
@@ -160,6 +179,7 @@ export function ControlPanel() {
 
       <Card
         title="Pack-out & conveyor"
+        dense
         action={
           <span className="chip">
             {settings.packStaff}/{benches} benches
@@ -277,7 +297,7 @@ export function ControlPanel() {
         </div>
       </Card>
 
-      <Card title="Scene options">
+      <Card title="Scene options" dense>
         <div className="space-y-3">
           <div>
             <div className="field-label mb-1.5">
@@ -353,6 +373,15 @@ export function ControlPanel() {
             checked={showParcels}
             onChange={() => toggle('showParcels')}
             hint="Cartons on the belt, stacked at the doors. Click one to inspect it."
+          />
+
+          <div className="divider !my-2" />
+
+          <Toggle
+            label="Show reserve rack"
+            checked={showReserve}
+            onChange={() => toggle('showReserve')}
+            hint="The bulk-storage tier above the pick face, with its own mezzanine floor and stairs. Hides on its own from directly overhead either way."
           />
         </div>
       </Card>

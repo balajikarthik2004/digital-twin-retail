@@ -8,7 +8,7 @@ import {
 } from '../scene/handControl'
 import type { WarehouseScene } from '../scene/WarehouseScene'
 import { cx, Slider } from './components/primitives'
-import { FistIcon, InfoIcon, PinchIcon, ZoomIcon } from './components/icons'
+import { FistIcon, InfoIcon, PinchIcon, TwoFingerIcon } from './components/icons'
 
 /** Persisted across sessions so a user who tunes it once doesn't have to again. */
 const SENSITIVITY_KEY = 'picktwin.hand-sensitivity'
@@ -36,9 +36,19 @@ function saveSensitivity(v: number): void {
 }
 
 const LEGEND = [
-  { Icon: PinchIcon, tone: 'text-accent-soft', label: 'Pinch one hand', detail: 'Pan — move front/back, left/right' },
+  {
+    Icon: PinchIcon,
+    tone: 'text-good',
+    label: 'Thumb + index',
+    detail: 'Zoom — spread the tips apart to zoom in, bring them together to zoom out',
+  },
+  {
+    Icon: TwoFingerIcon,
+    tone: 'text-accent-soft',
+    label: 'Index + middle',
+    detail: 'Pan — hold together and move your hand, like scrolling with two fingers',
+  },
   { Icon: FistIcon, tone: 'text-warn', label: 'Make a fist', detail: 'Rotate — a slow 360° spin; open your hand to stop' },
-  { Icon: ZoomIcon, tone: 'text-good', label: 'Pinch with both hands', detail: 'Zoom — spread apart to zoom in, pinch together to zoom out' },
 ]
 
 /** Small status dot + label, same convention as the sim's running/paused indicator. */
@@ -58,8 +68,8 @@ function statusIndicator(mode: HandControlMode): { dotClass: string; label: stri
 /**
  * Which colour a tracked hand's dot takes. Driven by `mode` + `active`, not
  * shape alone — a hand that happens to be shaped like a fist while the *other*
- * hand's pinch is the one actually panning must not light up as if it were
- * rotating something; nothing is.
+ * hand's two-finger drag is the one actually panning must not light up as if
+ * it were rotating something; nothing is.
  */
 function toneFor(mode: HandControlMode, active: boolean): 'accent' | 'warn' | 'good' | 'neutral' {
   if (!active) return 'neutral'
@@ -80,9 +90,10 @@ function toneFor(mode: HandControlMode, active: boolean): 'accent' | 'warn' | 'g
  * `WarehouseScene.setPadAxes` (pan) and `WarehouseScene.setHandRotateZoom`
  * (rotate/zoom).
  *
- * Three gestures, one active at a time (see `HandControlManager` for the
- * priority order): pinch one hand to pan, close it into a fist to rotate, or
- * pinch with both hands at once to zoom.
+ * Three gestures, one hand, one active at a time (see `HandControlManager`
+ * for the priority order): thumb + index to zoom, index + middle held
+ * together to pan, or a closed fist to rotate — the same finger pairings a
+ * phone or touchpad already uses, so there's nothing new to learn.
  *
  * The `<video>` element is mounted once and never unmounted (only hidden), so
  * the underlying `HandCameraControl` — and the camera stream it owns —
@@ -147,7 +158,6 @@ export function HandControlPanel({ sceneRef }: { sceneRef: RefObject<WarehouseSc
 
   const loading = snapshot.status === 'starting'
   const failed = snapshot.status === 'denied' || snapshot.status === 'unsupported' || snapshot.status === 'error'
-  const zoomLine = snapshot.mode === 'zoom' && snapshot.hands.length === 2 ? snapshot.hands : null
   const indicator = statusIndicator(snapshot.mode)
 
   return (
@@ -165,20 +175,6 @@ export function HandControlPanel({ sceneRef }: { sceneRef: RefObject<WarehouseSc
             playsInline
             className="h-full w-full -scale-x-100 object-cover opacity-95"
           />
-
-          {zoomLine && !failed && (
-            <svg className="absolute inset-0 h-full w-full" aria-hidden>
-              <line
-                x1={`${zoomLine[0].x * 100}%`}
-                y1={`${zoomLine[0].y * 100}%`}
-                x2={`${zoomLine[1].x * 100}%`}
-                y2={`${zoomLine[1].y * 100}%`}
-                className="stroke-good/70"
-                strokeWidth={2}
-                strokeDasharray="4 4"
-              />
-            </svg>
-          )}
 
           {!failed &&
             snapshot.hands.map((hand, i) => (

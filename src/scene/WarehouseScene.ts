@@ -41,6 +41,13 @@ export interface SceneOptions {
   binColorMode: BinColorMode
   /** Paint empty and at-replen locations in the occupancy colours. */
   showOccupancy: boolean
+  /**
+   * Manual override for the reserve tier, on top of the automatic
+   * near-vertical-plan-view hide in {@link WarehouseScene.syncReserveTier}.
+   * `false` keeps it hidden at every camera angle; `true` still defers to
+   * the automatic hide for a top-down shot.
+   */
+  showReserve: boolean
   /** Which agent's pick sequence is annotated with numbered markers. */
   focusAgentId: string | null
 }
@@ -124,6 +131,7 @@ const DEFAULT_OPTIONS: SceneOptions = {
   showParcels: true,
   binColorMode: 'velocity',
   showOccupancy: true,
+  showReserve: true,
   focusAgentId: null,
 }
 
@@ -132,6 +140,18 @@ const MAX_MARKERS = 60
 
 /** Metres below the roof deck at which the roof steel stops being drawn. */
 const ROOF_CUT = 1.6
+
+/**
+ * How steep the camera has to look before the reserve tier drops out.
+ *
+ * Expressed as a ratio of horizontal distance to drop, not an absolute
+ * height, because the plan view and the overview hero shot sit at similar
+ * heights for a large module but at very different tilts — height alone
+ * can't tell them apart, camera angle can. `0.35` is roughly 70° down from
+ * the horizon: the near-vertical plan view clears it easily, every angled
+ * preset stays well short of it.
+ */
+const RESERVE_TOPDOWN_TILT = 0.35
 
 /**
  * Fog is the building's air, and air only hazes what you look *through* it at.
@@ -832,7 +852,7 @@ export class WarehouseScene {
     spherical.phi = clamp(spherical.phi - pitch * ROTATE_RATE * dt, MIN_POLAR, this.controls.maxPolarAngle)
     if (zoom !== 0) {
       spherical.radius = clamp(
-        spherical.radius * (1 - zoom * ZOOM_RATE * dt),
+        spherical.radius * (1 - zoom),
         this.controls.minDistance,
         this.controls.maxDistance,
       )
@@ -1031,6 +1051,7 @@ export class WarehouseScene {
     this.syncPackLine(packLine, dt)
     this.visual?.docks.tick(dt)
     this.syncRoof()
+    this.syncReserveTier()
     this.updateFog()
     this.controls.update()
     this.renderer.render(this.scene, this.camera)
@@ -1053,6 +1074,49 @@ export class WarehouseScene {
     if (!visual) return
     const visible = this.camera.position.y < visual.roofHeight - ROOF_CUT
     if (visual.roof.visible !== visible) visual.roof.visible = visible
+  }
+
+  /**
+   * Drop the reserve tier once the camera looks near-vertically down through it
+   * — or always, if the user has switched it off from the scene options.
+   *
+   * A height cutoff like {@link syncRoof}'s would drop the tier from the
+   * overview hero shot too — that preset sits about as high as the plan view
+   * for a large module, but angled rather than overhead, and the angled view
+   * is exactly what the reserve tier is drawn to be seen from. Tilt is what
+   * actually distinguishes the two: looking straight down at the reserve
+   * deck puts it between the camera and every pick location under it, which
+   * is the one case the plan view can't tolerate.
+   *
+   * This runs every frame regardless of camera movement, so the manual
+   * `showReserve` override has to be checked here too — setting
+   * `visual.reserve.visible` once from `setOptions` alone would just get
+   * overwritten by the very next frame's tilt check.
+   */
+  private syncReserveTier(): void {
+    const visual = this.visual
+    if (!visual) return
+    /*
+     * The bulk stock itself lives in the shared `binsMesh` rather than the
+     * `reserve` group, so that the tint/palette buffers stay one index space
+     * with the pick face. Hiding it is therefore a `count` trim rather than a
+     * `visible` flag — the reserve instances are the tail of the buffer
+     * exactly so this works. Both have to move together or a plan view would
+     * show floating bulk stock with no racking under it.
+     */
+    const setVisible = (visible: boolean) => {
+      if (visual.reserve.visible !== visible) visual.reserve.visible = visible
+      const count = visible ? visual.binOrder.length : visual.pickFaceBinCount
+      if (visual.binsMesh.count !== count) visual.binsMesh.count = count
+    }
+    if (!this.options.showReserve) {
+      setVisible(false)
+      return
+    }
+    const target = this.controls.target
+    const drop = this.camera.position.y - target.y
+    const horiz = Math.hypot(this.camera.position.x - target.x, this.camera.position.z - target.z)
+    setVisible(!(drop > 0 && horiz < drop * RESERVE_TOPDOWN_TILT))
   }
 
   /** Push the fog range out as the camera climbs — see {@link EYE_LEVEL}. */

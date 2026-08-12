@@ -133,6 +133,7 @@ export function SceneView() {
         s.showSequence !== prev.showSequence ||
         s.showParcels !== prev.showParcels ||
         s.showOccupancy !== prev.showOccupancy ||
+        s.showReserve !== prev.showReserve ||
         s.binColorMode !== prev.binColorMode ||
         s.focusAgentId !== prev.focusAgentId
       ) {
@@ -141,6 +142,7 @@ export function SceneView() {
           showSequence: s.showSequence,
           showParcels: s.showParcels,
           showOccupancy: s.showOccupancy,
+          showReserve: s.showReserve,
           binColorMode: s.binColorMode,
           focusAgentId: s.focusAgentId,
         })
@@ -190,6 +192,7 @@ export function SceneView() {
       showSequence: initial.showSequence,
       showParcels: initial.showParcels,
       showOccupancy: initial.showOccupancy,
+      showReserve: initial.showReserve,
       binColorMode: initial.binColorMode,
       focusAgentId: initial.focusAgentId,
     })

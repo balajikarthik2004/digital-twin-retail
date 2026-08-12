@@ -77,6 +77,11 @@ export interface Bin {
   block: number
   /** Global bay index within the aisle (across all blocks). */
   bay: number
+  /**
+   * Level within the whole rack: `0 .. config.levels-1` is the on-foot pick
+   * face, above that is the reserve tier. Use `isReserveLevel(config, level)`
+   * rather than comparing against `config.levels` at the call site.
+   */
   level: number
   slot: number
   /** Centre of the bin face, world coords (x, y=up, z=depth). */

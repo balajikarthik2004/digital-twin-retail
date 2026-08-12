@@ -95,9 +95,9 @@ each, and only one is ever live at once:
 
 | Gesture | Does |
 | --- | --- |
-| 🤏 Pinch one hand | **Pan** — move front/back, left/right. Release the pinch and it stops dead. |
+| ✌️ Index + middle fingers together | **Pan** — move front/back, left/right. Drag the hand to steer, release to stop. |
 | ✊ Close it into a fist | **Rotate** — a fixed, slow 360° spin. Not proportional to anything (position, speed) on purpose, so it can't feel like it's "getting away from you." Open the hand and it stops immediately. |
-| 🤏🤏 Pinch with both hands | **Zoom** — spread apart to zoom in, bring them back together to zoom out, like a two-finger pinch-zoom. Bounded by the same `OrbitControls` limits a mouse wheel is held to. |
+| 🖐️ Open hand | **Zoom** — spread apart thumb and index to zoom in, bring them back together to zoom out, like a two-finger pinch-zoom. Bounded by the same `OrbitControls` limits a mouse wheel is held to. |
 
 Deliberately **hand-agnostic**: it's the *shape* a hand makes that decides what happens, never
 which physical hand (left/right) is making it. An earlier version keyed navigation off MediaPipe's

@@ -16,6 +16,23 @@ export interface SceneTheme {
   rackDeck: number
   /** Front edge of every shelf level — the beam face of the racking. */
   rackBeam: number
+  /**
+   * Reserve/overstock tier stacked above the pick face — bulk pallet storage
+   * reached by turret truck rather than on foot, so it has to read as a
+   * distinct rack unit rather than more of the same shelving. A heavier,
+   * cooler steel tone than the pick face below it, joined by a load-rated
+   * splice beam and a translucent flue-guard mesh across the gap.
+   */
+  reserveRack: {
+    upright: number
+    deck: number
+    beam: number
+    /** Splice beam capping the pick face, at the foot of the gap. */
+    separator: number
+    /** Flue-guard mesh filling the gap. */
+    mesh: number
+    meshOpacity: number
+  }
   dock: number
   dockDoor: number
   packTop: number
@@ -171,6 +188,36 @@ export interface SceneTheme {
     background: string
     border: string
   }
+  /**
+   * Site safety kit: rack-end impact guards and the reach trucks parked near
+   * the reserve aisle. Deliberately near-identical between themes — these are
+   * standardised hazard colours on real equipment, not part of the
+   * velocity/zone palette, so they should not shift with the rest of the
+   * scene the way a data-bearing colour would.
+   */
+  safety: {
+    hazardYellow: number
+    hazardBlack: number
+    truckBody: number
+    truckMast: number
+    truckWheel: number
+    beacon: number
+  }
+  /**
+   * The mezzanine that puts a picker on the reserve tier: a glass/grating
+   * floor at the base of it, and the staircase up from the apron. The floor
+   * is deliberately see-through rather than a solid slab — a walkway you
+   * can't see the racking through reads as a lid over the module, not a
+   * second storey of it.
+   */
+  mezzanine: {
+    /** Faint tint on the glass — enough to read as a surface, not a hole in the air. */
+    floorTint: number
+    floorOpacity: number
+    /** The grid baked into the floor texture, standing in for wired safety glass or bar grating. */
+    grating: number
+    stairTread: number
+  }
 }
 
 const LIGHT: SceneTheme = {
@@ -187,6 +234,14 @@ const LIGHT: SceneTheme = {
   rackUpright: 0x4f5c6e,
   rackDeck: 0x707e8f,
   rackBeam: 0x5b6879,
+  reserveRack: {
+    upright: 0x3d4a5c,
+    deck: 0x5c6773,
+    beam: 0x46536a,
+    separator: 0xb45309,
+    mesh: 0x3c4a5c,
+    meshOpacity: 0.3,
+  },
   dock: 0x8b97a5,
   dockDoor: 0x2b6cb0,
   packTop: 0x1f8a66,
@@ -261,6 +316,20 @@ const LIGHT: SceneTheme = {
   aisleLabel: { color: '#0b5c73', background: 'rgba(255,255,255,0.96)', border: 'rgba(15,116,144,0.45)' },
   marker: { color: '#ffffff', background: 'rgba(20,30,44,0.94)', border: 'rgba(255,255,255,0.6)' },
   staging: { color: '#0b5c73', background: 'rgba(15,116,144,0.14)', border: 'rgba(15,116,144,0.55)' },
+  safety: {
+    hazardYellow: 0xf5c518,
+    hazardBlack: 0x1c1f24,
+    truckBody: 0xf2a900,
+    truckMast: 0x2b2f36,
+    truckWheel: 0x14171b,
+    beacon: 0xffb020,
+  },
+  mezzanine: {
+    floorTint: 0xb9d1e8,
+    floorOpacity: 0.78,
+    grating: 0x2f3f52,
+    stairTread: 0x707e8f,
+  },
 }
 
 const DARK: SceneTheme = {
@@ -274,6 +343,14 @@ const DARK: SceneTheme = {
   rackUpright: 0x4d5d71,
   rackDeck: 0x2a3442,
   rackBeam: 0x3c4a5c,
+  reserveRack: {
+    upright: 0x394759,
+    deck: 0x1f2733,
+    beam: 0x2f3c4d,
+    separator: 0xf0a83a,
+    mesh: 0x8cacc8,
+    meshOpacity: 0.24,
+  },
   dock: 0x243244,
   dockDoor: 0x2f7d8c,
   packTop: 0x3d7f6d,
@@ -346,6 +423,20 @@ const DARK: SceneTheme = {
   aisleLabel: { color: '#7dd3fc', background: 'rgba(13,20,29,0.9)', border: 'rgba(34,211,238,0.35)' },
   marker: { color: '#ffffff', background: 'rgba(8,12,18,0.94)', border: 'rgba(255,255,255,0.7)' },
   staging: { color: '#a5f3fc', background: 'rgba(34,211,238,0.16)', border: 'rgba(34,211,238,0.5)' },
+  safety: {
+    hazardYellow: 0xe6b800,
+    hazardBlack: 0x11151c,
+    truckBody: 0xe0a600,
+    truckMast: 0x3a4150,
+    truckWheel: 0x0c0f14,
+    beacon: 0xffc94a,
+  },
+  mezzanine: {
+    floorTint: 0x6f8caa,
+    floorOpacity: 0.68,
+    grating: 0xbfd4ea,
+    stairTread: 0x2a3442,
+  },
 }
 
 export function sceneTheme(mode: ThemeMode): SceneTheme {

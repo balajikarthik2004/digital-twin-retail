@@ -171,6 +171,16 @@
   .panel-title {
     @apply text-[11px] font-semibold uppercase tracking-[0.13em] text-ink-400;
   }
+  /*
+   * Small caption sitting directly above a bigger value — the shift clock,
+   * a metrics chip, a card's kind label. Was three near-identical one-offs
+   * (9px / 9.5px / 10px, one of them also adding font-medium) that drifted
+   * apart across TopBar/SimulationControls/Inspector despite being the same
+   * role everywhere; one class so the next one doesn't drift again either.
+   */
+  .mini-label {
+    @apply text-[9.5px] uppercase tracking-[0.12em] text-ink-400;
+  }
   .btn {
     @apply inline-flex select-none items-center justify-center gap-1.5 rounded-lg border border-ink-600 bg-ink-800
            px-3 py-1.5 text-xs font-medium text-ink-300 transition-all duration-150

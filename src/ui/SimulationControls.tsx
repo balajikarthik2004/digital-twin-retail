@@ -28,7 +28,7 @@ export function SimulationControls() {
     <div className="shrink-0 border-b border-ink-700 bg-ink-900 px-3 py-2.5">
       <div className="flex items-end justify-between gap-2">
         <div className="leading-tight">
-          <div className="text-[9.5px] uppercase tracking-[0.12em] text-ink-400">Shift clock</div>
+          <div className="mini-label">Shift clock</div>
           <div className="font-mono text-[16px] font-semibold tabular-nums text-ink-100">
             {clock(metrics?.time ?? 0)}
           </div>
@@ -70,7 +70,7 @@ export function SimulationControls() {
           className="btn"
           title="Reset clock, agents and metrics"
         >
-          <ResetIcon size={12} />
+          <ResetIcon size={11} />
           Reset
         </button>
       </div>

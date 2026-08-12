@@ -347,6 +347,14 @@ export interface PickTask {
   status: 'done' | 'current' | 'pending'
   /** Metres from the start of the tour to this stop. */
   arcLength: number
+  /**
+   * Retrieved from the bulk tier above the pick face rather than reached on
+   * foot. The walk is identical — routing is bay-level — but the retrieval is
+   * several times longer, so it is worth calling out on the task card.
+   */
+  reserve: boolean
+  /** 1-based level within whichever tier this location is on. */
+  levelInTier: number
 }
 
 export interface AgentMetrics {

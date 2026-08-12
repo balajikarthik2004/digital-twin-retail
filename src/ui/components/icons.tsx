@@ -308,6 +308,18 @@ export function PinchIcon(props: IconProps) {
   )
 }
 
+/** Index and middle fingers held together, the rest curled — the two-finger
+ *  drag/pan gesture, same shape used to scroll on a touchpad or phone. */
+export function TwoFingerIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="2.6" y="7.6" width="9.2" height="5.4" rx="2.4" />
+      <path d="M5.2 7.8V3a1 1 0 0 1 2 0v4.4M7.6 7.6V2.6a1 1 0 0 1 2 0v5" />
+      <path d="M1.6 9.9c-.9.3-1.2 1.3-.6 2l1.4 1.6" />
+    </Icon>
+  )
+}
+
 /** Two hands spreading apart — zoom and 360° rotation together. */
 export function TwoHandIcon(props: IconProps) {
   return (

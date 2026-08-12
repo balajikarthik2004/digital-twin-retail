@@ -144,6 +144,13 @@ interface AppState {
    * question anyone asks of a rack, and it cannot be read off a stock colour.
    */
   showOccupancy: boolean
+  /**
+   * The reserve tier — the bulk-storage rack stacked above the pick face,
+   * with its own mezzanine floor and stairs — hides on its own in a
+   * near-vertical plan view already; this is the manual override on top of
+   * that, for a viewer who just wants the pick face clear at any angle.
+   */
+  showReserve: boolean
   binColorMode: BinColorMode
   cameraPreset: CameraPresetId
   selection: SceneSelection
@@ -210,7 +217,8 @@ interface AppState {
       | 'showPaths'
       | 'showSequence'
       | 'showParcels'
-      | 'showOccupancy',
+      | 'showOccupancy'
+      | 'showReserve',
   ): void
   setBinColorMode(mode: BinColorMode): void
   setFocusAgent(id: string | null): void
@@ -397,6 +405,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   showSequence: true,
   showParcels: true,
   showOccupancy: true,
+  showReserve: true,
   binColorMode: 'velocity',
   cameraPreset: 'overview',
   selection: null,

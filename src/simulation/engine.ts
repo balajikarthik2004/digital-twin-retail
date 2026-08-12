@@ -2,7 +2,8 @@ import { ShortestPathOracle } from '../pathfinding/graph'
 import { buildRoute, createRoutingContext } from '../pathfinding/route'
 import { getStrategy } from '../pathfinding/strategies'
 import type { NodeId, Route, RouteStop, RoutingContext, Vec2 } from '../pathfinding/types'
-import type { WarehouseModel } from '../warehouse/types'
+import { isReserveLevel, reserveTierIndex } from '../warehouse/rackGeometry'
+import type { Bin, WarehouseModel } from '../warehouse/types'
 import { PackLine } from './packLine'
 import { profileFor } from './pickerProfiles'
 import type {
@@ -66,6 +67,15 @@ const WORK_BEFORE_BREAK = 55 * 60
 const BREAK_DURATION = 5 * 60
 /** How much speed decays across a full stint before a break. */
 const MAX_FATIGUE_LOSS = 0.12
+
+/**
+ * Dwell multiplier for retrieving from the reserve tier rather than the pick
+ * face, and the extra cost of each level further up it. Bulk retrieval is the
+ * single most expensive thing a picker can be asked to do on a tour, which is
+ * what makes "why is this order slow?" have a visible, physical answer.
+ */
+const RESERVE_PICK_FACTOR = 2.6
+const RESERVE_LEVEL_PENALTY = 0.45
 
 export interface SampledPose {
   pos: Vec2
@@ -627,12 +637,34 @@ export class SimulationEngine {
         stops.push({
           node: bin.node,
           ref: bin.id,
-          serviceTime: (pickTimeSec + perUnitTimeSec * line.qty) * handling,
+          serviceTime:
+            (pickTimeSec + perUnitTimeSec * line.qty) * handling * this.reachFactor(bin),
           data,
         })
       })
     }
     return stops
+  }
+
+  /**
+   * How much longer this location takes to service than a golden-zone pick.
+   *
+   * The *walk* to a reserve location is identical to the pick face below it —
+   * routing is bay-level, the picker stands in the same spot — so the cost of
+   * bulk has to land here, in dwell, or it would be free. And it is genuinely
+   * a dwell cost: climbing to the mezzanine, breaking a pallet down and
+   * getting the case back to the cart is minutes of work, not metres of walk.
+   * That is exactly why real facilities slot their fast movers where a picker
+   * can simply turn and reach.
+   */
+  private reachFactor(bin: Bin): number {
+    const config = this.model.config
+    if (!isReserveLevel(config, bin.level)) {
+      // Top of the pick face still costs a stretch or a step-ladder.
+      return bin.level >= config.levels - 1 ? 1.18 : 1
+    }
+    // Each level up the bulk tier is another lift cycle.
+    return RESERVE_PICK_FACTOR + reserveTierIndex(config, bin.level) * RESERVE_LEVEL_PENALTY
   }
 
   private unloadTime(): number {
@@ -1041,14 +1073,18 @@ export class SimulationEngine {
     if (!route) return []
     const refById = new Map(agent.orders.map((o) => [o.id, o.ref]))
 
+    const config = this.model.config
     return route.waypoints.map((wp) => {
       const bin = this.model.binsById.get(wp.stop.ref)
       const data = wp.stop.data as StopData | undefined
+      const reserve = bin ? isReserveLevel(config, bin.level) : false
       return {
         sequence: wp.sequence,
         binId: wp.stop.ref,
         code: bin?.code ?? wp.stop.ref,
         aisle: bin?.aisle ?? 0,
+        reserve,
+        levelInTier: bin ? (reserve ? reserveTierIndex(config, bin.level) : bin.level) + 1 : 1,
         sku: bin?.sku.id ?? '—',
         skuName: bin?.sku.name ?? 'Unknown line',
         qty: data?.qty ?? 0,

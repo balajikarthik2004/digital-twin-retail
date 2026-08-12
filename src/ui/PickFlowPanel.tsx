@@ -135,6 +135,22 @@ function CurrentTask({
             </span>
           </div>
 
+          {/*
+            * A bulk retrieval is the single most expensive stop on a tour, and
+            * nothing about the code or the walk distance says so — the picker
+            * stands in exactly the same place as for the shelf at knee height.
+            * Calling it out here is what makes a slow tour explicable.
+            */}
+          <div className="mt-1.5 flex items-center gap-1">
+            {current.reserve ? (
+              <span className="chip !border-warn/45 !bg-warn/10 !text-[8.5px] !text-[var(--viz-warning)]">
+                Reserve · L{current.levelInTier}
+              </span>
+            ) : (
+              <span className="chip !text-[8.5px]">Pick face · L{current.levelInTier}</span>
+            )}
+          </div>
+
           <div className="mt-1.5 truncate text-[10.5px] font-medium text-ink-200">
             {current.skuName}
           </div>

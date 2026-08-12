@@ -2,6 +2,7 @@ import { NavGraphBuilder } from '../pathfinding/graph'
 import type { NodeId } from '../pathfinding/types'
 import { makeCatalogEntry, type CatalogEntry } from './catalog'
 import { buildConveyorNetwork } from './conveyor'
+import { RESERVE_LEVELS, levelFaceY } from './rackGeometry'
 import { createRng } from './random'
 import type {
   Bin,
@@ -46,6 +47,31 @@ const REPLEN_SHARE: Record<VelocityTier, number> = { fast: 0.2, medium: 0.14, sl
  * without it there would be nowhere to put an inbound delivery of a new line.
  */
 const EMPTY_SHARE = 0.11
+
+/*
+ * ── Reserve tier slotting ────────────────────────────────────────────────────
+ *
+ * The tier above the pick face is bulk storage, and it is slotted the way a
+ * real one is: long-tail lines that don't turn over fast enough to earn a
+ * pick-face slot. So it skews hard to slow movers, holds far more per location
+ * (pallets, not cases), and is picked from far less often — which is exactly
+ * what makes a reserve pick worth showing when it does happen.
+ *
+ * Reserve locations carry their OWN SKUs rather than overstock of the pick
+ * face's. That keeps `binBySku` a genuine one-bin-per-SKU map — the invariant
+ * order import and demand generation both rely on — and it is the honest model
+ * for long-tail stock that only ever lives in bulk.
+ */
+const RESERVE_TIER_SPLIT: Record<VelocityTier, number> = { fast: 0, medium: 0.25, slow: 0.75 }
+
+/** A reserve location is a pallet position: several times a case-pick slot. */
+const RESERVE_CAPACITY_FACTOR = 3.4
+
+/** Reserve runs fuller than the pick face — it is what the pick face draws down from. */
+const RESERVE_OPENING_FILL: [number, number] = [0.55, 0.98]
+
+/** Bulk sits on a pallet position that is either loaded or not; far less slack than the pick face. */
+const RESERVE_EMPTY_SHARE = 0.05
 
 /**
  * Build the entire warehouse — geometry descriptors, storage locations, SKU
@@ -249,6 +275,16 @@ export function generateWarehouse(
   // fast movers land in the golden zone near the front — realistic slotting.
   // Capacity is not known yet: it depends on how big the SKU's units turn out.
   const scored: { bin: Omit<Bin, 'sku' | 'capacity'>; score: number }[] = []
+  /**
+   * Reserve-tier locations, scored and tiered separately from the pick face.
+   *
+   * Separately because the two tiers answer different questions: the pick face
+   * ranks by how easy a location is to reach on foot (golden zone, near the
+   * front), while bulk is picked rarely enough that reach barely matters —
+   * what matters is that it holds the long tail. Ranking them in one pool
+   * would hand the top of the rack a share of the fast movers.
+   */
+  const reserveScored: { bin: Omit<Bin, 'sku' | 'capacity'>; score: number }[] = []
 
   for (let a = 0; a < aisles; a++) {
     for (const side of ['L', 'R'] as const) {
@@ -293,7 +329,7 @@ export function generateWarehouse(
                   slot,
                   face: {
                     x: faceX,
-                    y: 0.16 + level * levelHeight + levelHeight * 0.3,
+                    y: levelFaceY(config, level),
                     z: zCenter - bayWidth / 2 + (slot + 0.5) * slotWidth,
                   },
                   pickPoint: { x: aisleX[a], y: zCenter },
@@ -302,6 +338,46 @@ export function generateWarehouse(
                 score: 0.55 * depthScore + 0.45 * levelScore + rng.float(-0.22, 0.22),
               })
             }
+          }
+
+          /*
+           * Reserve tier over this same bay. It deliberately shares the bay's
+           * nav `node` and `pickPoint`: routing is bay-level, so a picker
+           * walks to exactly the same spot on the floor whether the line is
+           * at knee height or four levels up. What differs is the time spent
+           * there once arrived, which the engine prices per level — not the
+           * walk, which is genuinely identical.
+           *
+           * One slot per bay rather than `slotsPerBay`: a pallet position
+           * takes the full bay width, which is why bulk holds so much more
+           * per location than the case-pick slots below it.
+           */
+          for (let r = 0; r < RESERVE_LEVELS; r++) {
+            const level = levels + r
+            const id = `${config.id}:${a}-${side}-${bay}-${level}-0`
+            const code = `A${pad(a + 1)}-${side}${pad(bay + 1)}-R${r + 1}`
+            reserveScored.push({
+              bin: {
+                id,
+                code,
+                aisle: a,
+                side,
+                block: b,
+                bay,
+                level,
+                slot: 0,
+                face: {
+                  x: faceX,
+                  y: levelFaceY(config, level),
+                  z: zCenter,
+                },
+                pickPoint: { x: aisleX[a], y: zCenter },
+                node,
+              },
+              // Lower levels of the tier are the ones a truck reaches first,
+              // so they carry the marginally faster-moving of the bulk lines.
+              score: (RESERVE_LEVELS - r) / RESERVE_LEVELS + rng.float(-0.3, 0.3),
+            })
           }
         }
       }
@@ -315,6 +391,14 @@ export function generateWarehouse(
   ranked.forEach((entry, i) => {
     tierOf.set(entry.bin.id, i < fastCut ? 'fast' : i < mediumCut ? 'medium' : 'slow')
   })
+
+  // Bulk gets its own split — no fast movers at all, by construction.
+  const reserveRanked = reserveScored.slice().sort((p, q) => q.score - p.score)
+  const reserveMediumCut = Math.round(reserveRanked.length * RESERVE_TIER_SPLIT.medium)
+  reserveRanked.forEach((entry, i) => {
+    tierOf.set(entry.bin.id, i < reserveMediumCut ? 'medium' : 'slow')
+  })
+  const isReserveBin = new Set(reserveScored.map((e) => e.bin.id))
 
   /*
    * Real catalogue entries are handed out round-robin across every aisle,
@@ -352,19 +436,21 @@ export function generateWarehouse(
   const slotLitres = slotWidth * config.rackDepth * (levelHeight * 0.78) * 1000
 
   let skuSeq = 1
-  for (const entry of scored) {
+  for (const entry of [...scored, ...reserveScored]) {
     const velocity = tierOf.get(entry.bin.id)!
+    const reserve = isReserveBin.has(entry.bin.id)
     const real = realAssignment.get(entry.bin.id)
     const { name, category } = real ?? makeCatalogEntry(rng)
 
     const [vMin, vMax] = UNIT_VOLUME[velocity]
     const unitVolume = Math.round(rng.float(vMin, vMax) * 10) / 10
-    const capacity = Math.max(24, Math.round((slotLitres * PACKING_EFFICIENCY) / unitVolume))
+    const clearLitres = reserve ? slotLitres * RESERVE_CAPACITY_FACTOR : slotLitres
+    const capacity = Math.max(24, Math.round((clearLitres * PACKING_EFFICIENCY) / unitVolume))
 
     // An empty location still belongs to its SKU — slotting is fixed, the shelf
     // is simply cleared out. That is exactly what a putaway is looking for.
-    const [fMin, fMax] = OPENING_FILL[velocity]
-    const stock = rng.bool(EMPTY_SHARE)
+    const [fMin, fMax] = reserve ? RESERVE_OPENING_FILL : OPENING_FILL[velocity]
+    const stock = rng.bool(reserve ? RESERVE_EMPTY_SHARE : EMPTY_SHARE)
       ? 0
       : Math.min(capacity, Math.max(8, Math.round(capacity * rng.float(fMin, fMax))))
 

@@ -5,6 +5,7 @@ import type { Order } from '../simulation/types'
 import { useAppStore } from '../store/useAppStore'
 import type { WarehouseModel } from '../warehouse/types'
 import { Bar, Card, EmptyState, Segmented, StatTile, cx } from './components/primitives'
+import { ChevronRightIcon } from './components/icons'
 import { mmss, pct } from './format'
 import { chartPalette } from './theme'
 
@@ -326,7 +327,7 @@ function ImportCard() {
           aria-expanded={open}
           aria-label={open ? 'Collapse' : 'Expand'}
         >
-          {open ? '−' : '+'}
+          <ChevronRightIcon className={cx('transition-transform duration-150', open && 'rotate-90')} />
         </button>
       }
     >

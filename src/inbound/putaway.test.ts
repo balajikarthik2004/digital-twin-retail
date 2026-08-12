@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import layoutsDoc from '../data/layouts.json'
 import { createRoutingContext } from '../pathfinding/route'
 import { generateWarehouse } from '../warehouse/generate'
+import { totalLevels } from '../warehouse/rackGeometry'
 import type { WarehouseConfig } from '../warehouse/types'
 import { describeRoute } from './directions'
 import { binFree, isEmpty, summariseFreeSpace } from './freeSpace'
@@ -64,7 +65,8 @@ describe('storage capacity', () => {
     expect(s.occupancy).toBeGreaterThan(0)
     expect(s.occupancy).toBeLessThan(1)
     expect(s.byAisle).toHaveLength(config.aisles)
-    expect(s.byLevel).toHaveLength(config.levels)
+    // Both tiers: the on-foot pick face, then the bulk levels above it.
+    expect(s.byLevel).toHaveLength(totalLevels(config))
     // Every location is counted exactly once in each cut.
     for (const cut of [s.byAisle, s.byLevel, s.byVelocity]) {
       expect(cut.reduce((t, b) => t + b.locations, 0)).toBe(model.bins.length)
