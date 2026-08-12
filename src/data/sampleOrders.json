@@ -11,23 +11,35 @@
           "qty": 1
         },
         {
-          "sku": "SKU-000996",
+          "location": "A02-R08-R2",
           "qty": 1
         },
         {
-          "sku": "SKU-002298",
-          "qty": 2
+          "location": "A03-L15-R2",
+          "qty": 3
         },
         {
-          "sku": "SKU-000470",
-          "qty": 3
+          "location": "A08-L18-R4",
+          "qty": 1
+        },
+        {
+          "location": "A05-L19-R4",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-001755",
+          "qty": 1
         },
         {
           "sku": "SKU-000921",
           "qty": 1
         },
         {
-          "sku": "SKU-002305",
+          "sku": "SKU-001959",
+          "qty": 2
+        },
+        {
+          "sku": "SKU-000576",
           "qty": 1
         },
         {
@@ -35,23 +47,11 @@
           "qty": 1
         },
         {
-          "sku": "SKU-002455",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-000656",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001395",
+          "sku": "SKU-000637",
           "qty": 2
         },
         {
-          "sku": "SKU-001325",
-          "qty": 3
-        },
-        {
-          "sku": "SKU-000541",
+          "sku": "SKU-001973",
           "qty": 1
         }
       ]
@@ -83,31 +83,27 @@
           "qty": 1
         },
         {
-          "sku": "SKU-000504",
+          "location": "A02-L15-R1",
           "qty": 1
         },
         {
-          "sku": "SKU-000814",
+          "location": "A05-L20-R3",
           "qty": 2
         },
         {
-          "sku": "SKU-002416",
+          "location": "A04-R11-R1",
           "qty": 2
         },
         {
-          "sku": "SKU-001378",
+          "location": "A06-R15-R4",
           "qty": 1
         },
         {
-          "sku": "SKU-002195",
+          "sku": "SKU-000541",
           "qty": 1
         },
         {
-          "sku": "SKU-000650",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-000396",
+          "sku": "SKU-001190",
           "qty": 1
         }
       ]
@@ -123,43 +119,43 @@
           "qty": 1
         },
         {
-          "sku": "SKU-000337",
+          "location": "A02-R11-R2",
           "qty": 2
         },
         {
-          "sku": "SKU-000903",
+          "location": "A03-R03-R1",
           "qty": 2
         },
         {
-          "sku": "SKU-002040",
+          "location": "A08-R16-R3",
           "qty": 1
         },
         {
-          "sku": "SKU-002125",
+          "location": "A06-R01-R4",
           "qty": 1
         },
         {
-          "sku": "SKU-001196",
+          "sku": "SKU-001378",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-001780",
           "qty": 2
         },
         {
-          "location": "A07-L04-R4",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-000755",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-000479",
-          "qty": 1
-        },
-        {
-          "location": "A07-R03-R3",
+          "sku": "SKU-000223",
           "qty": 2
         },
         {
-          "sku": "SKU-000294",
+          "sku": "SKU-000650",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-001054",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-000793",
           "qty": 1
         }
       ]
@@ -175,47 +171,43 @@
           "qty": 1
         },
         {
-          "sku": "SKU-002078",
+          "location": "A02-L04-R1",
           "qty": 1
         },
         {
-          "sku": "SKU-001679",
+          "location": "A04-R05-R3",
           "qty": 1
         },
         {
-          "sku": "SKU-000127",
+          "location": "A05-L18-R2",
           "qty": 2
         },
         {
-          "sku": "SKU-000223",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-001359",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-000886",
+          "location": "A07-R05-R3",
           "qty": 1
         },
         {
-          "sku": "SKU-002318",
-          "qty": 1
+          "sku": "SKU-001075",
+          "qty": 2
         },
         {
-          "sku": "SKU-000398",
+          "sku": "SKU-001711",
           "qty": 3
         },
         {
-          "sku": "SKU-000874",
+          "sku": "SKU-001196",
+          "qty": 2
+        },
+        {
+          "sku": "SKU-000081",
           "qty": 1
         },
         {
-          "sku": "SKU-001659",
+          "sku": "SKU-000135",
           "qty": 1
         },
         {
-          "sku": "SKU-000370",
+          "sku": "SKU-000755",
           "qty": 1
         }
       ]
@@ -231,56 +223,48 @@
           "qty": 1
         },
         {
-          "location": "A02-R14-R1",
+          "location": "A02-R01-R3",
           "qty": 2
         },
         {
-          "sku": "SKU-002243",
+          "location": "A01-L07-R3",
           "qty": 1
         },
         {
-          "sku": "SKU-001482",
+          "location": "A07-L12-R1",
           "qty": 2
         },
         {
-          "sku": "SKU-001241",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-002036",
+          "location": "A01-R17-R4",
           "qty": 2
         },
         {
-          "sku": "SKU-001141",
+          "sku": "8907546811140",
+          "qty": 3
+        },
+        {
+          "sku": "SKU-002078",
           "qty": 1
         },
         {
-          "sku": "SKU-001793",
+          "sku": "SKU-001706",
+          "qty": 3
+        },
+        {
+          "sku": "SKU-002138",
           "qty": 1
         },
         {
-          "sku": "SKU-001857",
+          "sku": "SKU-000127",
           "qty": 2
         },
         {
-          "sku": "SKU-002058",
+          "sku": "SKU-000526",
           "qty": 1
         },
         {
-          "sku": "SKU-002157",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-002302",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-000110",
-          "qty": 1
-        },
-        {
-          "location": "A07-L08-R4",
-          "qty": 1
+          "sku": "SKU-001550",
+          "qty": 3
         }
       ]
     },
@@ -295,39 +279,51 @@
           "qty": 1
         },
         {
-          "sku": "SKU-001869",
+          "location": "A04-R14-R3",
           "qty": 1
         },
         {
-          "sku": "SKU-001325",
+          "location": "A03-R11-R1",
           "qty": 1
         },
         {
-          "sku": "SKU-001016",
+          "location": "A05-L08-R4",
+          "qty": 1
+        },
+        {
+          "location": "A02-R05-R3",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-000398",
+          "qty": 3
+        },
+        {
+          "sku": "SKU-001625",
           "qty": 2
         },
         {
-          "location": "A01-R04-R2",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-001694",
+          "sku": "SKU-000109",
           "qty": 1
         },
         {
-          "location": "A05-R08-R4",
+          "sku": "SKU-001659",
           "qty": 1
         },
         {
-          "sku": "SKU-000606",
+          "sku": "SKU-002426",
           "qty": 1
         },
         {
-          "sku": "SKU-001621",
+          "sku": "SKU-002322",
+          "qty": 3
+        },
+        {
+          "sku": "SKU-000150",
           "qty": 1
         },
         {
-          "sku": "SKU-000723",
+          "sku": "SKU-002168",
           "qty": 2
         }
       ]
@@ -343,52 +339,60 @@
           "qty": 1
         },
         {
-          "sku": "SKU-002443",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001813",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001401",
+          "location": "A08-L11-R3",
           "qty": 2
         },
         {
-          "sku": "SKU-000119",
+          "location": "A05-R11-R3",
+          "qty": 2
+        },
+        {
+          "location": "A02-R08-R4",
+          "qty": 2
+        },
+        {
+          "location": "A07-R14-R3",
           "qty": 1
         },
         {
-          "sku": "SKU-000419",
+          "location": "A07-R05-R1",
+          "qty": 2
+        },
+        {
+          "sku": "SKU-002317",
+          "qty": 2
+        },
+        {
+          "sku": "SKU-001771",
           "qty": 1
         },
         {
-          "sku": "SKU-001503",
+          "sku": "SKU-001793",
           "qty": 1
         },
         {
-          "sku": "SKU-000470",
+          "sku": "SKU-000438",
           "qty": 3
         },
         {
-          "sku": "SKU-001935",
+          "sku": "SKU-000923",
           "qty": 2
         },
         {
-          "sku": "SKU-001165",
-          "qty": 3
-        },
-        {
-          "location": "A05-L03-R3",
+          "sku": "SKU-002058",
           "qty": 1
         },
         {
-          "sku": "SKU-000680",
+          "sku": "SKU-000530",
           "qty": 2
         },
         {
-          "sku": "SKU-001556",
-          "qty": 2
+          "sku": "SKU-001689",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-002302",
+          "qty": 1
         }
       ]
     },
@@ -407,43 +411,39 @@
           "qty": 1
         },
         {
-          "sku": "SKU-001031",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-000362",
-          "qty": 3
-        },
-        {
-          "sku": "SKU-000763",
-          "qty": 2
-        },
-        {
-          "sku": "8909001294765",
-          "qty": 3
-        },
-        {
-          "location": "A05-R03-R4",
+          "location": "A01-L16-R1",
           "qty": 1
         },
         {
-          "sku": "SKU-000297",
+          "location": "A01-L07-R3",
+          "qty": 1
+        },
+        {
+          "location": "A02-L12-R2",
+          "qty": 1
+        },
+        {
+          "location": "A05-L19-R1",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-001993",
           "qty": 2
         },
         {
-          "sku": "SKU-000571",
-          "qty": 3
+          "sku": "SKU-001325",
+          "qty": 1
         },
         {
-          "sku": "SKU-001253",
-          "qty": 2
+          "sku": "SKU-000602",
+          "qty": 1
         },
         {
-          "sku": "SKU-000791",
-          "qty": 2
+          "sku": "SKU-001376",
+          "qty": 1
         },
         {
-          "sku": "SKU-001585",
+          "sku": "SKU-000178",
           "qty": 1
         }
       ]
@@ -459,55 +459,47 @@
           "qty": 1
         },
         {
-          "sku": "SKU-000192",
+          "location": "A06-L20-R4",
           "qty": 1
         },
         {
-          "sku": "SKU-000378",
+          "location": "A01-R05-R3",
           "qty": 2
         },
         {
-          "sku": "SKU-000047",
+          "location": "A02-L11-R2",
           "qty": 2
         },
         {
-          "sku": "SKU-000558",
+          "location": "A02-R17-R2",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-001489",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-000679",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-000723",
+          "qty": 2
+        },
+        {
+          "sku": "SKU-001557",
           "qty": 3
         },
         {
-          "sku": "SKU-001040",
+          "sku": "SKU-002443",
           "qty": 1
         },
         {
-          "sku": "SKU-000536",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-000086",
+          "sku": "SKU-000729",
           "qty": 1
         },
         {
-          "sku": "SKU-001431",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001853",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-000889",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-001719",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-002194",
-          "qty": 1
-        },
-        {
-          "location": "A01-L16-R4",
+          "sku": "SKU-000615",
           "qty": 1
         }
       ]
@@ -523,40 +515,52 @@
           "qty": 1
         },
         {
-          "sku": "SKU-001761",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-002326",
-          "qty": 3
-        },
-        {
-          "sku": "SKU-001162",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-000539",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001694",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001925",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-000836",
-          "qty": 3
-        },
-        {
-          "location": "A08-L05-R4",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-000245",
+          "location": "A05-L06-R1",
           "qty": 2
+        },
+        {
+          "location": "A01-L17-R1",
+          "qty": 2
+        },
+        {
+          "location": "A02-L16-R4",
+          "qty": 1
+        },
+        {
+          "location": "A01-R02-R1",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-001503",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-001874",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-002239",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-001935",
+          "qty": 2
+        },
+        {
+          "sku": "SKU-001707",
+          "qty": 2
+        },
+        {
+          "sku": "SKU-002434",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-001261",
+          "qty": 3
+        },
+        {
+          "sku": "SKU-001504",
+          "qty": 1
         }
       ]
     },
@@ -571,44 +575,56 @@
           "qty": 2
         },
         {
-          "sku": "SKU-001391",
+          "location": "A04-R03-R3",
           "qty": 1
         },
         {
-          "sku": "SKU-000718",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001371",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001234",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-000725",
+          "location": "A05-L01-R2",
           "qty": 2
         },
         {
-          "sku": "SKU-000367",
+          "location": "A04-R11-R2",
           "qty": 1
         },
         {
-          "sku": "SKU-001703",
+          "location": "A08-R08-R4",
           "qty": 2
         },
         {
-          "sku": "SKU-001659",
+          "location": "A02-L07-R3",
           "qty": 1
         },
         {
-          "sku": "SKU-000287",
+          "sku": "SKU-000760",
           "qty": 1
         },
         {
-          "sku": "SKU-002391",
+          "sku": "SKU-001639",
+          "qty": 1
+        },
+        {
+          "sku": "8909001294765",
           "qty": 3
+        },
+        {
+          "sku": "SKU-000178",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-000241",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-000297",
+          "qty": 2
+        },
+        {
+          "sku": "SKU-001195",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-002317",
+          "qty": 2
         }
       ]
     },
@@ -623,56 +639,52 @@
           "qty": 1
         },
         {
-          "sku": "SKU-001906",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-000604",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-002459",
-          "qty": 1
-        },
-        {
-          "location": "A08-R13-R4",
+          "location": "A04-R05-R2",
           "qty": 2
         },
         {
-          "sku": "SKU-001888",
+          "location": "A03-L20-R3",
+          "qty": 1
+        },
+        {
+          "location": "A03-L06-R3",
+          "qty": 1
+        },
+        {
+          "location": "A02-R18-R4",
           "qty": 2
         },
         {
-          "sku": "SKU-001382",
+          "sku": "SKU-002294",
           "qty": 1
         },
         {
-          "sku": "SKU-001959",
+          "sku": "SKU-000733",
           "qty": 1
         },
         {
-          "sku": "8907546896628",
+          "sku": "SKU-000378",
+          "qty": 2
+        },
+        {
+          "sku": "SKU-000317",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-001435",
+          "qty": 2
+        },
+        {
+          "sku": "SKU-000558",
           "qty": 3
         },
         {
-          "sku": "SKU-000580",
+          "sku": "SKU-000850",
           "qty": 2
         },
         {
-          "sku": "SKU-001503",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-002021",
+          "sku": "SKU-000967",
           "qty": 3
-        },
-        {
-          "sku": "SKU-001446",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-000422",
-          "qty": 2
         }
       ]
     },
@@ -687,47 +699,43 @@
           "qty": 1
         },
         {
-          "sku": "SKU-002457",
+          "location": "A05-L05-R4",
           "qty": 2
         },
         {
-          "sku": "SKU-000269",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-002140",
+          "location": "A01-L13-R1",
           "qty": 1
         },
         {
-          "sku": "SKU-001499",
+          "location": "A06-R18-R3",
           "qty": 2
         },
         {
-          "sku": "8909404196154",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-002026",
+          "location": "A04-L04-R4",
           "qty": 1
         },
         {
-          "sku": "SKU-002115",
+          "sku": "SKU-001853",
           "qty": 2
         },
         {
-          "sku": "SKU-002257",
-          "qty": 1
+          "sku": "SKU-001116",
+          "qty": 2
         },
         {
-          "sku": "SKU-002398",
+          "sku": "SKU-001548",
           "qty": 3
         },
         {
-          "sku": "SKU-000838",
+          "sku": "SKU-001719",
           "qty": 1
         },
         {
-          "sku": "SKU-000960",
+          "sku": "SKU-001295",
+          "qty": 2
+        },
+        {
+          "sku": "SKU-002340",
           "qty": 1
         }
       ]
@@ -743,60 +751,40 @@
           "qty": 1
         },
         {
-          "sku": "SKU-001075",
+          "location": "A06-R12-R2",
+          "qty": 1
+        },
+        {
+          "location": "A03-L06-R2",
+          "qty": 1
+        },
+        {
+          "location": "A08-R20-R4",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-002326",
+          "qty": 3
+        },
+        {
+          "sku": "SKU-002330",
           "qty": 2
         },
         {
-          "sku": "SKU-001499",
+          "sku": "SKU-000115",
           "qty": 2
         },
         {
-          "sku": "SKU-000505",
+          "sku": "SKU-000539",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-001195",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-001711",
           "qty": 2
-        },
-        {
-          "sku": "SKU-001417",
-          "qty": 1
-        },
-        {
-          "location": "A01-L16-R3",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-000143",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001216",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001247",
-          "qty": 2
-        },
-        {
-          "location": "A03-R04-R1",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001832",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001085",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-001685",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001885",
-          "qty": 1
-        },
-        {
-          "location": "A02-R13-R3",
-          "qty": 1
         }
       ]
     },
@@ -811,52 +799,56 @@
           "qty": 1
         },
         {
-          "sku": "SKU-000137",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-000684",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-000386",
-          "qty": 1
-        },
-        {
-          "location": "A04-L14-R4",
+          "location": "A02-L05-R2",
           "qty": 2
         },
         {
-          "sku": "SKU-000148",
+          "location": "A03-R05-R2",
           "qty": 1
         },
         {
-          "sku": "8907546992924",
+          "location": "A01-L15-R4",
           "qty": 1
         },
         {
-          "sku": "SKU-000090",
+          "location": "A07-L16-R4",
           "qty": 2
         },
         {
-          "sku": "SKU-000667",
+          "location": "A01-R12-R2",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-000614",
+          "qty": 3
+        },
+        {
+          "sku": "SKU-001391",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-000594",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-000125",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-001371",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-000997",
+          "qty": 1
+        },
+        {
+          "sku": "8907546993204",
+          "qty": 3
+        },
+        {
+          "sku": "SKU-000725",
           "qty": 2
-        },
-        {
-          "location": "A07-R15-R4",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-002472",
-          "qty": 1
-        },
-        {
-          "location": "A08-L20-R1",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001713",
-          "qty": 1
         }
       ]
     },
@@ -871,47 +863,51 @@
           "qty": 2
         },
         {
-          "sku": "SKU-002466",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-002024",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001859",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001611",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001296",
-          "qty": 1
-        },
-        {
-          "location": "A04-L17-R1",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-000186",
+          "location": "A02-L08-R1",
           "qty": 2
         },
         {
-          "sku": "SKU-000868",
+          "location": "A03-L09-R1",
+          "qty": 1
+        },
+        {
+          "location": "A04-R16-R4",
           "qty": 2
         },
         {
-          "sku": "SKU-001668",
-          "qty": 2
+          "location": "A06-L16-R2",
+          "qty": 1
         },
         {
-          "sku": "SKU-002021",
+          "sku": "SKU-001991",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-002295",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-002391",
           "qty": 3
         },
         {
-          "sku": "SKU-001085",
+          "sku": "SKU-001971",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-001906",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-002415",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-000476",
+          "qty": 2
+        },
+        {
+          "sku": "SKU-002459",
           "qty": 1
         }
       ]
@@ -927,47 +923,39 @@
           "qty": 1
         },
         {
-          "sku": "SKU-001735",
+          "location": "A08-R13-R4",
+          "qty": 2
+        },
+        {
+          "location": "A04-R16-R3",
+          "qty": 1
+        },
+        {
+          "location": "A04-L06-R4",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-001382",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-001526",
+          "qty": 2
+        },
+        {
+          "sku": "SKU-000794",
+          "qty": 1
+        },
+        {
+          "sku": "8907546896628",
           "qty": 3
         },
         {
-          "sku": "SKU-002262",
+          "sku": "SKU-002426",
           "qty": 1
         },
         {
-          "sku": "SKU-002435",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-000367",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001342",
-          "qty": 1
-        },
-        {
-          "location": "A03-R10-R4",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001112",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-002295",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-000850",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-001015",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001454",
+          "sku": "8909404196154",
           "qty": 1
         }
       ]
@@ -983,44 +971,52 @@
           "qty": 2
         },
         {
-          "sku": "SKU-000123",
+          "location": "A05-R10-R4",
+          "qty": 1
+        },
+        {
+          "location": "A07-R03-R2",
           "qty": 2
         },
         {
-          "location": "A06-L02-R2",
+          "location": "A02-L11-R4",
           "qty": 1
         },
         {
-          "sku": "SKU-000685",
+          "location": "A01-L20-R1",
           "qty": 1
         },
         {
-          "sku": "SKU-002283",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001699",
+          "sku": "SKU-000422",
           "qty": 2
         },
         {
-          "sku": "SKU-001195",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001767",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001912",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001780",
+          "sku": "SKU-001051",
           "qty": 2
         },
         {
-          "sku": "SKU-001155",
+          "sku": "SKU-002457",
+          "qty": 2
+        },
+        {
+          "sku": "SKU-000489",
           "qty": 1
+        },
+        {
+          "sku": "SKU-000869",
+          "qty": 2
+        },
+        {
+          "sku": "SKU-002140",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-000918",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-001792",
+          "qty": 3
         }
       ]
     },
@@ -1035,55 +1031,51 @@
           "qty": 1
         },
         {
-          "sku": "SKU-000418",
+          "location": "A06-L09-R1",
           "qty": 1
         },
         {
-          "location": "A06-R20-R4",
+          "location": "A07-R04-R1",
           "qty": 1
         },
         {
-          "location": "A06-R20-R2",
+          "location": "A08-R07-R4",
           "qty": 1
         },
         {
-          "sku": "SKU-002367",
+          "location": "A06-L08-R3",
           "qty": 1
         },
         {
-          "sku": "SKU-000236",
+          "sku": "SKU-002257",
           "qty": 1
         },
         {
-          "location": "A06-R15-R2",
+          "sku": "SKU-001492",
+          "qty": 3
+        },
+        {
+          "sku": "SKU-001663",
           "qty": 1
         },
         {
-          "sku": "SKU-000699",
+          "sku": "SKU-000838",
           "qty": 1
         },
         {
-          "sku": "SKU-001102",
+          "sku": "SKU-002432",
           "qty": 1
         },
         {
-          "sku": "SKU-000047",
+          "sku": "SKU-000142",
           "qty": 1
         },
         {
-          "sku": "SKU-001621",
+          "sku": "SKU-002403",
           "qty": 1
         },
         {
-          "sku": "SKU-001894",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001868",
-          "qty": 1
-        },
-        {
-          "location": "A06-L10-R1",
+          "sku": "SKU-001806",
           "qty": 1
         }
       ]
@@ -1099,55 +1091,51 @@
           "qty": 1
         },
         {
-          "sku": "SKU-001708",
+          "location": "A06-R13-R1",
           "qty": 1
         },
         {
-          "location": "A07-R14-R2",
+          "location": "A02-R05-R1",
           "qty": 1
         },
         {
-          "sku": "SKU-001574",
+          "location": "A05-L19-R1",
+          "qty": 1
+        },
+        {
+          "location": "A02-R11-R2",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-000115",
           "qty": 2
         },
         {
-          "location": "A02-R17-R2",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-000024",
-          "qty": 2
-        },
-        {
-          "location": "A01-R02-R2",
+          "sku": "SKU-000664",
           "qty": 1
         },
         {
-          "sku": "SKU-001742",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-000073",
-          "qty": 3
-        },
-        {
-          "location": "A04-R18-R3",
+          "sku": "SKU-002082",
           "qty": 1
         },
         {
-          "sku": "SKU-000062",
+          "sku": "SKU-001216",
           "qty": 1
         },
         {
-          "sku": "SKU-001226",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-001786",
+          "sku": "SKU-002425",
           "qty": 1
         },
         {
-          "sku": "SKU-001967",
+          "sku": "SKU-001218",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-000823",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-000859",
           "qty": 1
         }
       ]
@@ -1163,59 +1151,39 @@
           "qty": 1
         },
         {
-          "sku": "SKU-001691",
+          "location": "A02-L05-R1",
           "qty": 2
         },
         {
-          "sku": "SKU-000791",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-000295",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-000990",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-001314",
+          "location": "A07-L15-R1",
           "qty": 1
         },
         {
-          "sku": "8909001293683",
+          "location": "A06-L19-R4",
           "qty": 1
         },
         {
-          "sku": "SKU-000261",
+          "sku": "SKU-001012",
           "qty": 1
         },
         {
-          "sku": "SKU-000102",
+          "sku": "SKU-000140",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-000580",
           "qty": 2
         },
         {
-          "sku": "SKU-001885",
-          "qty": 2
+          "sku": "SKU-001555",
+          "qty": 3
         },
         {
-          "sku": "SKU-002247",
+          "sku": "SKU-000137",
           "qty": 1
         },
         {
-          "sku": "SKU-000122",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001034",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-000441",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-000790",
+          "sku": "SKU-001513",
           "qty": 1
         }
       ]
@@ -1231,55 +1199,47 @@
           "qty": 1
         },
         {
-          "sku": "SKU-001565",
+          "location": "A01-R15-R2",
           "qty": 1
         },
         {
-          "sku": "SKU-000707",
+          "location": "A06-L08-R4",
           "qty": 1
         },
         {
-          "sku": "SKU-001710",
+          "location": "A04-L14-R4",
           "qty": 2
         },
         {
-          "sku": "SKU-001716",
+          "location": "A04-L06-R1",
           "qty": 1
         },
         {
-          "location": "A03-R18-R1",
-          "qty": 3
-        },
-        {
-          "sku": "SKU-001105",
+          "sku": "SKU-000062",
           "qty": 1
         },
         {
-          "sku": "SKU-001095",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-000029",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-001570",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-001838",
+          "sku": "8907546992924",
           "qty": 1
         },
         {
-          "sku": "SKU-001008",
+          "sku": "SKU-000667",
           "qty": 1
         },
         {
-          "sku": "SKU-000895",
+          "sku": "SKU-001773",
           "qty": 1
         },
         {
-          "sku": "SKU-002114",
+          "sku": "SKU-002466",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-002125",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-001509",
           "qty": 1
         }
       ]
@@ -1295,59 +1255,47 @@
           "qty": 1
         },
         {
-          "sku": "SKU-000781",
+          "location": "A01-L02-R1",
           "qty": 1
         },
         {
-          "sku": "SKU-001875",
-          "qty": 2
-        },
-        {
-          "sku": "8909404279673",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-000599",
+          "location": "A06-R04-R4",
           "qty": 1
         },
         {
-          "sku": "8909001065877",
+          "location": "A06-R03-R1",
           "qty": 2
         },
         {
-          "sku": "SKU-001576",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-000302",
+          "location": "A03-R13-R3",
           "qty": 1
         },
         {
-          "sku": "SKU-002049",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-001561",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-000559",
+          "sku": "SKU-002466",
           "qty": 1
         },
         {
-          "sku": "SKU-002291",
+          "sku": "SKU-000307",
+          "qty": 2
+        },
+        {
+          "sku": "SKU-001434",
           "qty": 1
         },
         {
-          "sku": "SKU-000805",
+          "sku": "SKU-001859",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-002014",
           "qty": 2
         },
         {
-          "sku": "SKU-002186",
-          "qty": 2
+          "sku": "SKU-000425",
+          "qty": 1
         },
         {
-          "sku": "SKU-002440",
+          "sku": "SKU-001296",
           "qty": 1
         }
       ]
@@ -1363,52 +1311,40 @@
           "qty": 1
         },
         {
-          "sku": "SKU-002450",
+          "location": "A04-L17-R1",
           "qty": 1
         },
         {
-          "sku": "SKU-001141",
+          "location": "A04-L09-R2",
           "qty": 1
         },
         {
-          "sku": "SKU-002171",
+          "location": "A04-L01-R4",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-000868",
           "qty": 2
         },
         {
-          "sku": "8909001907511",
+          "sku": "SKU-001073",
           "qty": 2
         },
         {
-          "location": "A08-R12-R2",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001058",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-002048",
+          "sku": "SKU-001743",
           "qty": 2
         },
         {
-          "sku": "SKU-002092",
-          "qty": 1
+          "sku": "SKU-002021",
+          "qty": 3
         },
         {
-          "sku": "SKU-001228",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-002095",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-002416",
+          "sku": "SKU-001508",
           "qty": 2
         },
         {
-          "sku": "SKU-001344",
-          "qty": 1
+          "sku": "SKU-000451",
+          "qty": 2
         }
       ]
     },
@@ -1447,27 +1383,35 @@
           "qty": 1
         },
         {
-          "sku": "SKU-000419",
-          "qty": 1
-        },
-        {
-          "location": "A03-R07-R4",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001979",
+          "location": "A06-R05-R3",
           "qty": 2
         },
         {
-          "sku": "SKU-002284",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001962",
+          "location": "A05-L04-R2",
           "qty": 2
         },
         {
-          "location": "A03-L10-R4",
+          "location": "A01-L10-R1",
+          "qty": 3
+        },
+        {
+          "location": "A08-R16-R1",
+          "qty": 1
+        },
+        {
+          "location": "A08-L01-R2",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-002450",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-001342",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-000163",
           "qty": 2
         }
       ]
@@ -1483,47 +1427,59 @@
           "qty": 1
         },
         {
-          "sku": "SKU-001129",
+          "location": "A02-R14-R2",
           "qty": 2
         },
         {
-          "sku": "SKU-001109",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-002415",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-000162",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-001151",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-000986",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001676",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001144",
+          "location": "A08-R19-R1",
           "qty": 3
         },
         {
-          "sku": "SKU-000074",
+          "location": "A08-L18-R4",
+          "qty": 1
+        },
+        {
+          "location": "A03-R16-R3",
           "qty": 2
         },
         {
-          "sku": "SKU-000671",
+          "location": "A07-L05-R1",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-001015",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-001105",
           "qty": 2
         },
         {
-          "sku": "SKU-000408",
+          "sku": "SKU-001103",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-000941",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-002364",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-001555",
+          "qty": 3
+        },
+        {
+          "sku": "SKU-001195",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-001273",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-002283",
           "qty": 1
         }
       ]
@@ -1539,52 +1495,44 @@
           "qty": 1
         },
         {
-          "sku": "SKU-001593",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001955",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001227",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-000160",
+          "location": "A06-R01-R2",
           "qty": 2
         },
         {
-          "sku": "SKU-001382",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-002030",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-000818",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-000721",
+          "location": "A07-R05-R3",
           "qty": 2
         },
         {
-          "sku": "SKU-002119",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-000257",
+          "location": "A05-L02-R4",
           "qty": 1
         },
         {
-          "sku": "SKU-002182",
-          "qty": 3
+          "location": "A03-R11-R2",
+          "qty": 2
         },
         {
-          "sku": "SKU-000481",
+          "sku": "SKU-001361",
           "qty": 2
+        },
+        {
+          "sku": "SKU-001912",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-000591",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-002241",
+          "qty": 2
+        },
+        {
+          "sku": "SKU-001155",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-001941",
+          "qty": 1
         }
       ]
     },
@@ -1599,56 +1547,44 @@
           "qty": 1
         },
         {
-          "sku": "8909001124789",
+          "location": "A01-R10-R4",
           "qty": 1
         },
         {
-          "sku": "SKU-000844",
+          "location": "A06-R20-R4",
           "qty": 1
         },
         {
-          "sku": "SKU-002441",
+          "location": "A01-L18-R3",
           "qty": 1
         },
         {
-          "sku": "SKU-002109",
+          "location": "A02-L06-R3",
           "qty": 1
         },
         {
-          "sku": "SKU-002238",
-          "qty": 3
-        },
-        {
-          "sku": "SKU-000329",
+          "sku": "SKU-002367",
           "qty": 1
         },
         {
-          "sku": "SKU-000769",
+          "sku": "SKU-002010",
           "qty": 1
         },
         {
-          "sku": "SKU-000630",
+          "sku": "SKU-000527",
           "qty": 1
         },
         {
-          "sku": "SKU-002107",
+          "sku": "SKU-001809",
           "qty": 1
         },
         {
-          "sku": "SKU-000028",
+          "sku": "SKU-000420",
           "qty": 1
         },
         {
-          "sku": "SKU-000056",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-002101",
-          "qty": 3
-        },
-        {
-          "sku": "SKU-000943",
-          "qty": 2
+          "sku": "SKU-000602",
+          "qty": 1
         }
       ]
     },
@@ -1663,60 +1599,48 @@
           "qty": 1
         },
         {
-          "sku": "SKU-001238",
+          "location": "A07-L11-R3",
+          "qty": 1
+        },
+        {
+          "location": "A01-L08-R1",
+          "qty": 1
+        },
+        {
+          "location": "A08-R19-R3",
+          "qty": 1
+        },
+        {
+          "location": "A04-L19-R1",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-001894",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-001021",
+          "qty": 1
+        },
+        {
+          "sku": "8909404096645",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-001615",
+          "qty": 2
+        },
+        {
+          "sku": "SKU-001689",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-001708",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-000070",
           "qty": 3
-        },
-        {
-          "sku": "SKU-000410",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-000682",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001490",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-002139",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-000775",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-002281",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-001294",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-002201",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001260",
-          "qty": 1
-        },
-        {
-          "location": "A04-R05-R2",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-000940",
-          "qty": 3
-        },
-        {
-          "sku": "SKU-002406",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-000171",
-          "qty": 1
         }
       ]
     },
@@ -1731,47 +1655,43 @@
           "qty": 2
         },
         {
-          "sku": "SKU-000419",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001689",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001586",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001563",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-000568",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-000267",
+          "location": "A05-R15-R2",
           "qty": 2
         },
         {
-          "sku": "SKU-001685",
+          "location": "A05-R13-R4",
           "qty": 1
         },
         {
-          "sku": "SKU-001815",
+          "location": "A02-R17-R2",
+          "qty": 2
+        },
+        {
+          "location": "A05-R01-R1",
           "qty": 1
         },
         {
-          "sku": "SKU-002282",
+          "sku": "SKU-002327",
           "qty": 1
         },
         {
-          "sku": "SKU-001926",
+          "sku": "SKU-000163",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-000824",
+          "qty": 2
+        },
+        {
+          "sku": "SKU-002056",
+          "qty": 2
+        },
+        {
+          "sku": "SKU-000073",
           "qty": 3
         },
         {
-          "sku": "SKU-001482",
+          "sku": "SKU-000170",
           "qty": 2
         }
       ]
@@ -1787,59 +1707,39 @@
           "qty": 1
         },
         {
-          "sku": "SKU-002415",
-          "qty": 2
-        },
-        {
-          "location": "A03-L08-R2",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-000506",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-001917",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-000036",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-000608",
+          "location": "A07-L06-R1",
           "qty": 1
         },
         {
-          "sku": "SKU-001980",
+          "location": "A02-R07-R2",
           "qty": 2
         },
         {
-          "sku": "SKU-001317",
+          "location": "A04-R17-R3",
+          "qty": 2
+        },
+        {
+          "sku": "SKU-002381",
+          "qty": 2
+        },
+        {
+          "sku": "SKU-000376",
+          "qty": 2
+        },
+        {
+          "sku": "SKU-001967",
           "qty": 1
         },
         {
-          "sku": "SKU-002341",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001714",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001652",
+          "sku": "SKU-002096",
           "qty": 2
         },
         {
-          "sku": "SKU-002413",
+          "sku": "SKU-001691",
           "qty": 2
         },
         {
-          "sku": "SKU-000744",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-000121",
+          "sku": "SKU-001034",
           "qty": 1
         }
       ]
@@ -1855,55 +1755,51 @@
           "qty": 1
         },
         {
-          "sku": "SKU-000467",
+          "location": "A05-R02-R1",
           "qty": 1
         },
         {
-          "location": "A06-R07-R1",
+          "location": "A05-L09-R2",
           "qty": 1
         },
         {
-          "sku": "SKU-001737",
+          "location": "A04-L06-R3",
           "qty": 1
         },
         {
-          "sku": "SKU-002472",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001531",
+          "location": "A05-L02-R1",
           "qty": 2
         },
         {
-          "sku": "SKU-000916",
+          "sku": "SKU-000188",
+          "qty": 1
+        },
+        {
+          "sku": "8909001293683",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-001125",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-000368",
           "qty": 2
         },
         {
-          "sku": "8909001645895",
+          "sku": "SKU-000102",
+          "qty": 2
+        },
+        {
+          "sku": "SKU-000942",
           "qty": 3
         },
         {
-          "location": "A04-L11-R2",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001598",
+          "sku": "SKU-002457",
           "qty": 2
         },
         {
-          "sku": "SKU-002337",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001388",
-          "qty": 3
-        },
-        {
-          "sku": "SKU-001798",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-002153",
+          "sku": "SKU-002247",
           "qty": 1
         }
       ]
@@ -1919,40 +1815,44 @@
           "qty": 1
         },
         {
-          "sku": "SKU-000683",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-001886",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-001942",
-          "qty": 2
-        },
-        {
-          "location": "A01-L12-R2",
+          "location": "A01-L17-R3",
           "qty": 1
         },
         {
-          "sku": "SKU-000642",
-          "qty": 2
-        },
-        {
-          "location": "A05-L07-R1",
-          "qty": 2
-        },
-        {
-          "location": "A02-L02-R2",
+          "location": "A02-R04-R2",
           "qty": 1
         },
         {
-          "sku": "SKU-000142",
+          "location": "A02-L19-R4",
           "qty": 1
         },
         {
-          "sku": "SKU-001588",
-          "qty": 3
+          "location": "A02-L17-R2",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-002322",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-000750",
+          "qty": 2
+        },
+        {
+          "sku": "SKU-002144",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-000146",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-000707",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-000582",
+          "qty": 1
         }
       ]
     },
@@ -1967,47 +1867,59 @@
           "qty": 1
         },
         {
-          "sku": "SKU-001007",
+          "location": "A07-L08-R2",
           "qty": 1
         },
         {
-          "sku": "SKU-000492",
+          "location": "A08-L18-R1",
           "qty": 1
         },
         {
-          "sku": "SKU-002027",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-000333",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-000777",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-001219",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-001773",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001175",
+          "location": "A03-R18-R1",
           "qty": 3
         },
         {
-          "sku": "SKU-002330",
+          "location": "A07-R11-R2",
+          "qty": 1
+        },
+        {
+          "location": "A03-R05-R2",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-001095",
           "qty": 2
         },
         {
-          "sku": "SKU-001064",
+          "sku": "SKU-001319",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-001539",
           "qty": 2
         },
         {
-          "sku": "SKU-001226",
+          "sku": "SKU-001570",
+          "qty": 2
+        },
+        {
+          "sku": "SKU-001297",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-001164",
+          "qty": 2
+        },
+        {
+          "sku": "SKU-001008",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-001686",
+          "qty": 2
+        },
+        {
+          "sku": "SKU-001330",
           "qty": 2
         }
       ]
@@ -2023,52 +1935,60 @@
           "qty": 1
         },
         {
-          "sku": "SKU-001572",
+          "location": "A03-L06-R3",
+          "qty": 1
+        },
+        {
+          "location": "A03-L07-R4",
+          "qty": 1
+        },
+        {
+          "location": "A04-L12-R4",
+          "qty": 1
+        },
+        {
+          "location": "A07-L04-R3",
+          "qty": 1
+        },
+        {
+          "location": "A04-R20-R3",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-001438",
           "qty": 2
         },
         {
-          "sku": "SKU-001360",
+          "sku": "SKU-000599",
           "qty": 1
         },
         {
-          "sku": "SKU-000912",
+          "sku": "SKU-000403",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-001304",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-001576",
           "qty": 2
         },
         {
-          "sku": "SKU-000335",
+          "sku": "SKU-000964",
           "qty": 1
         },
         {
-          "sku": "SKU-000218",
+          "sku": "SKU-000227",
           "qty": 1
         },
         {
-          "sku": "SKU-001886",
-          "qty": 3
-        },
-        {
-          "sku": "SKU-000809",
-          "qty": 3
-        },
-        {
-          "sku": "SKU-001714",
-          "qty": 1
-        },
-        {
-          "sku": "8909404248136",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-000265",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001229",
+          "sku": "SKU-002049",
           "qty": 2
         },
         {
-          "sku": "SKU-000666",
-          "qty": 1
+          "sku": "SKU-002341",
+          "qty": 2
         }
       ]
     },
@@ -2083,59 +2003,47 @@
           "qty": 1
         },
         {
-          "sku": "SKU-000028",
+          "location": "A06-L12-R3",
           "qty": 1
         },
         {
-          "sku": "SKU-000227",
-          "qty": 3
-        },
-        {
-          "sku": "SKU-000675",
+          "location": "A02-L03-R3",
           "qty": 1
         },
         {
-          "sku": "SKU-001180",
+          "location": "A08-L18-R2",
+          "qty": 1
+        },
+        {
+          "location": "A02-R01-R2",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-000902",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-002186",
           "qty": 2
         },
         {
-          "sku": "SKU-002362",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-002456",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-002359",
-          "qty": 3
-        },
-        {
-          "sku": "SKU-002408",
+          "sku": "SKU-001441",
           "qty": 2
         },
         {
-          "sku": "SKU-002255",
-          "qty": 1
+          "sku": "SKU-000818",
+          "qty": 2
         },
         {
-          "sku": "SKU-001269",
-          "qty": 1
+          "sku": "SKU-001659",
+          "qty": 2
         },
         {
           "sku": "SKU-001366",
-          "qty": 2
-        },
-        {
-          "sku": "8909404017794",
           "qty": 1
         },
         {
-          "sku": "SKU-000360",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001538",
+          "sku": "SKU-001141",
           "qty": 1
         }
       ]
@@ -2151,51 +2059,47 @@
           "qty": 1
         },
         {
-          "sku": "SKU-002452",
+          "location": "A08-L03-R1",
+          "qty": 1
+        },
+        {
+          "location": "A08-L03-R4",
           "qty": 2
         },
         {
-          "sku": "SKU-000210",
+          "location": "A04-L06-R3",
           "qty": 1
         },
         {
-          "sku": "SKU-001573",
+          "location": "A08-R12-R2",
           "qty": 1
         },
         {
-          "sku": "SKU-000459",
+          "sku": "SKU-001894",
+          "qty": 2
+        },
+        {
+          "sku": "SKU-000002",
           "qty": 1
         },
         {
-          "sku": "SKU-001155",
-          "qty": 1
+          "sku": "SKU-002048",
+          "qty": 2
         },
         {
-          "sku": "8909001124772",
+          "sku": "SKU-000225",
           "qty": 3
         },
         {
-          "sku": "SKU-000001",
+          "sku": "SKU-000770",
           "qty": 2
         },
         {
-          "sku": "SKU-001754",
+          "sku": "SKU-001228",
           "qty": 1
         },
         {
-          "sku": "SKU-002154",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001017",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-002073",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-000526",
+          "sku": "SKU-001259",
           "qty": 1
         }
       ]
@@ -2215,35 +2119,35 @@
           "qty": 1
         },
         {
-          "sku": "SKU-001363",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001215",
-          "qty": 1
-        },
-        {
-          "sku": "8909001115688",
+          "location": "A04-L06-R2",
           "qty": 2
         },
         {
-          "location": "A06-L04-R2",
+          "location": "A04-L17-R1",
+          "qty": 2
+        },
+        {
+          "location": "A05-L13-R4",
           "qty": 1
         },
         {
-          "location": "A08-R03-R3",
+          "sku": "SKU-001325",
+          "qty": 3
+        },
+        {
+          "sku": "SKU-000419",
           "qty": 1
         },
         {
-          "sku": "SKU-001812",
+          "sku": "8907546684997",
+          "qty": 2
+        },
+        {
+          "sku": "SKU-001319",
           "qty": 1
         },
         {
-          "sku": "SKU-001680",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001748",
+          "sku": "SKU-001979",
           "qty": 2
         }
       ]
@@ -2259,55 +2163,55 @@
           "qty": 1
         },
         {
-          "sku": "SKU-000961",
+          "location": "A08-L17-R3",
           "qty": 1
         },
         {
-          "sku": "SKU-002404",
+          "location": "A05-L13-R3",
           "qty": 2
         },
         {
-          "sku": "SKU-002265",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-002196",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-001615",
+          "location": "A04-R07-R1",
           "qty": 1
         },
         {
-          "location": "A01-R10-R4",
+          "location": "A03-L10-R4",
           "qty": 2
         },
         {
-          "sku": "SKU-000944",
+          "location": "A04-R15-R4",
           "qty": 1
         },
         {
-          "sku": "SKU-000164",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001795",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001446",
+          "sku": "SKU-001129",
           "qty": 2
         },
         {
-          "sku": "SKU-000231",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001785",
+          "sku": "SKU-001492",
           "qty": 2
         },
         {
-          "sku": "8909404093538",
+          "sku": "SKU-002212",
+          "qty": 2
+        },
+        {
+          "sku": "SKU-002415",
+          "qty": 2
+        },
+        {
+          "sku": "SKU-001757",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-001423",
+          "qty": 2
+        },
+        {
+          "sku": "SKU-001151",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-002239",
           "qty": 1
         }
       ]
@@ -2323,47 +2227,39 @@
           "qty": 2
         },
         {
-          "sku": "SKU-001015",
+          "location": "A08-L08-R1",
           "qty": 1
         },
         {
-          "sku": "SKU-002000",
+          "location": "A04-R08-R2",
           "qty": 1
         },
         {
-          "sku": "SKU-001640",
+          "location": "A04-R07-R1",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-002027",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-000949",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-000671",
           "qty": 2
         },
         {
-          "sku": "SKU-001529",
+          "sku": "SKU-000813",
           "qty": 1
         },
         {
-          "sku": "SKU-001593",
-          "qty": 3
-        },
-        {
-          "sku": "SKU-000236",
+          "sku": "SKU-000250",
           "qty": 2
         },
         {
-          "sku": "SKU-001749",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-000219",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-000714",
-          "qty": 3
-        },
-        {
-          "sku": "SKU-001348",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-000562",
+          "sku": "SKU-002078",
           "qty": 2
         }
       ]
@@ -2379,47 +2275,43 @@
           "qty": 1
         },
         {
-          "sku": "SKU-001890",
+          "location": "A08-R18-R3",
           "qty": 1
         },
         {
-          "sku": "SKU-001645",
+          "location": "A06-R12-R3",
           "qty": 1
         },
         {
-          "sku": "SKU-002018",
-          "qty": 1
-        },
-        {
-          "location": "A06-R15-R4",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-000313",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001104",
-          "qty": 1
-        },
-        {
-          "location": "A06-L11-R4",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-000531",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-002294",
+          "location": "A04-R17-R3",
           "qty": 2
         },
         {
-          "sku": "SKU-001396",
+          "location": "A08-R07-R1",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-000886",
+          "qty": 2
+        },
+        {
+          "sku": "SKU-001382",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-001921",
           "qty": 3
         },
         {
-          "sku": "SKU-001340",
+          "sku": "SKU-002390",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-000818",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-001201",
           "qty": 1
         }
       ]
@@ -2435,60 +2327,48 @@
           "qty": 1
         },
         {
-          "sku": "SKU-002118",
+          "location": "A02-R08-R3",
           "qty": 2
         },
         {
-          "location": "A05-L15-R2",
+          "location": "A04-L11-R2",
+          "qty": 1
+        },
+        {
+          "location": "A01-R13-R4",
+          "qty": 1
+        },
+        {
+          "location": "A08-L13-R4",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-001712",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-000481",
           "qty": 2
         },
         {
-          "sku": "SKU-000830",
-          "qty": 3
-        },
-        {
-          "sku": "SKU-001297",
+          "sku": "SKU-001759",
           "qty": 1
         },
         {
-          "sku": "SKU-000799",
+          "sku": "8909001124789",
           "qty": 1
         },
         {
-          "sku": "SKU-000894",
+          "sku": "SKU-002360",
           "qty": 1
         },
         {
-          "sku": "SKU-000069",
+          "sku": "SKU-000766",
           "qty": 1
         },
         {
-          "sku": "SKU-002352",
+          "sku": "SKU-002441",
           "qty": 1
-        },
-        {
-          "sku": "SKU-000042",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001543",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001589",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-000347",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-000816",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001097",
-          "qty": 2
         }
       ]
     },
@@ -2515,35 +2395,31 @@
           "qty": 2
         },
         {
-          "sku": "SKU-001625",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-000365",
+          "location": "A07-R13-R4",
           "qty": 1
         },
         {
-          "sku": "SKU-001527",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-000198",
+          "location": "A04-R16-R1",
           "qty": 1
         },
         {
-          "sku": "SKU-001106",
+          "location": "A08-R04-R1",
           "qty": 2
         },
         {
-          "sku": "SKU-001574",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-000101",
+          "location": "A02-L02-R4",
           "qty": 1
         },
         {
-          "sku": "SKU-000618",
+          "sku": "SKU-001959",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-001127",
+          "qty": 2
+        },
+        {
+          "sku": "SKU-000630",
           "qty": 1
         }
       ]
@@ -2559,59 +2435,43 @@
           "qty": 1
         },
         {
-          "location": "A02-R01-R2",
+          "location": "A07-R13-R3",
           "qty": 1
         },
         {
-          "sku": "SKU-000491",
+          "location": "A07-L15-R1",
           "qty": 1
         },
         {
-          "sku": "SKU-001895",
+          "location": "A07-R10-R4",
+          "qty": 1
+        },
+        {
+          "location": "A01-L09-R2",
+          "qty": 2
+        },
+        {
+          "sku": "SKU-000793",
           "qty": 3
         },
         {
-          "sku": "SKU-002401",
+          "sku": "SKU-002101",
+          "qty": 3
+        },
+        {
+          "sku": "SKU-000943",
           "qty": 2
         },
         {
-          "sku": "SKU-001885",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-001273",
+          "sku": "SKU-002432",
           "qty": 1
         },
         {
-          "sku": "SKU-000738",
-          "qty": 1
+          "sku": "SKU-001238",
+          "qty": 3
         },
         {
-          "sku": "SKU-001004",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-000497",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-002274",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-000935",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-001290",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001213",
-          "qty": 1
-        },
-        {
-          "location": "A08-R18-R3",
+          "sku": "SKU-000468",
           "qty": 1
         }
       ]
@@ -2627,56 +2487,52 @@
           "qty": 1
         },
         {
-          "sku": "SKU-000140",
+          "location": "A08-R12-R4",
           "qty": 1
         },
         {
-          "sku": "SKU-001503",
+          "location": "A01-L11-R4",
           "qty": 1
         },
         {
-          "sku": "SKU-001668",
+          "location": "A05-R12-R2",
           "qty": 1
         },
         {
-          "sku": "SKU-001673",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-000508",
-          "qty": 1
-        },
-        {
-          "location": "A05-L05-R4",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-000306",
+          "location": "A04-R06-R2",
           "qty": 2
         },
         {
-          "sku": "SKU-000524",
+          "sku": "SKU-002237",
           "qty": 1
         },
         {
-          "sku": "8909404182782",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-000063",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-001207",
+          "sku": "SKU-000775",
           "qty": 1
         },
         {
-          "sku": "SKU-000046",
+          "sku": "SKU-000661",
           "qty": 1
         },
         {
-          "sku": "SKU-001269",
+          "sku": "SKU-001665",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-001294",
           "qty": 2
+        },
+        {
+          "sku": "SKU-001759",
+          "qty": 2
+        },
+        {
+          "sku": "SKU-000698",
+          "qty": 2
+        },
+        {
+          "sku": "SKU-001260",
+          "qty": 1
         }
       ]
     },
@@ -2691,59 +2547,39 @@
           "qty": 1
         },
         {
-          "sku": "SKU-001074",
+          "location": "A04-R05-R2",
           "qty": 1
         },
         {
-          "sku": "SKU-002087",
-          "qty": 3
-        },
-        {
-          "sku": "SKU-001217",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-000996",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-000003",
+          "location": "A04-R18-R4",
           "qty": 2
         },
         {
-          "sku": "SKU-000645",
+          "location": "A06-R03-R2",
           "qty": 1
         },
         {
-          "sku": "SKU-002129",
+          "sku": "SKU-002406",
           "qty": 1
         },
         {
-          "sku": "SKU-001706",
-          "qty": 3
-        },
-        {
-          "sku": "SKU-001006",
+          "sku": "SKU-000925",
           "qty": 1
         },
         {
-          "sku": "SKU-001261",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001298",
+          "sku": "SKU-001840",
           "qty": 2
         },
         {
-          "sku": "SKU-001986",
+          "sku": "SKU-000452",
           "qty": 1
         },
         {
-          "sku": "SKU-000050",
+          "sku": "SKU-001050",
           "qty": 1
         },
         {
-          "sku": "SKU-001097",
+          "sku": "SKU-001689",
           "qty": 1
         }
       ]
@@ -2759,40 +2595,44 @@
           "qty": 1
         },
         {
-          "sku": "SKU-001449",
+          "location": "A06-L06-R3",
           "qty": 1
         },
         {
-          "sku": "SKU-001951",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-000739",
+          "location": "A08-R11-R4",
           "qty": 2
         },
         {
-          "sku": "SKU-000528",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-000833",
+          "location": "A02-L18-R3",
           "qty": 2
         },
         {
-          "location": "A03-R11-R4",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-002233",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-000602",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-002440",
+          "location": "A02-R12-R2",
           "qty": 2
+        },
+        {
+          "sku": "SKU-000424",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-001017",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-001685",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-000626",
+          "qty": 3
+        },
+        {
+          "sku": "SKU-002186",
+          "qty": 3
+        },
+        {
+          "sku": "SKU-002282",
+          "qty": 1
         }
       ]
     },
@@ -2819,47 +2659,31 @@
           "qty": 1
         },
         {
-          "sku": "SKU-000230",
+          "location": "A07-L11-R2",
           "qty": 1
         },
         {
-          "sku": "SKU-001478",
+          "location": "A05-R14-R3",
+          "qty": 2
+        },
+        {
+          "location": "A07-R02-R2",
           "qty": 1
         },
         {
-          "sku": "SKU-000964",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-000794",
+          "location": "A03-R09-R2",
           "qty": 1
         },
         {
-          "sku": "SKU-000408",
+          "sku": "SKU-001000",
           "qty": 1
         },
         {
-          "sku": "SKU-000532",
+          "sku": "SKU-000682",
           "qty": 2
         },
         {
-          "sku": "SKU-001089",
-          "qty": 3
-        },
-        {
-          "sku": "SKU-000288",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-000616",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-000981",
-          "qty": 2
-        },
-        {
-          "location": "A02-R16-R2",
+          "sku": "8909001579718",
           "qty": 1
         }
       ]
@@ -2879,47 +2703,47 @@
           "qty": 2
         },
         {
-          "location": "A06-R14-R2",
+          "location": "A06-R11-R2",
+          "qty": 3
+        },
+        {
+          "location": "A08-L06-R4",
           "qty": 1
         },
         {
-          "sku": "SKU-001602",
+          "location": "A01-L06-R3",
           "qty": 1
         },
         {
-          "sku": "SKU-000320",
+          "location": "A04-R18-R2",
           "qty": 1
         },
         {
-          "sku": "SKU-001330",
+          "sku": "SKU-000714",
+          "qty": 3
+        },
+        {
+          "sku": "SKU-001980",
           "qty": 2
         },
         {
-          "sku": "SKU-000249",
+          "sku": "SKU-002004",
           "qty": 2
         },
         {
-          "location": "A06-R07-R1",
+          "sku": "SKU-000283",
           "qty": 1
         },
         {
-          "sku": "SKU-001164",
+          "sku": "SKU-002341",
           "qty": 1
         },
         {
-          "sku": "SKU-001816",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-002056",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-001938",
+          "sku": "SKU-001474",
           "qty": 1
         },
         {
-          "sku": "SKU-000287",
+          "sku": "SKU-000726",
           "qty": 1
         }
       ]
@@ -2935,44 +2759,56 @@
           "qty": 1
         },
         {
-          "sku": "SKU-001076",
+          "location": "A06-R15-R4",
           "qty": 1
         },
         {
-          "sku": "SKU-001917",
+          "location": "A08-R13-R2",
+          "qty": 1
+        },
+        {
+          "location": "A07-L10-R4",
+          "qty": 1
+        },
+        {
+          "location": "A03-R09-R1",
+          "qty": 1
+        },
+        {
+          "location": "A01-L17-R2",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-001683",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-000467",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-000050",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-000635",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-001737",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-001110",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-001303",
           "qty": 2
         },
         {
-          "sku": "SKU-001527",
+          "sku": "SKU-001531",
           "qty": 2
-        },
-        {
-          "sku": "SKU-001581",
-          "qty": 1
-        },
-        {
-          "sku": "8909001124772",
-          "qty": 3
-        },
-        {
-          "sku": "SKU-000632",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001927",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-002037",
-          "qty": 3
-        },
-        {
-          "location": "A05-R06-R4",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-000644",
-          "qty": 1
         }
       ]
     },
@@ -2995,51 +2831,43 @@
           "qty": 1
         },
         {
-          "sku": "SKU-001680",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001540",
+          "location": "A03-R14-R4",
           "qty": 2
         },
         {
-          "sku": "SKU-001928",
+          "location": "A04-R18-R4",
           "qty": 2
         },
         {
-          "sku": "SKU-001066",
+          "location": "A07-R05-R1",
           "qty": 1
         },
         {
-          "location": "A05-R15-R4",
+          "location": "A04-L11-R2",
           "qty": 1
         },
         {
-          "sku": "SKU-000227",
+          "sku": "SKU-000974",
           "qty": 2
         },
         {
-          "sku": "SKU-001555",
+          "sku": "SKU-001903",
+          "qty": 3
+        },
+        {
+          "sku": "SKU-002337",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-000604",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-002329",
           "qty": 2
         },
         {
-          "location": "A07-R05-R4",
-          "qty": 1
-        },
-        {
-          "location": "A04-L20-R4",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-002194",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001688",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001670",
+          "sku": "SKU-001798",
           "qty": 2
         }
       ]
@@ -3055,56 +2883,60 @@
           "qty": 1
         },
         {
-          "location": "A06-R20-R2",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001459",
+          "location": "A07-R19-R3",
           "qty": 2
         },
         {
-          "sku": "SKU-000309",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001447",
-          "qty": 3
-        },
-        {
-          "sku": "SKU-000768",
+          "location": "A02-L04-R4",
           "qty": 2
         },
         {
-          "sku": "SKU-000698",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001907",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-000569",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-002189",
-          "qty": 3
-        },
-        {
-          "sku": "SKU-001445",
+          "location": "A03-L08-R3",
           "qty": 2
         },
         {
-          "sku": "SKU-002201",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001399",
+          "location": "A01-R20-R4",
           "qty": 2
         },
         {
-          "sku": "SKU-000770",
-          "qty": 3
+          "location": "A04-R20-R3",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-001942",
+          "qty": 2
+        },
+        {
+          "sku": "SKU-000004",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-001861",
+          "qty": 2
+        },
+        {
+          "sku": "SKU-000642",
+          "qty": 2
+        },
+        {
+          "sku": "SKU-000066",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-001114",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-000323",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-001799",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-000188",
+          "qty": 1
         }
       ]
     },
@@ -3123,52 +2955,48 @@
           "qty": 1
         },
         {
-          "sku": "SKU-000508",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-000356",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-002040",
+          "location": "A06-R15-R1",
           "qty": 2
         },
         {
-          "sku": "SKU-001982",
+          "location": "A08-R16-R3",
           "qty": 1
         },
         {
-          "sku": "SKU-001791",
+          "location": "A07-L17-R4",
           "qty": 1
         },
         {
-          "sku": "SKU-000627",
-          "qty": 3
-        },
-        {
-          "sku": "SKU-001883",
+          "location": "A02-R03-R2",
           "qty": 1
         },
         {
-          "sku": "SKU-002037",
+          "sku": "SKU-000503",
           "qty": 2
         },
         {
-          "sku": "SKU-000724",
+          "sku": "SKU-000129",
           "qty": 2
         },
         {
-          "sku": "SKU-001899",
-          "qty": 1
-        },
-        {
-          "sku": "8909404279673",
+          "sku": "SKU-000333",
           "qty": 2
         },
         {
-          "sku": "SKU-001705",
+          "sku": "SKU-000952",
           "qty": 1
+        },
+        {
+          "sku": "SKU-001368",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-001219",
+          "qty": 2
+        },
+        {
+          "sku": "SKU-002272",
+          "qty": 2
         }
       ]
     },
@@ -3183,48 +3011,40 @@
           "qty": 1
         },
         {
-          "sku": "SKU-000343",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-000313",
+          "location": "A04-L03-R4",
           "qty": 2
         },
         {
-          "sku": "SKU-000945",
+          "location": "A07-R02-R2",
+          "qty": 1
+        },
+        {
+          "location": "A08-R03-R1",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-001021",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-001302",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-001226",
           "qty": 2
         },
         {
-          "sku": "SKU-001275",
+          "sku": "SKU-001428",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-001572",
           "qty": 2
         },
         {
-          "sku": "SKU-002407",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-000579",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-002311",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-000921",
-          "qty": 1
-        },
-        {
-          "location": "A05-L03-R1",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001481",
-          "qty": 1
-        },
-        {
-          "location": "A07-R08-R3",
-          "qty": 1
+          "sku": "SKU-001462",
+          "qty": 2
         }
       ]
     },
@@ -3239,51 +3059,47 @@
           "qty": 1
         },
         {
-          "sku": "SKU-002047",
-          "qty": 3
-        },
-        {
-          "sku": "SKU-000173",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-000045",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-002173",
-          "qty": 3
-        },
-        {
-          "sku": "SKU-001971",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-000668",
-          "qty": 3
-        },
-        {
-          "sku": "SKU-001572",
+          "location": "A05-R19-R2",
           "qty": 2
         },
         {
-          "sku": "8909001065884",
+          "location": "A04-L03-R3",
+          "qty": 2
+        },
+        {
+          "location": "A02-L03-R4",
+          "qty": 1
+        },
+        {
+          "location": "A05-L09-R4",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-000203",
           "qty": 2
         },
         {
           "sku": "SKU-001886",
-          "qty": 2
+          "qty": 3
         },
         {
-          "sku": "SKU-000798",
+          "sku": "SKU-000921",
           "qty": 1
         },
         {
-          "sku": "SKU-001866",
+          "sku": "SKU-002127",
           "qty": 2
         },
         {
-          "sku": "8909001134429",
+          "sku": "SKU-001714",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-001876",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-001891",
           "qty": 1
         }
       ]
@@ -3299,56 +3115,40 @@
           "qty": 1
         },
         {
-          "sku": "SKU-001290",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-001956",
+          "location": "A01-R04-R4",
           "qty": 1
         },
         {
-          "sku": "SKU-001363",
+          "location": "A04-R17-R4",
           "qty": 1
         },
         {
-          "sku": "SKU-001623",
+          "location": "A04-R05-R4",
           "qty": 1
         },
         {
-          "sku": "SKU-000931",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-002334",
+          "sku": "SKU-000677",
           "qty": 1
         },
         {
-          "sku": "SKU-001346",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-001895",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-002038",
-          "qty": 2
-        },
-        {
-          "sku": "8909404279673",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-001602",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-002345",
+          "sku": "SKU-002023",
           "qty": 1
         },
         {
-          "sku": "SKU-000511",
-          "qty": 2
+          "sku": "SKU-001181",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-000227",
+          "qty": 3
+        },
+        {
+          "sku": "SKU-002460",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-001460",
+          "qty": 1
         }
       ]
     },
@@ -3363,44 +3163,48 @@
           "qty": 1
         },
         {
-          "sku": "SKU-000943",
+          "location": "A04-R08-R1",
           "qty": 2
         },
         {
-          "sku": "SKU-000235",
+          "location": "A08-R06-R4",
+          "qty": 1
+        },
+        {
+          "location": "A03-L04-R2",
           "qty": 2
         },
         {
-          "sku": "SKU-002230",
+          "location": "A03-L04-R4",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-002359",
+          "qty": 3
+        },
+        {
+          "sku": "SKU-000374",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-001456",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-002255",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-002328",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-000809",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-001366",
           "qty": 2
-        },
-        {
-          "sku": "SKU-001697",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001957",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-000670",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-002114",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-000029",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-001579",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001368",
-          "qty": 1
         }
       ]
     },
@@ -3415,51 +3219,43 @@
           "qty": 1
         },
         {
-          "location": "A06-L15-R2",
+          "location": "A05-R19-R3",
           "qty": 1
         },
         {
-          "sku": "SKU-001945",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-001147",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-001743",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-001551",
+          "location": "A01-R14-R4",
           "qty": 1
         },
         {
-          "sku": "SKU-000620",
+          "location": "A03-L15-R2",
           "qty": 3
         },
         {
-          "sku": "SKU-001250",
+          "location": "A05-R18-R2",
           "qty": 1
         },
         {
-          "sku": "SKU-001087",
+          "sku": "SKU-001513",
           "qty": 1
         },
         {
-          "sku": "SKU-000833",
+          "sku": "SKU-002452",
+          "qty": 2
+        },
+        {
+          "sku": "SKU-001902",
           "qty": 1
         },
         {
-          "sku": "SKU-002460",
-          "qty": 3
+          "sku": "SKU-001415",
+          "qty": 2
         },
         {
-          "sku": "SKU-001800",
+          "sku": "SKU-001573",
           "qty": 1
         },
         {
-          "sku": "SKU-001205",
+          "sku": "SKU-001990",
           "qty": 1
         }
       ]
@@ -3475,43 +3271,39 @@
           "qty": 1
         },
         {
-          "sku": "SKU-000889",
+          "location": "A06-R10-R3",
           "qty": 2
         },
         {
-          "sku": "SKU-000771",
+          "location": "A07-L15-R1",
           "qty": 1
         },
         {
-          "location": "A04-L10-R4",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001420",
+          "location": "A07-R20-R3",
           "qty": 2
         },
         {
-          "sku": "SKU-001022",
+          "sku": "SKU-000285",
           "qty": 1
         },
         {
-          "sku": "SKU-001950",
+          "sku": "SKU-001259",
           "qty": 1
         },
         {
-          "sku": "SKU-000335",
+          "sku": "SKU-001754",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-000980",
           "qty": 2
         },
         {
-          "location": "A05-L12-R1",
+          "sku": "SKU-000306",
           "qty": 1
         },
         {
-          "sku": "SKU-001357",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-000709",
+          "sku": "SKU-001017",
           "qty": 1
         }
       ]
@@ -3527,44 +3319,48 @@
           "qty": 1
         },
         {
-          "sku": "SKU-002055",
+          "location": "A07-R09-R3",
           "qty": 1
         },
         {
-          "sku": "SKU-000397",
+          "location": "A06-L19-R2",
+          "qty": 1
+        },
+        {
+          "location": "A02-R03-R2",
+          "qty": 1
+        },
+        {
+          "location": "A06-L07-R1",
           "qty": 2
         },
         {
-          "sku": "SKU-001369",
+          "sku": "SKU-000573",
           "qty": 2
         },
         {
-          "sku": "SKU-002005",
+          "sku": "SKU-001215",
           "qty": 1
         },
         {
-          "sku": "SKU-002455",
+          "sku": "SKU-000302",
+          "qty": 2
+        },
+        {
+          "sku": "SKU-001591",
           "qty": 1
         },
         {
-          "sku": "SKU-000338",
+          "sku": "SKU-001569",
           "qty": 1
         },
         {
-          "sku": "SKU-000098",
+          "sku": "SKU-000085",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-000231",
           "qty": 3
-        },
-        {
-          "sku": "SKU-002084",
-          "qty": 2
-        },
-        {
-          "sku": "SKU-002326",
-          "qty": 3
-        },
-        {
-          "sku": "SKU-001617",
-          "qty": 2
         }
       ]
     },
@@ -3579,39 +3375,55 @@
           "qty": 1
         },
         {
-          "sku": "SKU-002193",
+          "location": "A03-R17-R1",
+          "qty": 1
+        },
+        {
+          "location": "A06-L19-R1",
+          "qty": 1
+        },
+        {
+          "location": "A06-R14-R1",
+          "qty": 1
+        },
+        {
+          "location": "A05-L17-R1",
           "qty": 2
         },
         {
-          "sku": "SKU-002127",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001109",
+          "location": "A03-L14-R1",
           "qty": 2
         },
         {
-          "sku": "SKU-000220",
+          "sku": "SKU-001104",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-002404",
           "qty": 2
         },
         {
-          "sku": "SKU-000500",
+          "sku": "SKU-000614",
+          "qty": 3
+        },
+        {
+          "sku": "SKU-001427",
+          "qty": 2
+        },
+        {
+          "sku": "SKU-002196",
+          "qty": 2
+        },
+        {
+          "sku": "SKU-000360",
+          "qty": 2
+        },
+        {
+          "sku": "SKU-000635",
           "qty": 1
         },
         {
-          "sku": "SKU-002150",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-000057",
-          "qty": 1
-        },
-        {
-          "location": "A03-R15-R3",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-002081",
+          "sku": "SKU-000232",
           "qty": 1
         }
       ]
@@ -3627,52 +3439,56 @@
           "qty": 1
         },
         {
-          "sku": "SKU-000771",
+          "location": "A03-R20-R2",
+          "qty": 1
+        },
+        {
+          "location": "A04-L18-R2",
+          "qty": 1
+        },
+        {
+          "location": "A03-L20-R1",
+          "qty": 1
+        },
+        {
+          "location": "A06-R13-R2",
           "qty": 2
         },
         {
-          "sku": "SKU-000028",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-000777",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001630",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001547",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001701",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-000568",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001765",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-002352",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001567",
+          "location": "A02-L08-R2",
           "qty": 2
         },
         {
-          "sku": "SKU-001146",
+          "sku": "SKU-001442",
+          "qty": 2
+        },
+        {
+          "sku": "SKU-000231",
           "qty": 1
         },
         {
-          "sku": "SKU-000894",
+          "sku": "SKU-002146",
           "qty": 1
+        },
+        {
+          "sku": "SKU-001421",
+          "qty": 1
+        },
+        {
+          "sku": "8909404093538",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-000922",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-001015",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-001096",
+          "qty": 3
         }
       ]
     },
@@ -3687,55 +3503,47 @@
           "qty": 1
         },
         {
-          "sku": "SKU-002168",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001269",
+          "location": "A04-L07-R4",
           "qty": 2
         },
         {
-          "sku": "SKU-001234",
+          "location": "A05-R06-R3",
           "qty": 1
         },
         {
-          "sku": "SKU-000724",
+          "location": "A05-R17-R1",
           "qty": 2
         },
         {
-          "sku": "SKU-000061",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001947",
+          "location": "A08-R04-R1",
           "qty": 2
         },
         {
-          "sku": "SKU-000028",
-          "qty": 1
+          "sku": "SKU-002326",
+          "qty": 3
         },
         {
-          "sku": "SKU-000070",
+          "sku": "SKU-000236",
           "qty": 2
         },
         {
-          "sku": "SKU-001030",
+          "sku": "SKU-000306",
+          "qty": 2
+        },
+        {
+          "sku": "SKU-000011",
           "qty": 1
         },
         {
-          "sku": "SKU-001473",
+          "sku": "SKU-000219",
           "qty": 1
         },
         {
-          "sku": "SKU-000168",
+          "sku": "SKU-001198",
           "qty": 1
         },
         {
-          "sku": "SKU-001689",
-          "qty": 1
-        },
-        {
-          "sku": "SKU-001817",
+          "sku": "SKU-002059",
           "qty": 1
         }
       ]
@@ -3751,47 +3559,51 @@
           "qty": 1
         },
         {
-          "sku": "SKU-001063",
+          "location": "A02-L02-R1",
           "qty": 1
         },
         {
-          "sku": "SKU-001119",
+          "location": "A02-R11-R4",
           "qty": 2
         },
         {
-          "sku": "SKU-001672",
+          "location": "A04-L19-R4",
           "qty": 1
         },
         {
-          "location": "A01-R12-R4",
+          "location": "A07-L06-R2",
           "qty": 1
         },
         {
-          "sku": "8909001186305",
+          "sku": "SKU-001321",
           "qty": 1
         },
         {
-          "sku": "SKU-001213",
+          "sku": "SKU-001174",
           "qty": 2
         },
         {
-          "sku": "SKU-000026",
+          "sku": "SKU-002018",
           "qty": 1
         },
         {
-          "sku": "SKU-001798",
+          "sku": "SKU-000088",
           "qty": 2
         },
         {
-          "sku": "SKU-000514",
+          "sku": "SKU-002462",
           "qty": 1
         },
         {
-          "sku": "SKU-001054",
+          "sku": "SKU-000313",
+          "qty": 1
+        },
+        {
+          "sku": "SKU-001285",
           "qty": 2
         },
         {
-          "sku": "SKU-000865",
+          "sku": "SKU-000246",
           "qty": 1
         }
       ]
