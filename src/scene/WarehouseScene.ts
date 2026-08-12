@@ -1189,7 +1189,7 @@ export class WarehouseScene {
       }
 
       // Smooth the pose so the mesh never snaps, even at 20x time scale.
-      const target = this.tmpTarget.set(agent.pos.x, agent.lift, agent.pos.y)
+      const target = this.tmpTarget.set(agent.pos.x, agent.elevation + agent.lift, agent.pos.y)
       const lerp = Math.min(1, dt * 14)
       /*
        * Horizontal speed only — the vertical component is the picker being

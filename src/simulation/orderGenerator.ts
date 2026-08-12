@@ -25,6 +25,9 @@ const CHANNELS: Order['channel'][] = ['Ecommerce', 'Store Replen', 'Click & Coll
  */
 const DEMAND_WEIGHT: Record<VelocityTier, number> = { fast: 0.6, medium: 0.3, slow: 0.1 }
 
+/** Share of lines drawn from the reserve tier rather than the pick face. */
+const RESERVE_DEMAND_SHARE = 0.05
+
 let orderSeq = 1
 
 export function resetOrderSequence(): void {
@@ -102,8 +105,18 @@ function drawBin(
   weights: number[],
   used: Set<string>,
 ): Bin | null {
-  // 15% chance to force a pick from the reserve tier (top rack) to ensure it's heavily utilized
-  if (rng.float(0, 1) < 0.15 && pools.reserve.length > 0) {
+  /*
+   * Occasionally send a line to bulk, so the reserve tier is visibly worked.
+   *
+   * Kept low on purpose. A bulk line is now a genuine journey — cross to the
+   * staircase, climb, walk back along the mezzanine, and the same again in
+   * reverse — so at 15% it swamped every other dynamic the twin exists to
+   * show: walking dominated the shift so completely that an under-staffed
+   * pack wall stopped being a bottleneck at all. Real bulk retrieval is
+   * occasional, and modelling it that way is both truer and lets the rest of
+   * the model breathe.
+   */
+  if (rng.float(0, 1) < RESERVE_DEMAND_SHARE && pools.reserve.length > 0) {
     for (let attempt = 0; attempt < 10; attempt++) {
       const bin = pools.reserve[rng.int(0, pools.reserve.length - 1)]
       if (!used.has(bin.id)) return bin

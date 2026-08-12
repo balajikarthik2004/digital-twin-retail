@@ -4,7 +4,7 @@ import realCatalogDoc from '../data/realCatalog.json'
 import sampleOrdersDoc from '../data/sampleOrders.json'
 import type { CatalogEntry } from '../warehouse/catalog'
 import { generateWarehouse } from '../warehouse/generate'
-import { isReserveLevel } from '../warehouse/rackGeometry'
+import { isReserveLevel, mezzanineFloorY } from '../warehouse/rackGeometry'
 import type { WarehouseConfig } from '../warehouse/types'
 import { compareStrategies } from './compare'
 import { AGENT_COLORS, MAX_AGENTS, SimulationEngine } from './engine'
@@ -829,6 +829,37 @@ describe('reserve tier picking', () => {
     const reserveVisited = [...visited].filter((id) => reserveBinIds.has(id))
     expect(reserveVisited.length).toBeGreaterThan(0)
     expect(engine.metrics().ordersCompleted).toBe(orders.length)
+  })
+
+  it('walks pickers up a staircase onto the mezzanine to reach bulk', () => {
+    /*
+     * The journey is the point. A bulk line has to take the picker off the
+     * ground floor, up one of the two flights and along the mezzanine — so a
+     * run of the demo wave must show agents at mezzanine height, and must show
+     * them passing through the in-between heights a staircase produces rather
+     * than teleporting between storeys.
+     */
+    const realModel = generateWarehouse(config, realCatalogDoc as unknown as CatalogEntry[])
+    const { orders } = importOrders(realModel, sampleOrdersDoc)
+    const engine = new SimulationEngine(realModel, { ...settings, agentCount: 4 })
+    engine.setOrders(orders)
+
+    const mezzY = mezzanineFloorY(config)
+    let onMezzanine = 0
+    let midFlight = 0
+    engine.start()
+    while (engine.time < 40000 && engine.running) {
+      engine.step(0.25)
+      for (const a of engine.agents) {
+        if (Math.abs(a.elevation - mezzY) < 0.05) onMezzanine++
+        else if (a.elevation > 0.3 && a.elevation < mezzY - 0.3) midFlight++
+      }
+    }
+
+    expect(onMezzanine).toBeGreaterThan(0)
+    expect(midFlight).toBeGreaterThan(0)
+    // And nobody ends the shift stranded upstairs.
+    expect(engine.agents.every((a) => a.elevation === 0)).toBe(true)
   })
 
   it('raises the picker to bulk shelves and always sets it back down', () => {

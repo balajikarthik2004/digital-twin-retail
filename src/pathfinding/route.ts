@@ -64,6 +64,7 @@ export function buildRoute(
   }
 
   const polyline = nodePath.map((id) => ctx.node(id).pos)
+  const elevations = nodePath.map((id) => ctx.node(id).elevation ?? 0)
   const cumulative = new Array<number>(polyline.length)
   cumulative[0] = 0
   for (let i = 1; i < polyline.length; i++) {
@@ -81,6 +82,7 @@ export function buildRoute(
     strategyId: strategy.id,
     nodePath,
     polyline,
+    elevations,
     cumulative,
     waypoints,
     distance: cumulative[cumulative.length - 1] ?? 0,

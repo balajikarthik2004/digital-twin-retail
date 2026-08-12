@@ -60,6 +60,15 @@ export interface PickerAgent {
   pos: Vec2
   /** Facing angle in radians (atan2 of travel direction), for the 3D mesh. */
   heading: number
+  /**
+   * Height of the walking surface the picker is standing on, metres — 0 on the
+   * ground floor, the mezzanine deck when working the reserve tier, and
+   * interpolated in between while on a staircase.
+   *
+   * Distinct from {@link lift}, which is how far it reaches *above* whatever
+   * surface it is standing on. The mesh sits at `elevation + lift`.
+   */
+  elevation: number
   /** Orders in the current tour. More than one means batch picking. */
   orders: Order[]
   route: Route | null
