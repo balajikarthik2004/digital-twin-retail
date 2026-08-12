@@ -3,7 +3,6 @@ import { HandShapeTracker, pinchRatio } from './GestureDetector'
 import { NavigationController } from './NavigationController'
 import { LandmarkSmoother } from './smoothing'
 import {
-  clamp,
   HAND_CONTROL_IDLE,
   ZERO_AXES,
   ZERO_INTENT,
@@ -15,18 +14,7 @@ import {
 } from './types'
 import { ZoomController } from './ZoomController'
 
-/**
- * Fixed yaw rate while a fist is held — deliberately *not* proportional to
- * hand position or velocity. An earlier version drove rotate from how fast
- * two open hands were drifting sideways, which is nearly impossible for a
- * human to hold at exactly zero: any residual tracking noise read as the
- * camera "continuing to spin on its own," and there was no clear on-screen
- * "home" position to return to, to know it had actually stopped. A flat rate
- * that starts the instant a fist closes and stops the instant it opens has
- * neither problem — the only state is "is the hand a fist," which is exactly
- * as binary as the fix needs it to be.
- */
-const ROTATE_SPEED = 0.35
+
 
 /**
  * The central `handleGesture()` of the feature: every tracked frame, turns up

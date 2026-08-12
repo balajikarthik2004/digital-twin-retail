@@ -1,4 +1,3 @@
-import { clamp } from './types'
 
 /**
  * One-hand pinch-zoom: extend thumb and index (the other three fingers

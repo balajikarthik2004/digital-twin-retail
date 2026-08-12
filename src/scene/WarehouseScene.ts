@@ -119,8 +119,7 @@ const ROAM_MARGIN = 14
 
 /** Radians/second of orbit at full stick deflection (hand-control rotate). */
 const ROTATE_RATE = 1.6
-/** Fraction of distance-to-target zoomed per second at full stick deflection. */
-const ZOOM_RATE = 1.1
+
 /** Kept off true vertical, same reasoning as the polar limit below — an orbit
  *  that reaches exactly zenith/nadir loses azimuth and the view can snap. */
 const MIN_POLAR = 0.03

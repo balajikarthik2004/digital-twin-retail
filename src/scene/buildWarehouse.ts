@@ -639,24 +639,7 @@ export function buildWarehouse(model: WarehouseModel, themeMode: ThemeMode = 'li
     velocity: new Float32Array(binOrder.length * 3),
     zone: new Float32Array(binOrder.length * 3),
   }
-  /**
-   * Stretch film over a bulk pallet: lift the colour towards white and drop
-   * its saturation, without changing which hue it is.
-   *
-   * Physically this is just what a wrapped pallet looks like — you read the
-   * product through several turns of milky film, not in the open. It also
-   * fixes a real hierarchy problem the moment bulk became real storage: a
-   * reserve position is many times the volume of a case slot and sits above
-   * eye line across the whole module, so at full saturation the tier reads as
-   * a wall of colour and buries the pick face underneath it. The pick face is
-   * where the work happens, so it keeps the vivid end of the palette.
-   */
-  const WRAP_LIFT = 0.62
-  const wrapped = (c: THREE.Color) => {
-    c.r += (1 - c.r) * WRAP_LIFT
-    c.g += (1 - c.g) * WRAP_LIFT
-    c.b += (1 - c.b) * WRAP_LIFT
-  }
+
 
   binOrder.forEach((bin, i) => {
     baseColor.setHex(VELOCITY_COLOR[bin.sku.velocity])
