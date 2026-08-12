@@ -160,16 +160,65 @@
   .panel {
     @apply rounded-xl border border-ink-700/50 bg-ink-800/40 backdrop-blur-md shadow-[0_4px_24px_-8px_rgba(0,0,0,0.3)];
   }
+  /*
+   * The two side rails.
+   *
+   * Depth lives at the edge that meets the 3D view, not across the whole
+   * surface: a soft accent glow and a bright inner hairline where the rail
+   * meets the canvas, then a clean, near-neutral plane for the panels to sit
+   * on. A broad accent wash across the full rail tinted every card sitting on
+   * it and cost contrast on the small print they are mostly made of — the
+   * glow reads as the same premium material without touching legibility.
+   */
+  .rail {
+    background:
+      linear-gradient(to bottom, rgb(var(--ink-900)), rgb(var(--ink-950)) 22%),
+      rgb(var(--ink-950));
+  }
+  .rail-left {
+    border-right: 1px solid rgb(var(--ink-700));
+    box-shadow:
+      inset -1px 0 0 rgb(255 255 255 / 0.04),
+      12px 0 40px -18px rgb(var(--accent) / 0.5),
+      2px 0 12px -6px rgb(0 0 0 / 0.35);
+  }
+  .rail-right {
+    border-left: 1px solid rgb(var(--ink-700));
+    box-shadow:
+      inset 1px 0 0 rgb(255 255 255 / 0.04),
+      -12px 0 40px -18px rgb(var(--accent) / 0.5),
+      -2px 0 12px -6px rgb(0 0 0 / 0.35);
+  }
+
   /* Floating overlays sit on the 3D canvas and need to stay legible over it. */
   .panel-float {
     @apply rounded-xl border border-ink-600 bg-ink-800/95 backdrop-blur-md;
     box-shadow: var(--shadow-float);
   }
+  /*
+   * A card's header reads as a distinct band rather than a rule with text
+   * above it: the tint separates it from the body without another hairline,
+   * and it is what makes a column of cards scan as a stack of objects instead
+   * of one continuous wall of text.
+   */
   .panel-header {
-    @apply flex items-center justify-between gap-2 border-b border-ink-700 px-3.5 py-2.5;
+    @apply flex items-center justify-between gap-2 rounded-t-xl border-b border-ink-700/70
+           bg-ink-850/50 px-3.5 py-2.5;
   }
+  /*
+   * Titles carry a short accent rule. Panels are the only landmark in a 340px
+   * rail with no other structure, so they need to be findable while scrolling
+   * without shouting — a 2px mark reads at a glance and costs no vertical
+   * space, where a heavier treatment on every card would just become noise.
+   */
   .panel-title {
-    @apply text-[11px] font-semibold uppercase tracking-[0.13em] text-ink-400;
+    @apply relative flex items-center gap-2 pl-2.5 text-[11px] font-semibold uppercase
+           tracking-[0.13em] text-ink-300;
+  }
+  .panel-title::before {
+    content: '';
+    @apply absolute left-0 h-3 w-[2px] rounded-full;
+    background: linear-gradient(to bottom, rgb(var(--accent)), rgb(var(--accent) / 0.25));
   }
   /*
    * Small caption sitting directly above a bigger value — the shift clock,
@@ -211,14 +260,27 @@
   .field-value {
     @apply font-mono text-[11px] tabular-nums text-accent-soft;
   }
+  /*
+   * Headline numbers are the one place this interface should feel expensive.
+   * Tabular figures so a counter ticking up doesn't jitter its own width, and
+   * a very slight negative tracking that stops large numerals looking loose.
+   */
   .stat-value {
-    @apply text-[22px] font-semibold leading-none tracking-tight text-ink-100;
+    @apply text-[22px] font-semibold leading-none tracking-[-0.02em] tabular-nums text-ink-100;
   }
   .stat-label {
     @apply text-[10px] font-medium uppercase tracking-[0.11em] text-ink-400;
   }
+  /* Fades out at both ends rather than butting into the card's padding. */
   .divider {
-    @apply my-3 h-px bg-ink-700;
+    @apply my-3 h-px border-0;
+    background: linear-gradient(
+      to right,
+      transparent,
+      rgb(var(--ink-600)) 15%,
+      rgb(var(--ink-600)) 85%,
+      transparent
+    );
   }
   /* Selected state for the card-style option lists. */
   .option-active {
