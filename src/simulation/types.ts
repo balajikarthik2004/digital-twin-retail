@@ -141,6 +141,24 @@ export interface PickerAgent {
  * whole lifecycle — walked distance, pack time and conveyor transit — rather
  * than only the part that happened in the aisles.
  */
+/**
+ * One stop on a picker's tour, in the order the routing strategy chose to
+ * visit it. This is the audit trail for *why the walk looked the way it did* —
+ * the strategy is free to reorder an order's lines however it likes, so the
+ * sequence a picker actually walked is not recoverable from the order alone.
+ */
+export interface PickStep {
+  /** 1-based position in the tour, shared across a batch — so a batched order's
+   *  steps can be non-contiguous, which is exactly the interleaving worth seeing. */
+  seq: number
+  /** Operator location code, e.g. `A03-L07-2B`. */
+  code: string
+  sku: string
+  qty: number
+  /** Taken from the reserve tier upstairs, so this step needed the staircase. */
+  reserve: boolean
+}
+
 export interface PackJob {
   orderId: string
   ref: string
@@ -160,6 +178,8 @@ export interface PackJob {
   assignedAt: number
   pickedAt: number
   dueAt: number
+  /** This order's stops, in the sequence the strategy walked them. */
+  pickPath: PickStep[]
 }
 
 export type PackStationPhase = 'idle' | 'packing' | 'mergeBlocked' | 'unstaffed'
@@ -287,6 +307,10 @@ export interface CompletedOrder {
   onTime: boolean
   /** Orders picked together in the same tour. */
   batchSize: number
+  /** The walk itself: this order's stops in the sequence {@link strategyId}
+   *  chose. Survives into the history export, which is the only record of the
+   *  route once the picker has moved on. */
+  pickPath: PickStep[]
 }
 
 export interface SimEvent {

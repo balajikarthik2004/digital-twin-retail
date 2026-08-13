@@ -1035,3 +1035,61 @@ describe('bulk retrieval metrics', () => {
     )
   })
 })
+
+describe('pick path — the route the strategy chose', () => {
+  const run = (over: Partial<SimSettings> = {}) => {
+    const engine = new SimulationEngine(model, { ...settings, agentCount: 2, ...over })
+    engine.setOrders(
+      generateOrders(model, { count: 12, minLines: 3, maxLines: 6, arrivalPerMin: 600, seed: 31 }),
+    )
+    runToCompletion(engine)
+    return engine.completedOrders
+  }
+
+  it('records one step per line, and never loses a line on the way to the export', () => {
+    for (const c of run()) {
+      expect(c.pickPath).toHaveLength(c.picks)
+    }
+  })
+
+  it('is ordered by the walk, not by the order the lines were written in', () => {
+    for (const c of run()) {
+      const seqs = c.pickPath.map((s) => s.seq)
+      expect(seqs).toEqual([...seqs].sort((a, b) => a - b))
+    }
+  })
+
+  it('carries the location, product and quantity picked at each stop', () => {
+    const [first] = run()
+    for (const step of first.pickPath) {
+      expect(step.code).toMatch(/^A\d\d-[LR]\d\d-/)
+      expect(step.sku.length).toBeGreaterThan(0)
+      expect(step.qty).toBeGreaterThan(0)
+      expect(typeof step.reserve).toBe('boolean')
+    }
+  })
+
+  it('flags the stops that needed the staircase', () => {
+    const steps = run().flatMap((c) => c.pickPath)
+    expect(steps.some((s) => s.reserve)).toBe(true)
+    // The flag has to agree with the model, not just be set somewhere.
+    for (const s of steps.filter((x) => x.reserve)) {
+      const bin = model.bins.find((b) => b.code === s.code)!
+      expect(isReserveLevel(model.config, bin.level)).toBe(true)
+    }
+  })
+
+  it('interleaves sequence numbers across a batched tour, so the batching is visible', () => {
+    const batched = run({ batchOrders: true })
+    const tours = new Map<number, typeof batched>()
+    for (const c of batched) {
+      tours.set(c.tourId, [...(tours.get(c.tourId) ?? []), c])
+    }
+    const shared = [...tours.values()].find((t) => t.length > 1)
+    expect(shared).toBeDefined()
+    // Two orders on one tour draw from a single 1..n sequence, so no number
+    // is reused between them — that shared numbering IS the batch.
+    const all = shared!.flatMap((c) => c.pickPath.map((s) => s.seq))
+    expect(new Set(all).size).toBe(all.length)
+  })
+})

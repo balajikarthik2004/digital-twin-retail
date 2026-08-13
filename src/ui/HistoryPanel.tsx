@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { Movement, MovementKind } from '../inbound/types'
+import { getStrategy } from '../pathfinding/strategies'
 import { useAppStore } from '../store/useAppStore'
 import { Card, EmptyState, Segmented, StatTile, cx } from './components/primitives'
 import { compact, metres, mmss } from './format'
@@ -34,6 +35,8 @@ export function HistoryPanel() {
       qty: c.picks,
       distance: c.distance,
       onTime: c.onTime,
+      strategy: getStrategy(c.strategyId).name,
+      path: c.pickPath,
     }))
     return [...inboundLog, ...outbound].sort((a, b) => b.at - a.at)
   }, [inboundLog, engine, shipped])
@@ -135,6 +138,8 @@ export function HistoryPanel() {
 
 function MovementRow({ movement }: { movement: Movement }) {
   const inbound = movement.kind === 'inbound'
+  const [open, setOpen] = useState(false)
+  const path = movement.path ?? []
   return (
     <div className="flex gap-2 rounded-md border border-ink-700/70 bg-ink-850/50 px-2 py-1.5">
       <span
@@ -168,6 +173,52 @@ function MovementRow({ movement }: { movement: Movement }) {
             <span className="text-[var(--viz-critical)]">· missed SLA</span>
           )}
         </div>
+
+        {/*
+          * The route, behind a disclosure. A tour of nine stops is far too much
+          * to sit open in a log that is mostly scanned, but it is the one thing
+          * here that cannot be reconstructed afterwards — the strategy chose
+          * this order, and nothing else records what it chose.
+          */}
+        {path.length > 0 && (
+          <>
+            <button
+              type="button"
+              onClick={() => setOpen((v) => !v)}
+              className="mt-1 flex w-full items-center gap-1 text-left text-[9px] text-ink-400 transition-colors hover:text-accent-soft"
+              aria-expanded={open}
+            >
+              <span className={cx('transition-transform', open && 'rotate-90')}>›</span>
+              {open ? 'Hide' : 'Show'} route · {path.length} stops
+              {movement.strategy && <span className="text-ink-500">· {movement.strategy}</span>}
+            </button>
+
+            {open && (
+              <ol className="mt-1 space-y-0.5 border-l border-ink-700 pl-2">
+                {path.map((step) => (
+                  <li key={step.seq} className="flex items-baseline gap-1.5 text-[9px]">
+                    <span className="w-4 shrink-0 text-right font-mono tabular-nums text-ink-500">
+                      {step.seq}.
+                    </span>
+                    <span className="shrink-0 font-mono text-ink-200">{step.code}</span>
+                    {step.reserve && (
+                      <span
+                        className="shrink-0 rounded bg-ink-700 px-1 text-[8px] font-semibold text-ink-200"
+                        title="Reserve tier — reached by the staircase"
+                      >
+                        BULK
+                      </span>
+                    )}
+                    <span className="truncate text-ink-400">{step.sku}</span>
+                    <span className="ml-auto shrink-0 font-mono tabular-nums text-ink-500">
+                      ×{step.qty}
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </>
+        )}
       </div>
     </div>
   )
@@ -182,7 +233,9 @@ function Fact({ label, value }: { label: string; value: string }) {
   )
 }
 
-const CSV_HEADER = 'direction,time,reference,detail,location,quantity,distance_m,on_time'
+const CSV_HEADER =
+  'direction,time,reference,detail,location,quantity,distance_m,on_time,' +
+  'stops,pick_route,picked_products,bulk_stops'
 
 /** Quote a field for CSV — the detail column contains commas and middots. */
 function cell(value: string | number | boolean | null): string {
@@ -191,13 +244,70 @@ function cell(value: string | number | boolean | null): string {
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
 }
 
+/**
+ * The walk, as two parallel columns: where the picker went, and what they
+ * lifted at each stop.
+ *
+ * Split rather than combined because the two get used differently — the route
+ * column is compared against a floor plan, the product column against a pick
+ * list — and one merged string is awkward to read in either. Both carry the
+ * same `n.` sequence numbers so a row in one lines up with a row in the other.
+ *
+ * The numbers are the position in the *tour*, not in the order, so a batched
+ * order legitimately reads `2. ... 5. ... 6.` — the gaps are where the picker
+ * was collecting the other order in the same batch, which is the thing you want
+ * to see when asking why a route looked the way it did.
+ *
+ * Deliberately plain ASCII (`->`, `x2`) rather than the `→` and `×` this used
+ * to emit. The BOM below makes those render correctly in Excel, but a CSV gets
+ * opened by all sorts of things — a text editor set to a legacy code page, a
+ * grep, an import script — and a separator that survives every one of them is
+ * worth more here than a prettier glyph.
+ */
+const ARROW = ' -> '
+
+function routeCell(path: Movement['path']): string {
+  if (!path || path.length === 0) return ''
+  return path.map((s) => `${s.seq}. ${s.code}${s.reserve ? ' (bulk)' : ''}`).join(ARROW)
+}
+
+function productsCell(path: Movement['path']): string {
+  if (!path || path.length === 0) return ''
+  return path.map((s) => `${s.seq}. ${s.sku} x${s.qty}`).join(ARROW)
+}
+
 function downloadCsv(movements: Movement[]): void {
   const rows = movements.map((m) =>
-    [m.kind, mmss(m.at), m.ref, m.detail, m.location, m.qty, Math.round(m.distance), m.onTime]
+    [
+      m.kind,
+      mmss(m.at),
+      m.ref,
+      m.detail,
+      m.location,
+      m.qty,
+      Math.round(m.distance),
+      m.onTime,
+      m.path?.length ?? '',
+      routeCell(m.path),
+      productsCell(m.path),
+      m.path?.filter((s) => s.reserve).length ?? '',
+    ]
       .map(cell)
       .join(','),
   )
-  const blob = new Blob([[CSV_HEADER, ...rows].join('\n')], { type: 'text/csv;charset=utf-8' })
+  /*
+   * Leading U+FEFF byte-order mark.
+   *
+   * Excel does not sniff UTF-8: without a BOM it opens a .csv in the machine's
+   * legacy code page, so every multi-byte character arrives mangled — `·`
+   * became `Â·`, `×` became `Ã—`. The BOM is three bytes that tell it the file
+   * is UTF-8, and every other reader treats it as invisible whitespace. It
+   * matters for the product names too, which can carry accents.
+   */
+  // Escaped rather than a literal BOM: an invisible character at the start of a
+  // string literal is the kind of thing an editor or a reformat quietly eats.
+  const csv = '\uFEFF' + [CSV_HEADER, ...rows].join('\r\n')
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url

@@ -19,6 +19,7 @@ import type {
   PackStation,
   Parcel,
   PickerAgent,
+  PickStep,
   PickTask,
   SimEvent,
   SimMetrics,
@@ -1034,6 +1035,33 @@ export class SimulationEngine {
       const totalLines = batch.reduce((s, o) => s + o.lines.length, 0) || 1
       const tourId = this.tourSeq++
 
+      /*
+       * The walk the strategy actually chose, bucketed by order.
+       *
+       * Read off `route.waypoints`, which are already in visiting order, rather
+       * than off the orders — the whole job of a routing strategy is to reorder
+       * the lines, so an order's own line order says nothing about the path. On
+       * a batched tour the sequence numbers interleave between orders, and that
+       * is kept deliberately: seeing order A's steps at 1, 4 and 5 is the
+       * clearest evidence there is that batching did something.
+       */
+      const pathByOrder = new Map<string, PickStep[]>()
+      for (const wp of route.waypoints) {
+        const data = wp.stop.data as StopData | undefined
+        if (!data) continue
+        const bin = this.model.binsById.get(wp.stop.ref)
+        if (!bin) continue
+        const steps = pathByOrder.get(data.orderId) ?? []
+        steps.push({
+          seq: wp.sequence,
+          code: bin.code,
+          sku: bin.sku.name,
+          qty: data.qty,
+          reserve: isReserveLevel(this.model.config, bin.level),
+        })
+        pathByOrder.set(data.orderId, steps)
+      }
+
       for (const order of batch) {
         const share = order.lines.length / totalLines
         agent.ordersDone++
@@ -1055,6 +1083,7 @@ export class SimulationEngine {
           assignedAt: agent.orderStartedAt,
           pickedAt: this.time,
           dueAt: order.dueAt,
+          pickPath: pathByOrder.get(order.id) ?? [],
         })
       }
 

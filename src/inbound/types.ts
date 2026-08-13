@@ -1,4 +1,5 @@
 import type { Route } from '../pathfinding/types'
+import type { PickStep } from '../simulation/types'
 import type { Bin, VelocityTier } from '../warehouse/types'
 
 /**
@@ -170,4 +171,14 @@ export interface Movement {
   distance: number
   /** Outbound only: whether it beat its SLA. */
   onTime: boolean | null
+  /**
+   * Which routing strategy planned the walk, by display name.
+   *
+   * Outbound only for now — an inbound putaway is routed too, but along a
+   * single fixed goods-in → location leg with nothing to sequence, so naming a
+   * strategy there would imply a choice that was never made.
+   */
+  strategy?: string
+  /** The stops in the order they were actually walked. See {@link PickStep}. */
+  path?: PickStep[]
 }
