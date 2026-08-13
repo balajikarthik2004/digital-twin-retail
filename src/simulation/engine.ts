@@ -1045,22 +1045,30 @@ export class SimulationEngine {
        * is kept deliberately: seeing order A's steps at 1, 4 and 5 is the
        * clearest evidence there is that batching did something.
        */
+      const refById = new Map(batch.map((o) => [o.id, o.ref]))
       const pathByOrder = new Map<string, PickStep[]>()
+      /** Every stop on the tour, in walked order — the picker's own route. */
+      const tourPath: PickStep[] = []
       for (const wp of route.waypoints) {
         const data = wp.stop.data as StopData | undefined
         if (!data) continue
         const bin = this.model.binsById.get(wp.stop.ref)
         if (!bin) continue
-        const steps = pathByOrder.get(data.orderId) ?? []
-        steps.push({
+        const step: PickStep = {
           seq: wp.sequence,
           code: bin.code,
           sku: bin.sku.name,
           qty: data.qty,
           reserve: isReserveLevel(this.model.config, bin.level),
-        })
-        pathByOrder.set(data.orderId, steps)
+          ref: refById.get(data.orderId) ?? data.orderId,
+        }
+        tourPath.push(step)
+        pathByOrder.set(data.orderId, [...(pathByOrder.get(data.orderId) ?? []), step])
       }
+      // Where the walk began and ended. Named from the facility rather than the
+      // node id so the export reads like a place, not a graph key.
+      const tourOrigin =
+        this.model.facilities.find((f) => f.node === agent.homeNode)?.label ?? 'Depot'
 
       for (const order of batch) {
         const share = order.lines.length / totalLines
@@ -1084,6 +1092,8 @@ export class SimulationEngine {
           pickedAt: this.time,
           dueAt: order.dueAt,
           pickPath: pathByOrder.get(order.id) ?? [],
+          tourPath,
+          tourOrigin,
         })
       }
 

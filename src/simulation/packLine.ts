@@ -539,6 +539,8 @@ export class PackLine {
       onTime: time <= job.dueAt,
       batchSize: job.batchSize,
       pickPath: job.pickPath,
+      tourPath: job.tourPath,
+      tourOrigin: job.tourOrigin,
     })
   }
 

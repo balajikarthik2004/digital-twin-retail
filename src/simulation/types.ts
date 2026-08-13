@@ -157,6 +157,11 @@ export interface PickStep {
   qty: number
   /** Taken from the reserve tier upstairs, so this step needed the staircase. */
   reserve: boolean
+  /** Which order this stop was collected for. Only differs from the row's own
+   *  reference on a batched tour, and that is the point: it is what turns the
+   *  gaps in {@link seq} from unexplained holes into "the picker was fetching
+   *  the other order". */
+  ref: string
 }
 
 export interface PackJob {
@@ -180,6 +185,18 @@ export interface PackJob {
   dueAt: number
   /** This order's stops, in the sequence the strategy walked them. */
   pickPath: PickStep[]
+  /**
+   * Every stop on the tour this order was picked in — including the other
+   * orders' stops when it was batched — in walked order.
+   *
+   * Distinct from {@link pickPath} on purpose. `pickPath` answers "where did
+   * this order's lines come from"; this answers "where did the picker actually
+   * go", which on a batched tour is a different and longer walk. Identical to
+   * `pickPath` when `batchSize` is 1.
+   */
+  tourPath: PickStep[]
+  /** Facility the tour left from and returned to, e.g. `Outbound Staging`. */
+  tourOrigin: string
 }
 
 export type PackStationPhase = 'idle' | 'packing' | 'mergeBlocked' | 'unstaffed'
@@ -311,6 +328,10 @@ export interface CompletedOrder {
    *  chose. Survives into the history export, which is the only record of the
    *  route once the picker has moved on. */
   pickPath: PickStep[]
+  /** The whole tour the picker walked, batch partners included. See
+   *  {@link PackJob.tourPath}. */
+  tourPath: PickStep[]
+  tourOrigin: string
 }
 
 export interface SimEvent {

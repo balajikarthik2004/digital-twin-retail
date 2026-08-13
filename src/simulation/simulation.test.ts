@@ -1093,3 +1093,58 @@ describe('pick path — the route the strategy chose', () => {
     expect(new Set(all).size).toBe(all.length)
   })
 })
+
+describe('picker route — the whole walk, batch partners included', () => {
+  const run = (batchOrders: boolean) => {
+    const engine = new SimulationEngine(model, { ...settings, agentCount: 2, batchOrders })
+    engine.setOrders(
+      generateOrders(model, { count: 14, minLines: 3, maxLines: 6, arrivalPerMin: 600, seed: 63 }),
+    )
+    runToCompletion(engine)
+    return engine.completedOrders
+  }
+
+  it('equals the order route when nothing was batched with it', () => {
+    for (const c of run(false).filter((o) => o.batchSize === 1)) {
+      expect(c.tourPath.map((s) => s.seq)).toEqual(c.pickPath.map((s) => s.seq))
+    }
+  })
+
+  it('is longer than the order route on a batched tour, and contains it', () => {
+    const batched = run(true).filter((c) => c.batchSize > 1)
+    expect(batched.length).toBeGreaterThan(0)
+    for (const c of batched) {
+      expect(c.tourPath.length).toBeGreaterThan(c.pickPath.length)
+      const tourSeqs = new Set(c.tourPath.map((s) => s.seq))
+      for (const step of c.pickPath) expect(tourSeqs.has(step.seq)).toBe(true)
+    }
+  })
+
+  it('runs 1..n with no gaps — the gaps in pick_route are the partner stops', () => {
+    for (const c of run(true)) {
+      const seqs = c.tourPath.map((s) => s.seq)
+      expect(seqs).toEqual(Array.from({ length: seqs.length }, (_, i) => i + 1))
+    }
+  })
+
+  it('tags every stop with the order it was collected for', () => {
+    for (const c of run(true)) {
+      for (const step of c.tourPath) expect(step.ref.length).toBeGreaterThan(0)
+      // This order's own stops are exactly the ones carrying its reference.
+      expect(c.tourPath.filter((s) => s.ref === c.ref)).toHaveLength(c.pickPath.length)
+    }
+  })
+
+  it('names the facility the tour left from and returned to', () => {
+    for (const c of run(true)) expect(c.tourOrigin.length).toBeGreaterThan(0)
+  })
+
+  it('gives every order on one tour the same walk', () => {
+    const byTour = new Map<number, string[]>()
+    for (const c of run(true)) {
+      const sig = c.tourPath.map((s) => `${s.seq}${s.code}`).join('|')
+      byTour.set(c.tourId, [...(byTour.get(c.tourId) ?? []), sig])
+    }
+    for (const sigs of byTour.values()) expect(new Set(sigs).size).toBe(1)
+  })
+})

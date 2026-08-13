@@ -181,4 +181,9 @@ export interface Movement {
   strategy?: string
   /** The stops in the order they were actually walked. See {@link PickStep}. */
   path?: PickStep[]
+  /** The whole tour the picker walked, batch partners included — a longer walk
+   *  than {@link path} whenever the order was picked alongside another. */
+  tourPath?: PickStep[]
+  /** Facility the tour started from and returned to. */
+  tourOrigin?: string
 }
