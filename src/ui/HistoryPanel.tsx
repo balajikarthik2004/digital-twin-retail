@@ -37,6 +37,8 @@ export function HistoryPanel() {
       onTime: c.onTime,
       strategy: getStrategy(c.strategyId).name,
       path: c.pickPath,
+      tourPath: c.tourPath,
+      tourOrigin: c.tourOrigin,
     }))
     return [...inboundLog, ...outbound].sort((a, b) => b.at - a.at)
   }, [inboundLog, engine, shipped])
@@ -140,6 +142,11 @@ function MovementRow({ movement }: { movement: Movement }) {
   const inbound = movement.kind === 'inbound'
   const [open, setOpen] = useState(false)
   const path = movement.path ?? []
+  // Show the picker's whole walk, not just this order's slice of it — otherwise
+  // the sequence numbers have unexplained gaps. Steps belonging to a batch
+  // partner are dimmed, so this order's own stops still read as the subject.
+  const tour = movement.tourPath?.length ? movement.tourPath : path
+  const shared = tour.length > path.length
   return (
     <div className="flex gap-2 rounded-md border border-ink-700/70 bg-ink-850/50 px-2 py-1.5">
       <span
@@ -189,32 +196,58 @@ function MovementRow({ movement }: { movement: Movement }) {
               aria-expanded={open}
             >
               <span className={cx('transition-transform', open && 'rotate-90')}>›</span>
-              {open ? 'Hide' : 'Show'} route · {path.length} stops
+              {open ? 'Hide' : 'Show'} route ·{' '}
+              {shared ? `${path.length} of ${tour.length} stops` : `${path.length} stops`}
               {movement.strategy && <span className="text-ink-500">· {movement.strategy}</span>}
             </button>
 
             {open && (
               <ol className="mt-1 space-y-0.5 border-l border-ink-700 pl-2">
-                {path.map((step) => (
-                  <li key={step.seq} className="flex items-baseline gap-1.5 text-[9px]">
-                    <span className="w-4 shrink-0 text-right font-mono tabular-nums text-ink-500">
-                      {step.seq}.
-                    </span>
-                    <span className="shrink-0 font-mono text-ink-200">{step.code}</span>
-                    {step.reserve && (
-                      <span
-                        className="shrink-0 rounded bg-ink-700 px-1 text-[8px] font-semibold text-ink-200"
-                        title="Reserve tier — reached by the staircase"
-                      >
-                        BULK
-                      </span>
-                    )}
-                    <span className="truncate text-ink-400">{step.sku}</span>
-                    <span className="ml-auto shrink-0 font-mono tabular-nums text-ink-500">
-                      ×{step.qty}
-                    </span>
+                {movement.tourOrigin && (
+                  <li className="text-[9px] italic text-ink-500">
+                    from {movement.tourOrigin}
                   </li>
-                ))}
+                )}
+                {tour.map((step) => {
+                  const mine = step.ref === movement.ref
+                  return (
+                    <li
+                      key={`${step.seq}-${step.code}`}
+                      className={cx(
+                        'flex items-baseline gap-1.5 text-[9px]',
+                        !mine && 'opacity-50',
+                      )}
+                      title={mine ? undefined : `Picked for ${step.ref} on the same tour`}
+                    >
+                      <span className="w-4 shrink-0 text-right font-mono tabular-nums text-ink-500">
+                        {step.seq}.
+                      </span>
+                      <span
+                        className={cx('shrink-0 font-mono', mine ? 'text-ink-200' : 'text-ink-400')}
+                      >
+                        {step.code}
+                      </span>
+                      {step.reserve && (
+                        <span
+                          className="shrink-0 rounded bg-ink-700 px-1 text-[8px] font-semibold text-ink-200"
+                          title="Reserve tier — reached by the staircase"
+                        >
+                          BULK
+                        </span>
+                      )}
+                      <span className="truncate text-ink-400">{step.sku}</span>
+                      {!mine && <span className="shrink-0 text-ink-500">({step.ref})</span>}
+                      <span className="ml-auto shrink-0 font-mono tabular-nums text-ink-500">
+                        ×{step.qty}
+                      </span>
+                    </li>
+                  )
+                })}
+                {movement.tourOrigin && (
+                  <li className="text-[9px] italic text-ink-500">
+                    back to {movement.tourOrigin}
+                  </li>
+                )}
               </ol>
             )}
           </>
@@ -235,7 +268,7 @@ function Fact({ label, value }: { label: string; value: string }) {
 
 const CSV_HEADER =
   'direction,time,reference,detail,location,quantity,distance_m,on_time,' +
-  'stops,pick_route,picked_products,bulk_stops'
+  'stops,pick_route,picked_products,bulk_stops,tour_stops,picker_route'
 
 /** Quote a field for CSV — the detail column contains commas and middots. */
 function cell(value: string | number | boolean | null): string {
@@ -276,6 +309,36 @@ function productsCell(path: Movement['path']): string {
   return path.map((s) => `${s.seq}. ${s.sku} x${s.qty}`).join(ARROW)
 }
 
+/**
+ * The walk the picker actually made, start to finish.
+ *
+ * `pick_route` lists only this order's stops, which is why its numbering has
+ * gaps — the picker was collecting a batch partner in between, and until now
+ * nothing in the export said so. This column is the whole tour: every stop in
+ * walked order, each tagged with the order it was for, bracketed by the
+ * facility the picker left from and came back to.
+ *
+ * For an unbatched order it is the same stops as `pick_route` plus the two
+ * endpoints, which is the honest answer — the picker's route and the order's
+ * route only diverge when there was something else on the trolley.
+ *
+ * Only *other* orders' stops carry a `[ref]` tag. Stamping every stop with the
+ * row's own reference repeated it a dozen times per cell and buried the one
+ * case the tag exists for; unlabelled therefore means "this order", and a tag
+ * always means "the picker detoured for something else here".
+ */
+function pickerRouteCell(m: Movement): string {
+  const tour = m.tourPath
+  if (!tour || tour.length === 0) return ''
+  const origin = m.tourOrigin ?? 'Depot'
+  const stops = tour.map((s) => {
+    const bulk = s.reserve ? ' (bulk)' : ''
+    const owner = s.ref === m.ref ? '' : ` [${s.ref}]`
+    return `${s.seq}. ${s.code}${bulk}${owner}`
+  })
+  return [`${origin} (start)`, ...stops, `${origin} (end)`].join(ARROW)
+}
+
 function downloadCsv(movements: Movement[]): void {
   const rows = movements.map((m) =>
     [
@@ -291,6 +354,8 @@ function downloadCsv(movements: Movement[]): void {
       routeCell(m.path),
       productsCell(m.path),
       m.path?.filter((s) => s.reserve).length ?? '',
+      m.tourPath?.length ?? '',
+      pickerRouteCell(m),
     ]
       .map(cell)
       .join(','),
