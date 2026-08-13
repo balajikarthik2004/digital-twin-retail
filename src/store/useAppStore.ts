@@ -30,6 +30,7 @@ import { DEFAULT_STRATEGY_ID } from '../pathfinding/strategies'
 import { compareStrategies } from '../simulation/compare'
 import { SimulationEngine, clampAgents } from '../simulation/engine'
 import {
+  DEFAULT_RESERVE_SHARE,
   generateOrders,
   importOrders,
   resetOrderSequence,
@@ -43,7 +44,7 @@ import { AGENT_PALETTES, applyTheme, initialTheme, type ThemeMode } from '../ui/
 import { generateWarehouse } from '../warehouse/generate'
 import type { WarehouseConfig, WarehouseModel } from '../warehouse/types'
 
-export type TimeScale = 1 | 5 | 20
+export type TimeScale = 1 | 5 | 10 | 20
 
 /**
  * Left-sidebar workspace. The four sections follow the physical flow of goods
@@ -81,6 +82,7 @@ const DEFAULT_ORDER_GEN: OrderGenOptions = {
   maxLines: 9,
   arrivalPerMin: 6,
   seed: 424242,
+  reserveShare: DEFAULT_RESERVE_SHARE,
 }
 
 interface AppState {

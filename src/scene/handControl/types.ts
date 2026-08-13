@@ -33,6 +33,10 @@ export interface HandControlSnapshot {
   mode: HandControlMode
   /** Every hand currently in frame, 0-2 of them — order is not left/right. */
   hands: HandPoint[]
+  /** 0–1 through the pinch-hold dwell that arms rotate; 0 whenever no hand is
+   *  mid-hold. Drawn as a filling bar so a two-second wait reads as progress
+   *  rather than as the tracker having stalled. */
+  armProgress: number
 }
 
 export const HAND_CONTROL_IDLE: HandControlSnapshot = {
@@ -40,14 +44,18 @@ export const HAND_CONTROL_IDLE: HandControlSnapshot = {
   message: 'Off',
   mode: 'idle',
   hands: [],
+  armProgress: 0,
 }
 
 /** Per-frame drive intent: pan feeds `WarehouseScene.setPadAxes`, the rest feeds `setHandRotateZoom`. */
 export interface HandDriveIntent {
   pan: MoveAxes
-  /** -1..1 — sustained rotate is a fixed magnitude, not proportional to anything. */
+  /** Held yaw rate — how far the rotating hand sits from where it grabbed,
+   *  scaled by {@link ROTATE_DRAG_SCALE}. Sustained, so it turns as long as the
+   *  hand stays out there; unbounded, so it can carry past a full 360°. */
   orbitYaw: number
-  /** Unused today (no gesture drives pitch) — kept so the channel can grow. */
+  /** Held pitch rate, same shape as {@link orbitYaw}. Bounded at the ends by
+   *  `OrbitControls`' own polar limits, exactly as a mouse drag is. */
   orbitPitch: number
   /** -1..1, consumed by `WarehouseScene.applyHandOrbitZoom` as a dolly rate:
    *  positive shrinks the orbit radius (zoom in/closer), negative grows it

@@ -106,6 +106,15 @@ export interface PickerAgent {
   idleTime: number
   breakTime: number
   picksDone: number
+  /** Of {@link picksDone}, those taken from the reserve tier upstairs. */
+  bulkPicks: number
+  /** Times this picker has set foot on the mezzanine — one per climb. */
+  stairClimbs: number
+  /** Seconds spent on a staircase or the mezzanine rather than the aisle floor. */
+  elevatedSeconds: number
+  /** Storey at the previous tick, so a climb is counted on the transition and
+   *  not once per frame for as long as the picker stays up there. */
+  lastStorey: AgentMetrics['storey']
   ordersDone: number
   shortPicks: number
   reroutes: number
@@ -132,6 +141,24 @@ export interface PickerAgent {
  * whole lifecycle — walked distance, pack time and conveyor transit — rather
  * than only the part that happened in the aisles.
  */
+/**
+ * One stop on a picker's tour, in the order the routing strategy chose to
+ * visit it. This is the audit trail for *why the walk looked the way it did* —
+ * the strategy is free to reorder an order's lines however it likes, so the
+ * sequence a picker actually walked is not recoverable from the order alone.
+ */
+export interface PickStep {
+  /** 1-based position in the tour, shared across a batch — so a batched order's
+   *  steps can be non-contiguous, which is exactly the interleaving worth seeing. */
+  seq: number
+  /** Operator location code, e.g. `A03-L07-2B`. */
+  code: string
+  sku: string
+  qty: number
+  /** Taken from the reserve tier upstairs, so this step needed the staircase. */
+  reserve: boolean
+}
+
 export interface PackJob {
   orderId: string
   ref: string
@@ -151,6 +178,8 @@ export interface PackJob {
   assignedAt: number
   pickedAt: number
   dueAt: number
+  /** This order's stops, in the sequence the strategy walked them. */
+  pickPath: PickStep[]
 }
 
 export type PackStationPhase = 'idle' | 'packing' | 'mergeBlocked' | 'unstaffed'
@@ -278,6 +307,10 @@ export interface CompletedOrder {
   onTime: boolean
   /** Orders picked together in the same tour. */
   batchSize: number
+  /** The walk itself: this order's stops in the sequence {@link strategyId}
+   *  chose. Survives into the history export, which is the only record of the
+   *  route once the picker has moved on. */
+  pickPath: PickStep[]
 }
 
 export interface SimEvent {
@@ -488,6 +521,21 @@ export interface SimMetrics {
   avgBatchSize: number
   /** Storage locations currently at or below their replen point. */
   replenAlerts: number
+
+  // ── bulk retrieval (the reserve tier upstairs) ────────────────────────────
+  /** Lines picked from the reserve tier, and from the pick face, this run. */
+  bulkPicks: number
+  pickFacePicks: number
+  /** `bulkPicks` as a share of all picks, 0–1. Zero before the first pick. */
+  bulkShare: number
+  /** Staircase climbs onto the mezzanine, summed over every picker. */
+  stairClimbs: number
+  /** Picker-seconds spent on the stairs or the mezzanine. */
+  elevatedSeconds: number
+  /** Share of all picker time spent above the aisle floor, 0–1. */
+  elevatedShare: number
+  /** Mean picks collected per climb — how well a tour amortises the staircase. */
+  picksPerClimb: number
   agents: AgentMetrics[]
   /** Rolling series for the throughput chart. */
   series: { t: number; completed: number; distance: number }[]

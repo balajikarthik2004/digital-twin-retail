@@ -8,7 +8,12 @@ import { isReserveLevel, mezzanineFloorY } from '../warehouse/rackGeometry'
 import type { WarehouseConfig } from '../warehouse/types'
 import { compareStrategies } from './compare'
 import { AGENT_COLORS, MAX_AGENTS, SimulationEngine } from './engine'
-import { generateOrders, importOrders, resetOrderSequence } from './orderGenerator'
+import {
+  DEFAULT_RESERVE_SHARE,
+  generateOrders,
+  importOrders,
+  resetOrderSequence,
+} from './orderGenerator'
 import { PICKER_KINDS, PICKER_PROFILES, type PickerKind } from './pickerProfiles'
 import { slaFor } from './sla'
 import type { SimSettings } from './types'
@@ -84,14 +89,59 @@ describe('order generation & import', () => {
     }
   })
 
-  it('skews demand towards fast movers', () => {
+  /*
+   * Two separate properties, deliberately asserted apart.
+   *
+   * Demand on the PICK FACE is ABC-skewed 60/30/10 — that is what makes
+   * slotting and routing strategy worth comparing. Demand from the RESERVE
+   * tier is not skewed at all: bulk holds the long tail and a reserve draw
+   * picks from it uniformly. Tallying both together used to hide this, and
+   * would fail the moment the bulk share moved, for a reason that had nothing
+   * to do with the skew being broken.
+   */
+  it('skews pick-face demand towards fast movers', () => {
     const orders = generateOrders(model, { count: 200, minLines: 4, maxLines: 8, arrivalPerMin: 30, seed: 5 })
     const tally = { fast: 0, medium: 0, slow: 0 }
     for (const o of orders) {
-      for (const l of o.lines) tally[model.binsById.get(l.binId)!.sku.velocity]++
+      for (const l of o.lines) {
+        const bin = model.binsById.get(l.binId)!
+        if (isReserveLevel(model.config, bin.level)) continue
+        tally[bin.sku.velocity]++
+      }
     }
     expect(tally.fast).toBeGreaterThan(tally.medium)
     expect(tally.medium).toBeGreaterThan(tally.slow)
+  })
+
+  it('retrieves about a third of its lines from the reserve tier', () => {
+    const orders = generateOrders(model, { count: 200, minLines: 4, maxLines: 8, arrivalPerMin: 30, seed: 5 })
+    let bulk = 0
+    let total = 0
+    for (const o of orders) {
+      for (const l of o.lines) {
+        total++
+        if (isReserveLevel(model.config, model.binsById.get(l.binId)!.level)) bulk++
+      }
+    }
+    // Below the nominal share because a bin already on the order is redrawn,
+    // and the reserve pool is the smaller of the two.
+    expect(bulk / total).toBeGreaterThan(0.2)
+    expect(bulk / total).toBeLessThan(DEFAULT_RESERVE_SHARE + 0.05)
+  })
+
+  it('honours an explicit reserve share, so travel can be turned down', () => {
+    const flat = generateOrders(model, {
+      count: 120,
+      minLines: 4,
+      maxLines: 8,
+      arrivalPerMin: 30,
+      seed: 5,
+      reserveShare: 0,
+    })
+    const bulk = flat
+      .flatMap((o) => o.lines)
+      .filter((l) => isReserveLevel(model.config, model.binsById.get(l.binId)!.level))
+    expect(bulk).toHaveLength(0)
   })
 
   it('resolves the bundled sample wave against the default layout', () => {
@@ -431,6 +481,9 @@ describe('batch picking', () => {
 
 describe('smart dispatch', () => {
   it('improves SLA attainment over FIFO on a mixed-priority wave', () => {
+    // Pick face only. Dispatch order is what is under test, and bulk lines add
+    // a long fixed staircase cost to whichever orders happen to contain them —
+    // noise that swamps the difference between two dispatch policies.
     const wave = () =>
       generateOrders(model, {
         count: 26,
@@ -439,6 +492,7 @@ describe('smart dispatch', () => {
         arrivalPerMin: 240,
         seed: 41,
         expressShare: 0.4,
+        reserveShare: 0,
       })
     const runWith = (smartDispatch: boolean) => {
       const engine = new SimulationEngine(model, { ...settings, smartDispatch, agentCount: 3 })
@@ -652,8 +706,24 @@ describe('pack-out & dispatch', () => {
   })
 
   it('an under-staffed pack wall becomes the bottleneck', () => {
+    /*
+     * Pick face only, and that is the finding rather than a convenience.
+     *
+     * At the facility's real bulk share the pack wall is NOT the binding
+     * constraint: pickers spend so long on the staircase that they cannot
+     * supply the benches fast enough to starve them, so one bench keeps up with
+     * three. To see a pack bottleneck at all, the floor has to be able to feed
+     * it — which is exactly what this wave arranges.
+     */
     const wave = () =>
-      generateOrders(model, { count: 18, minLines: 4, maxLines: 8, arrivalPerMin: 600, seed: 94 })
+      generateOrders(model, {
+        count: 18,
+        minLines: 4,
+        maxLines: 8,
+        arrivalPerMin: 600,
+        seed: 94,
+        reserveShare: 0,
+      })
     const runWith = (packStaff: number) => {
       const engine = new SimulationEngine(model, { ...settings, packStaff, agentCount: 4 })
       engine.setOrders(wave())
@@ -904,5 +974,122 @@ describe('reserve tier picking', () => {
     expect(liftedWhileMoving).toBe(0)
     // And everyone finished the shift back on the ground.
     expect(engine.agents.every((a) => a.lift === 0)).toBe(true)
+  })
+})
+
+describe('bulk retrieval metrics', () => {
+  const runWave = (reserveShare: number, seed = 77) => {
+    const engine = new SimulationEngine(model, { ...settings, agentCount: 3 })
+    engine.setOrders(
+      generateOrders(model, {
+        count: 20,
+        minLines: 4,
+        maxLines: 8,
+        arrivalPerMin: 600,
+        seed,
+        reserveShare,
+      }),
+    )
+    runToCompletion(engine)
+    return engine.metrics()
+  }
+
+  it('counts every reserve-tier line as a bulk pick, and the rest as pick face', () => {
+    const m = runWave(DEFAULT_RESERVE_SHARE)
+    expect(m.bulkPicks).toBeGreaterThan(0)
+    expect(m.bulkPicks + m.pickFacePicks).toBe(m.totalPicks)
+    expect(m.bulkShare).toBeCloseTo(m.bulkPicks / m.totalPicks, 6)
+  })
+
+  it('records no climbs and no time upstairs on a pick-face-only wave', () => {
+    const m = runWave(0)
+    expect(m.bulkPicks).toBe(0)
+    expect(m.stairClimbs).toBe(0)
+    expect(m.elevatedSeconds).toBe(0)
+    expect(m.elevatedShare).toBe(0)
+    expect(m.picksPerClimb).toBe(0)
+  })
+
+  it('climbs the staircase to reach bulk, and spends real time up there', () => {
+    const m = runWave(DEFAULT_RESERVE_SHARE)
+    expect(m.stairClimbs).toBeGreaterThan(0)
+    expect(m.elevatedSeconds).toBeGreaterThan(0)
+    expect(m.elevatedShare).toBeGreaterThan(0)
+    expect(m.elevatedShare).toBeLessThanOrEqual(1)
+  })
+
+  it('never reports more climbs than bulk lines — a trip is made to pick something', () => {
+    const m = runWave(DEFAULT_RESERVE_SHARE)
+    expect(m.stairClimbs).toBeLessThanOrEqual(m.bulkPicks)
+    expect(m.picksPerClimb).toBeGreaterThanOrEqual(1)
+  })
+
+  it('costs more walking per line once a third of them are upstairs', () => {
+    // Per pick, not in total: the two waves draw from different pools, so they
+    // do not end up with identical line counts and the totals are not
+    // comparable. The staircase shows up as distance per line either way.
+    const flat = runWave(0)
+    const high = runWave(DEFAULT_RESERVE_SHARE)
+    expect(high.totalDistance / high.totalPicks).toBeGreaterThan(
+      flat.totalDistance / flat.totalPicks,
+    )
+  })
+})
+
+describe('pick path — the route the strategy chose', () => {
+  const run = (over: Partial<SimSettings> = {}) => {
+    const engine = new SimulationEngine(model, { ...settings, agentCount: 2, ...over })
+    engine.setOrders(
+      generateOrders(model, { count: 12, minLines: 3, maxLines: 6, arrivalPerMin: 600, seed: 31 }),
+    )
+    runToCompletion(engine)
+    return engine.completedOrders
+  }
+
+  it('records one step per line, and never loses a line on the way to the export', () => {
+    for (const c of run()) {
+      expect(c.pickPath).toHaveLength(c.picks)
+    }
+  })
+
+  it('is ordered by the walk, not by the order the lines were written in', () => {
+    for (const c of run()) {
+      const seqs = c.pickPath.map((s) => s.seq)
+      expect(seqs).toEqual([...seqs].sort((a, b) => a - b))
+    }
+  })
+
+  it('carries the location, product and quantity picked at each stop', () => {
+    const [first] = run()
+    for (const step of first.pickPath) {
+      expect(step.code).toMatch(/^A\d\d-[LR]\d\d-/)
+      expect(step.sku.length).toBeGreaterThan(0)
+      expect(step.qty).toBeGreaterThan(0)
+      expect(typeof step.reserve).toBe('boolean')
+    }
+  })
+
+  it('flags the stops that needed the staircase', () => {
+    const steps = run().flatMap((c) => c.pickPath)
+    expect(steps.some((s) => s.reserve)).toBe(true)
+    // The flag has to agree with the model, not just be set somewhere.
+    for (const s of steps.filter((x) => x.reserve)) {
+      const bin = model.bins.find((b) => b.code === s.code)!
+      expect(isReserveLevel(model.config, bin.level)).toBe(true)
+    }
+  })
+
+  it('interleaves sequence numbers across a batched tour, so the batching is visible', () => {
+    const batched = run({ batchOrders: true })
+    const tours = new Map<number, typeof batched>()
+    for (const c of batched) {
+      tours.set(c.tourId, [...(tours.get(c.tourId) ?? []), c])
+    }
+    const shared = [...tours.values()].find((t) => t.length > 1)
+    expect(shared).toBeDefined()
+    // Two orders on one tour draw from a single 1..n sequence, so no number
+    // is reused between them — that shared numbering IS the batch.
+    const all = shared!.flatMap((c) => c.pickPath.map((s) => s.seq))
+    expect(new Set(all).size).toBe(all.length)
   })
 })

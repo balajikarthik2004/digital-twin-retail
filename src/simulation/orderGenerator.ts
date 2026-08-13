@@ -14,6 +14,9 @@ export interface OrderGenOptions {
   startAt?: number
   seed?: number
   expressShare?: number
+  /** Share of lines retrieved from the reserve tier rather than the pick face.
+   *  Defaults to {@link DEFAULT_RESERVE_SHARE}. */
+  reserveShare?: number
 }
 
 const CHANNELS: Order['channel'][] = ['Ecommerce', 'Store Replen', 'Click & Collect', 'Wholesale']
@@ -25,8 +28,30 @@ const CHANNELS: Order['channel'][] = ['Ecommerce', 'Store Replen', 'Click & Coll
  */
 const DEMAND_WEIGHT: Record<VelocityTier, number> = { fast: 0.6, medium: 0.3, slow: 0.1 }
 
-/** Share of lines drawn from the reserve tier rather than the pick face. */
-const RESERVE_DEMAND_SHARE = 0.05
+/**
+ * Share of lines retrieved from the reserve tier — the top rack, reached only
+ * by climbing one of the two staircases onto the mezzanine.
+ *
+ * Just under a third, matching the bundled demo wave, so every wave this
+ * facility runs works bulk storage the same way: roughly one line in three is
+ * a genuine journey — cross to the staircase, climb, walk the mezzanine to the
+ * bay, pick, and the same again in reverse — and the rest are reachable on foot
+ * from the aisle floor.
+ *
+ * Two consequences worth stating, because both are visible in the numbers and
+ * neither is a bug. Travel dominates the shift at this share: the pack wall
+ * stops being the binding constraint, because pickers can no longer supply it
+ * fast enough to starve it. And the demand mix flattens — reserve holds the
+ * long tail (~75% slow movers by construction) and a reserve draw picks from it
+ * uniformly, so a third of lines bypass the 60/30/10 weighting below and slow
+ * movers climb towards parity with medium. That is what stocking a third of
+ * your picking in bulk actually does to a pick profile.
+ *
+ * Still an option rather than a constant so tests can isolate the pack line by
+ * turning travel down; there is no user-facing control, because this is a fact
+ * about how the facility is slotted, not a dial an operator would touch.
+ */
+export const DEFAULT_RESERVE_SHARE = 0.3
 
 let orderSeq = 1
 
@@ -39,6 +64,7 @@ export function generateOrders(model: WarehouseModel, options: OrderGenOptions):
   const pools = buildPools(model)
   const tiers: VelocityTier[] = ['fast', 'medium', 'slow']
   const weights = tiers.map((t) => (pools.pickFace[t].length > 0 ? DEMAND_WEIGHT[t] : 0))
+  const reserveShare = Math.max(0, Math.min(1, options.reserveShare ?? DEFAULT_RESERVE_SHARE))
 
   const orders: Order[] = []
   let t = options.startAt ?? 0
@@ -50,7 +76,7 @@ export function generateOrders(model: WarehouseModel, options: OrderGenOptions):
     const lines: OrderLine[] = []
 
     for (let l = 0; l < lineCount; l++) {
-      const bin = drawBin(rng, pools, tiers, weights, used)
+      const bin = drawBin(rng, pools, tiers, weights, used, reserveShare)
       if (!bin) break
       used.add(bin.id)
       lines.push({
@@ -104,19 +130,12 @@ function drawBin(
   tiers: VelocityTier[],
   weights: number[],
   used: Set<string>,
+  reserveShare: number,
 ): Bin | null {
-  /*
-   * Occasionally send a line to bulk, so the reserve tier is visibly worked.
-   *
-   * Kept low on purpose. A bulk line is now a genuine journey — cross to the
-   * staircase, climb, walk back along the mezzanine, and the same again in
-   * reverse — so at 15% it swamped every other dynamic the twin exists to
-   * show: walking dominated the shift so completely that an under-staffed
-   * pack wall stopped being a bottleneck at all. Real bulk retrieval is
-   * occasional, and modelling it that way is both truer and lets the rest of
-   * the model breathe.
-   */
-  if (rng.float(0, 1) < RESERVE_DEMAND_SHARE && pools.reserve.length > 0) {
+  // Send a share of lines to bulk, so the reserve tier is visibly worked and
+  // the climb to the mezzanine shows up in the travel numbers. See
+  // {@link DEFAULT_RESERVE_SHARE} for what this share trades off.
+  if (rng.float(0, 1) < reserveShare && pools.reserve.length > 0) {
     for (let attempt = 0; attempt < 10; attempt++) {
       const bin = pools.reserve[rng.int(0, pools.reserve.length - 1)]
       if (!used.has(bin.id)) return bin

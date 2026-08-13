@@ -120,10 +120,12 @@ shows.
 [src/scene/handControl/](src/scene/handControl/) is a self-contained, additive camera-input
 path (MediaPipe `HandLandmarker`, fully local, lazy-loaded only when toggled on): `HandTracker`
 wraps the camera/model, `GestureDetector` classifies hand shape (pure function, no state),
-`NavigationController`/`ZoomController` turn a classified gesture into the same `MoveAxes`/
-rotate/zoom channels the on-screen pad already drives, and `HandControlManager` is the priority
-state machine arbitrating between the three gestures. None of the existing mouse/keyboard camera
-code was changed to add this — treat it as a second input source feeding the same API surface.
+`NavigationController`/`ZoomController`/`PinchRotateController` turn a classified gesture into the
+same `MoveAxes`/rotate/zoom channels the on-screen pad already drives, and `HandControlManager` is
+the priority state machine arbitrating between the four gestures (pinch-hold rotate → zoom → pan →
+fist rotate — one channel live per frame, guaranteed; `handControl.test.ts` covers the collisions).
+None of the existing mouse/keyboard camera code was changed to add this — treat it as a second
+input source feeding the same API surface.
 
 ## Stack
 

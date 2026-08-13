@@ -16,7 +16,7 @@ import type { HandControlStatus } from './types'
 export class HandTracker {
   private readonly video: HTMLVideoElement
   private readonly onStatus: (status: HandControlStatus, message: string) => void
-  private readonly onFrame: (landmarksList: NormalizedLandmark[][]) => void
+  private readonly onFrame: (landmarksList: NormalizedLandmark[][], timestamp: number) => void
 
   private landmarker: HandLandmarker | null = null
   private stream: MediaStream | null = null
@@ -27,7 +27,7 @@ export class HandTracker {
   constructor(
     video: HTMLVideoElement,
     onStatus: (status: HandControlStatus, message: string) => void,
-    onFrame: (landmarksList: NormalizedLandmark[][]) => void,
+    onFrame: (landmarksList: NormalizedLandmark[][], timestamp: number) => void,
   ) {
     this.video = video
     this.onStatus = onStatus
@@ -126,8 +126,12 @@ export class HandTracker {
     this.raf = requestAnimationFrame(this.loop)
     if (this.video.readyState < 2) return // HAVE_CURRENT_DATA — nothing decoded yet
 
-    const result = this.landmarker.detectForVideo(this.video, performance.now())
-    this.onFrame(result.landmarks ?? [])
+    // One timestamp for the frame, shared with the gesture layer so its timed
+    // gestures (the pinch-hold rotate dwell) run off the same clock the model
+    // was sampled at rather than a second reading taken moments later.
+    const now = performance.now()
+    const result = this.landmarker.detectForVideo(this.video, now)
+    this.onFrame(result.landmarks ?? [], now)
   }
 
   private teardownStream(): void {
