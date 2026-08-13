@@ -356,6 +356,10 @@ export class SimulationEngine {
       idleTime: 0,
       breakTime: 0,
       picksDone: 0,
+      bulkPicks: 0,
+      stairClimbs: 0,
+      elevatedSeconds: 0,
+      lastStorey: 'ground',
       ordersDone: 0,
       shortPicks: 0,
       reroutes: 0,
@@ -420,6 +424,10 @@ export class SimulationEngine {
     this.dispatch()
     const yields = this.resolveCongestion()
     for (const agent of this.agents) this.stepAgent(agent, dt, yields.get(agent.id) ?? 1)
+    // After the movement, so it reads the elevation this slice actually ended
+    // at, and outside `stepAgent` because that returns early per phase — a
+    // picker standing still on the mezzanine is still up there.
+    for (const agent of this.agents) this.trackStorey(agent, dt)
     // Pack-out runs on the same slice as the floor, so a 20x clock cannot let
     // parcels tunnel through a merge point.
     this.packLine.step(dt, this.time)
@@ -926,6 +934,22 @@ export class SimulationEngine {
    * whatever service time that stop was priced at, which for bulk is already
    * several times a pick-face stop precisely because of this climb.
    */
+  /**
+   * Accumulate the vertical half of a picker's shift: time spent off the aisle
+   * floor, and one climb counted each time they arrive on the mezzanine.
+   *
+   * The climb is counted on the `stairs → mezzanine` transition rather than on
+   * setting foot on the staircase, so a picker who starts up, yields to
+   * congestion and comes back down has not "climbed" — only reaching the top
+   * counts, which is also the only case that cost the full flight.
+   */
+  private trackStorey(agent: PickerAgent, dt: number): void {
+    const storey = this.storeyOf(agent)
+    if (storey !== 'ground') agent.elevatedSeconds += dt
+    if (storey === 'mezzanine' && agent.lastStorey !== 'mezzanine') agent.stairClimbs++
+    agent.lastStorey = storey
+  }
+
   /** Which storey a picker is on, from the height of the surface under it. */
   private storeyOf(agent: PickerAgent): AgentMetrics['storey'] {
     const mezz = mezzanineFloorY(this.model.config)
@@ -965,6 +989,13 @@ export class SimulationEngine {
     const binId = agent.currentBinId
     agent.currentBinId = null
     agent.picksDone++
+
+    // Counted here rather than alongside the stock effects below, because a
+    // pick off the top rack cost the climb whether or not stock depletion is
+    // switched on — the travel is real either way.
+    const picked = binId ? this.model.binsById.get(binId) : null
+    if (picked && isReserveLevel(this.model.config, picked.level)) agent.bulkPicks++
+
     if (!this.settings.stockDepletion || !binId) return
 
     const route = agent.route
@@ -1191,6 +1222,9 @@ export class SimulationEngine {
     const totalDistance = this.agents.reduce((s, a) => s + a.distanceTraveled, 0)
     const totalPicks = this.agents.reduce((s, a) => s + a.picksDone, 0)
     const busy = this.agents.reduce((s, a) => s + (elapsed - a.idleTime), 0)
+    const bulkPicks = this.agents.reduce((s, a) => s + a.bulkPicks, 0)
+    const stairClimbs = this.agents.reduce((s, a) => s + a.stairClimbs, 0)
+    const elevatedSeconds = this.agents.reduce((s, a) => s + a.elevatedSeconds, 0)
     const ordersCompleted = this.completed.length
     const totalOrderTime = this.completed.reduce((s, c) => s + c.duration, 0)
     const lines = this.completed.reduce((s, c) => s + c.picks, 0)
@@ -1282,6 +1316,16 @@ export class SimulationEngine {
       batchedTours: this.agents.reduce((s, a) => s + a.batchedTours, 0),
       avgBatchSize: tours > 0 ? ordersCompleted / tours : 0,
       replenAlerts: this.replenAlerts.size,
+      bulkPicks,
+      pickFacePicks: totalPicks - bulkPicks,
+      bulkShare: totalPicks > 0 ? bulkPicks / totalPicks : 0,
+      stairClimbs,
+      elevatedSeconds,
+      // Against picker-seconds on shift, not wall-clock, so the share means the
+      // same thing whether one picker is working or eight.
+      elevatedShare:
+        this.agents.length > 0 ? elevatedSeconds / (elapsed * this.agents.length) : 0,
+      picksPerClimb: stairClimbs > 0 ? bulkPicks / stairClimbs : 0,
       agents,
       series: this.series.slice(),
       recent: this.completed.slice(-8).reverse(),

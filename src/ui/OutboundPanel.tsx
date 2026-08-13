@@ -3,6 +3,7 @@ import { SAMPLE_ORDERS_DOC } from '../data'
 import { channelHex } from '../scene/theme'
 import type { Order } from '../simulation/types'
 import { useAppStore } from '../store/useAppStore'
+import { isReserveLevel } from '../warehouse/rackGeometry'
 import type { WarehouseModel } from '../warehouse/types'
 import { Bar, Card, EmptyState, Segmented, StatTile, cx } from './components/primitives'
 import { ChevronRightIcon } from './components/icons'
@@ -135,6 +136,8 @@ export function OutboundPanel() {
           Clear wave queue
         </button>
       </Card>
+
+      <BulkRetrievalCard model={model} orders={orders} />
 
       <Card
         title="Order queue"
@@ -375,6 +378,142 @@ function ImportCard() {
       ) : (
         <p className="text-[10px] leading-relaxed text-ink-400">
           Drop in a WMS wave export to route real pick lists through the same engine.
+        </p>
+      )}
+    </Card>
+  )
+}
+
+/**
+ * Bulk retrieval — the shift's vertical dimension.
+ *
+ * Roughly a third of every wave is slotted in the reserve tier upstairs, and
+ * the only way to it is one of the two staircases. That is by far the most
+ * expensive thing a picker does here, and none of the flat metrics say so: a
+ * bulk line and a pick-face line both read as "1 line" in the wave summary,
+ * while one of them cost a climb and a walk down the mezzanine.
+ *
+ * So this card answers three questions in order — how much of the work is up
+ * there, what it cost to get to it, and how well each trip was amortised.
+ * Everything is derived from counters the engine already keeps per picker; the
+ * planned side reads the wave itself, so the card says something useful before
+ * the simulation has ever been run.
+ */
+function BulkRetrievalCard({ model, orders }: { model: WarehouseModel | null; orders: Order[] }) {
+  const metrics = useAppStore((s) => s.metrics)
+  const theme = useAppStore((s) => s.theme)
+  const palette = chartPalette(theme)
+
+  // What the wave *asks* for, straight off the order lines — available with the
+  // clock at zero, which is when someone is most likely to be reading this.
+  const planned = useMemo(() => {
+    if (!model) return { bulk: 0, total: 0 }
+    let bulk = 0
+    let total = 0
+    for (const order of orders) {
+      for (const line of order.lines) {
+        total++
+        const bin = model.binsById.get(line.binId)
+        if (bin && isReserveLevel(model.config, bin.level)) bulk++
+      }
+    }
+    return { bulk, total }
+  }, [model, orders])
+
+  if (planned.total === 0) {
+    return (
+      <Card title="Bulk retrieval" dense>
+        <EmptyState
+          title="No wave queued"
+          body="Generate a wave to see how much of it is slotted in the reserve tier upstairs."
+        />
+      </Card>
+    )
+  }
+
+  const plannedShare = planned.bulk / planned.total
+  const picked = metrics?.bulkPicks ?? 0
+  const climbs = metrics?.stairClimbs ?? 0
+  const started = (metrics?.totalPicks ?? 0) > 0
+
+  return (
+    <Card
+      title="Bulk retrieval"
+      dense
+      action={<span className="chip">{pct(plannedShare)} of lines</span>}
+    >
+      {/* Where the wave's work physically sits. Two segments of one bar rather
+          than two numbers, because the point is the proportion between them. */}
+      <div className="mb-1 flex items-baseline justify-between text-[10px]">
+        <span className="text-ink-400">Reserve tier vs pick face</span>
+        <span className="font-mono tabular-nums text-ink-200">
+          {planned.bulk.toLocaleString()} / {planned.total.toLocaleString()} lines
+        </span>
+      </div>
+      <div className="flex h-2 overflow-hidden rounded-full bg-ink-750">
+        <div
+          className="h-full"
+          style={{ width: `${plannedShare * 100}%`, background: palette.series[1] }}
+          title={`${planned.bulk} lines upstairs, reached by staircase`}
+        />
+        <div
+          className="h-full"
+          style={{ width: `${(1 - plannedShare) * 100}%`, background: palette.series[0] }}
+          title={`${planned.total - planned.bulk} lines on the pick face`}
+        />
+      </div>
+      <div className="mt-1.5 flex justify-between text-[9.5px] text-ink-400">
+        <span className="flex items-center gap-1">
+          <span className="h-1.5 w-1.5 rounded-full" style={{ background: palette.series[1] }} />
+          Upstairs
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="h-1.5 w-1.5 rounded-full" style={{ background: palette.series[0] }} />
+          Pick face
+        </span>
+      </div>
+
+      <div className="divider" />
+
+      <div className="grid grid-cols-2 gap-2">
+        <StatTile
+          label="Lines picked"
+          value={picked.toLocaleString()}
+          sub={started ? `of ${planned.bulk.toLocaleString()} upstairs` : 'not started'}
+          tone="accent"
+        />
+        <StatTile
+          label="Staircase climbs"
+          value={climbs.toLocaleString()}
+          sub={started ? 'trips onto the mezzanine' : 'not started'}
+        />
+      </div>
+
+      <div className="mt-2 grid grid-cols-2 gap-2">
+        <StatTile
+          label="Lines per climb"
+          value={climbs > 0 ? (metrics?.picksPerClimb ?? 0).toFixed(1) : '—'}
+          sub="picked per trip up"
+        />
+        <StatTile
+          label="Time upstairs"
+          value={started ? pct(metrics?.elevatedShare ?? 0) : '—'}
+          sub="of all picker time"
+        />
+      </div>
+
+      {/*
+        * One plain sentence, because "1.8 lines per climb" only means something
+        * next to the alternative. A tour that collects several bulk lines on one
+        * trip has amortised the staircase; one line per climb means the picker
+        * walked the whole flight for a single carton, which is the case worth
+        * noticing and the argument for batching bulk lines together.
+        */}
+      {climbs > 0 && (
+        <p className="mt-2 text-[10px] leading-relaxed text-ink-400">
+          {(metrics?.picksPerClimb ?? 0) >= 2
+            ? `Each climb is collecting ${(metrics?.picksPerClimb ?? 0).toFixed(1)} lines, so the trips are being shared across several picks rather than made one at a time.`
+            : 'Close to one line per climb — pickers are walking a full flight per carton. Batching bulk lines onto the same tour is what would pay here.'}
         </p>
       )}
     </Card>

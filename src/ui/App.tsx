@@ -83,9 +83,17 @@ export function App() {
           )}
         >
           <div className="flex h-full w-[340px] flex-col">
-            {/* Both stay put while the section below them scrolls. */}
-            <SimulationControls />
-            <SectionNav />
+            {/*
+              * Transport and section switcher share one card, and both stay put
+              * while the section below them scrolls. `overflow-hidden` is what
+              * lets the tab strip square off against the card's rounded corner.
+              */}
+            <div className="shrink-0 p-3 pb-1.5">
+              <div className="panel overflow-hidden">
+                <SimulationControls />
+                <SectionNav />
+              </div>
+            </div>
             <div className="min-h-0 flex-1">
               {section === 'inbound' ? (
                 <InboundPanel />

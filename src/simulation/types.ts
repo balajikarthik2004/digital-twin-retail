@@ -106,6 +106,15 @@ export interface PickerAgent {
   idleTime: number
   breakTime: number
   picksDone: number
+  /** Of {@link picksDone}, those taken from the reserve tier upstairs. */
+  bulkPicks: number
+  /** Times this picker has set foot on the mezzanine — one per climb. */
+  stairClimbs: number
+  /** Seconds spent on a staircase or the mezzanine rather than the aisle floor. */
+  elevatedSeconds: number
+  /** Storey at the previous tick, so a climb is counted on the transition and
+   *  not once per frame for as long as the picker stays up there. */
+  lastStorey: AgentMetrics['storey']
   ordersDone: number
   shortPicks: number
   reroutes: number
@@ -488,6 +497,21 @@ export interface SimMetrics {
   avgBatchSize: number
   /** Storage locations currently at or below their replen point. */
   replenAlerts: number
+
+  // ── bulk retrieval (the reserve tier upstairs) ────────────────────────────
+  /** Lines picked from the reserve tier, and from the pick face, this run. */
+  bulkPicks: number
+  pickFacePicks: number
+  /** `bulkPicks` as a share of all picks, 0–1. Zero before the first pick. */
+  bulkShare: number
+  /** Staircase climbs onto the mezzanine, summed over every picker. */
+  stairClimbs: number
+  /** Picker-seconds spent on the stairs or the mezzanine. */
+  elevatedSeconds: number
+  /** Share of all picker time spent above the aisle floor, 0–1. */
+  elevatedShare: number
+  /** Mean picks collected per climb — how well a tour amortises the staircase. */
+  picksPerClimb: number
   agents: AgentMetrics[]
   /** Rolling series for the throughput chart. */
   series: { t: number; completed: number; distance: number }[]

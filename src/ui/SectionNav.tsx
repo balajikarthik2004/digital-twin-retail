@@ -15,7 +15,7 @@ const SECTIONS: {
   hint: string
   Icon: ComponentType<SVGProps<SVGSVGElement> & { size?: number }>
 }[] = [
-  { id: 'ops', label: 'Ops', hint: 'Fleet, pack-out and scene options', Icon: SlidersIcon },
+  { id: 'ops', label: 'Operations', hint: 'Fleet, pack-out and scene options', Icon: SlidersIcon },
   { id: 'inbound', label: 'Inbound', hint: 'Goods-in, free space and putaway', Icon: InboundIcon },
   { id: 'outbound', label: 'Outbound', hint: 'Order waves and the pick queue', Icon: OutboundIcon },
   { id: 'history', label: 'History', hint: 'Everything received and shipped', Icon: HistoryIcon },
@@ -37,7 +37,7 @@ export function SectionNav() {
 
   return (
     <nav
-      className="relative flex shrink-0 gap-0.5 border-b border-accent/20 bg-transparent px-2 pb-1.5 pt-1.5"
+      className="relative flex shrink-0 gap-1 rounded-b-xl border-t border-ink-700 bg-ink-850 px-2 pt-1.5"
       aria-label="Workspace sections"
     >
       {SECTIONS.map((s) => {
@@ -51,41 +51,35 @@ export function SectionNav() {
             aria-current={active ? 'page' : undefined}
             onClick={() => setSection(s.id)}
             className={cx(
-              'relative flex-1 rounded-lg border px-1 pb-2 pt-1.5 transition-all duration-200',
+              'relative flex-1 rounded-t-lg px-1 pb-2.5 pt-2 transition-colors duration-150',
               'focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent',
-              active
-                ? 'option-active shadow-sm backdrop-blur-sm'
-                : 'border-transparent text-ink-400 hover:bg-ink-750/50 hover:text-ink-100 hover:shadow-sm',
+              active ? 'text-accent-soft' : 'text-ink-400 hover:bg-ink-750 hover:text-ink-100',
             )}
           >
             <s.Icon
-              size={15}
+              size={16}
               className={cx('mx-auto block', active ? 'text-accent-soft' : 'text-ink-500')}
             />
-            <span
-              className={cx(
-                'mt-1 block text-[10px] font-semibold leading-none',
-                active ? 'text-accent-soft' : 'text-ink-400',
-              )}
-            >
-              {s.label}
-            </span>
+            <span className="mt-1.5 block text-[10px] font-semibold leading-none">{s.label}</span>
             {/*
-              * Ties the selected tab to the panel it opens. Without it the tab
-              * strip and the section under it read as two unrelated bands —
-              * the active tab was tinted, but nothing pointed at what it had
-              * actually switched.
+              * Ties the selected tab to the panel it opens, and is now the
+              * *only* thing marking it. A tinted card behind the active tab
+              * fought the cards in the panel below for the same emphasis; a
+              * rule on the shared border reads as one continuous surface —
+              * this tab opens onto that.
               */}
             {active && (
-              <span className="absolute inset-x-3 -bottom-px h-0.5 rounded-full bg-accent" />
+              <span className="absolute inset-x-2 -bottom-px h-[2px] rounded-full bg-accent" />
             )}
             {badge > 0 && (
               <span
                 className={cx(
-                  'absolute right-1 top-0.5 min-w-[15px] rounded-full px-1 font-mono text-[8.5px] font-bold leading-[15px]',
+                  'absolute right-1 top-0.5 min-w-[16px] rounded-full px-1 font-mono text-[8.5px] font-bold leading-4',
                   // Waiting work on the tab you are already looking at is
                   // context; on a tab you are not, it is a prompt to go there.
-                  active ? 'bg-accent text-ink-900' : 'bg-ink-600 text-ink-100',
+                  active
+                    ? 'bg-accent text-[rgb(var(--on-accent))]'
+                    : 'bg-ink-700 text-ink-200',
                 )}
                 title={`${badge} waiting`}
               >

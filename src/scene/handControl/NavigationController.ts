@@ -27,8 +27,14 @@ export const MOVEMENT_SENSITIVITY = 1
 function axisFrom(raw: number): number {
   const magnitude = Math.abs(raw)
   if (magnitude < DEAD_ZONE) return 0
-  const eased = (magnitude - DEAD_ZONE) / (MAX_REACH - DEAD_ZONE)
-  return Math.sign(raw) * clamp(eased, 0, 1)
+  const t = clamp((magnitude - DEAD_ZONE) / (MAX_REACH - DEAD_ZONE), 0, 1)
+  // Smoothstep rather than a straight line. A linear ramp leaves the camera at
+  // its twitchiest right where the hand is least steady — just past the dead
+  // zone, where residual tracking noise is the same size as the signal. Easing
+  // in gives fine control for small deliberate moves and eases out again so
+  // reaching full speed doesn't hit a corner.
+  const eased = t * t * (3 - 2 * t)
+  return Math.sign(raw) * eased
 }
 
 export class NavigationController {

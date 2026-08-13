@@ -13,6 +13,13 @@
  * can arm the instant it happens without a hold-still window.
  */
 
+/** Frame-to-frame scale change below this is treated as tracking noise. */
+const NOISE_FLOOR = 0.005
+/** Ceiling on one frame's scale change. A mistracked frame — a hand half out of
+ *  view, a finger briefly occluded — can otherwise report an enormous jump in
+ *  pinch distance and throw the camera across the building in a single step. */
+const MAX_STEP = 0.06
+
 export class ZoomController {
   private lastPinch: number | null = null
 
@@ -33,14 +40,20 @@ export class ZoomController {
     const scale = prevPinch / currentPinch
     const zoomDelta = 1 - scale
 
-    this.lastPinch = currentPinch
-    
-    // Ignore microscopic tracking noise to make it feel completely rock-solid
-    if (Math.abs(zoomDelta) < 0.005) {
-      return 0
-    }
+    // Below the noise floor, hold the reference *unmoved* rather than consuming
+    // it. Advancing it here would silently eat every sub-threshold frame, so a
+    // slow, deliberate spread — the one you make when placing a shot precisely —
+    // would never accumulate into any zoom at all. Held, it accumulates until it
+    // clears the floor, which is why fine control works and jitter still doesn't.
+    if (Math.abs(zoomDelta) < NOISE_FLOOR) return 0
 
-    return zoomDelta
+    this.lastPinch = currentPinch
+
+    // Soft knee: subtract the floor instead of passing the full delta the moment
+    // it clears. Output is continuous through the threshold, so zoom starts from
+    // nothing and builds, rather than snapping to a step as it crosses.
+    const eased = Math.sign(zoomDelta) * (Math.abs(zoomDelta) - NOISE_FLOOR)
+    return Math.max(-MAX_STEP, Math.min(MAX_STEP, eased))
   }
 
   reset(): void {

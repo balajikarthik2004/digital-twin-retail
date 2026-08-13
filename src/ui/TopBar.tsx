@@ -12,21 +12,26 @@ import {
 } from './components/icons'
 
 /**
- * One facility fact in the chrome: the number carries the weight, the unit
- * recedes. Was a flat `.chip` per stat, where "8", "2,560" and "3,427" all sat
- * at label weight and the row read as undifferentiated grey text.
+ * One facility fact in the chrome, as a small stacked card.
+ *
+ * Value over label rather than side by side: read as a row, these are four
+ * comparable quantities, and stacking puts every number on the same baseline so
+ * the row scans as a set of figures instead of a sentence. The card was also an
+ * accent-tinted gradient, which made four neutral facts look like four alerts.
  */
 function FacilityStat({ value, label, title }: { value: string; label: string; title?: string }) {
   return (
-    <span
+    <div
       title={title}
-      className="inline-flex items-baseline gap-1.5 rounded-md border border-accent/20 bg-gradient-to-br from-accent/5 to-ink-800 px-2 py-0.5 shadow-[inset_0_1px_1px_rgba(255,255,255,0.05),0_2px_4px_rgb(var(--accent)/0.1)] transition-colors hover:border-accent/40 hover:from-accent/10 hover:to-ink-800"
+      className="rounded-lg border border-ink-700 bg-ink-800 px-2.5 py-1.5 text-center transition-colors hover:border-ink-600"
     >
-      <span className="font-mono text-[11px] font-bold tabular-nums leading-none text-ink-100">
+      <div className="font-mono text-[13px] font-bold leading-tight tabular-nums text-ink-100">
         {value}
-      </span>
-      <span className="text-[9px] font-semibold uppercase tracking-widest text-ink-400">{label}</span>
-    </span>
+      </div>
+      <div className="text-[8.5px] font-semibold uppercase tracking-[0.11em] text-ink-400">
+        {label}
+      </div>
+    </div>
   )
 }
 
@@ -51,7 +56,7 @@ export function TopBar() {
   const reserveBins = model ? model.bins.length - pickFaceBins : 0
 
   return (
-    <header className="z-30 flex h-14 shrink-0 items-center gap-3 border-b border-accent/40 bg-gradient-to-r from-accent/15 via-ink-900 to-accent-soft/15 px-3 shadow-[0_4px_32px_-12px_rgb(var(--accent)/0.3)] backdrop-blur-md">
+    <header className="z-30 flex h-16 shrink-0 items-center gap-3 border-b border-ink-700 bg-ink-900 px-3.5">
       <button
         type="button"
         onClick={() => toggle('leftOpen')}
@@ -64,19 +69,19 @@ export function TopBar() {
 
       <div className="flex items-center gap-2.5">
         <div
-          className="grid h-8 w-8 place-items-center rounded-lg text-white shadow-[0_2px_10px_0_rgb(var(--accent)/0.3)] ring-1 ring-white/10 transition-transform duration-300 hover:scale-105"
-          style={{ background: 'linear-gradient(135deg, rgb(var(--accent-soft)), rgb(var(--accent)))' }}
+          className="grid h-9 w-9 place-items-center rounded-xl text-white shadow-[0_2px_8px_-1px_rgb(var(--accent)/0.45)] transition-transform duration-300 hover:scale-105"
+          style={{ background: 'linear-gradient(135deg, rgb(var(--accent)), rgb(var(--accent-soft)))' }}
         >
           {/* Racking mark — two shelf bays, the product's logo. */}
-          <RackMarkIcon />
+          <RackMarkIcon size={20} />
         </div>
         <div className="leading-tight">
-          <div className="text-[13px] font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-ink-100 to-ink-300">Digital Twin WMS</div>
+          <div className="text-[14px] font-bold tracking-tight text-ink-100">Digital Twin WMS</div>
           <div className="text-[10px] font-medium text-ink-400">Warehouse Management System</div>
         </div>
       </div>
 
-      <div className="mx-1 h-7 w-px bg-ink-700" />
+      <div className="mx-1 h-8 w-px bg-ink-700" />
 
       <label className="flex items-center gap-2">
         <span className="sr-only">Warehouse layout</span>
@@ -90,7 +95,7 @@ export function TopBar() {
            * borrowed from `.btn` so keyboard focus is as clear here as on
            * every other control in this bar.
            */
-          className="rounded-lg border border-ink-600 bg-ink-800 px-2.5 py-1.5 text-[11.5px] font-medium text-ink-100 outline-none transition-colors hover:border-ink-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          className="rounded-lg border border-ink-700 bg-ink-800 px-3 py-2 text-[12px] font-medium text-ink-100 outline-none transition-colors hover:border-ink-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
         >
           {layouts.map((l) => (
             <option key={l.id} value={l.id}>
@@ -101,7 +106,7 @@ export function TopBar() {
       </label>
 
       {model && (
-        <div className="hidden items-center gap-1.5 xl:flex">
+        <div className="hidden items-center gap-2 xl:flex">
           <FacilityStat value={String(model.config.aisles)} label="aisles" />
           {/*
             * Split rather than one total: the two tiers are stocked and worked
@@ -133,11 +138,11 @@ export function TopBar() {
         headline count live in the chrome as well as in the panels.
       */}
       {metrics && (
-        <div className="mr-1 flex items-center gap-2.5">
+        <div className="mr-1 flex items-center gap-3">
           <span
             className={cx(
-              'inline-flex items-center gap-1.5 rounded-lg border px-2 py-1 text-[10px] font-medium',
-              metrics.running ? 'pill-good' : 'border-ink-600 bg-ink-800 text-ink-400',
+              'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10.5px] font-semibold',
+              metrics.running ? 'pill-good' : 'border-ink-700 bg-ink-800 text-ink-400',
             )}
           >
             <span
@@ -151,20 +156,20 @@ export function TopBar() {
 
           <div className="leading-tight">
             <div className="mini-label">Shift</div>
-            <div className="font-mono text-[12px] font-semibold tabular-nums text-ink-100">
+            <div className="font-mono text-[13px] font-semibold tabular-nums text-ink-100">
               {clock(metrics.time)}
             </div>
           </div>
 
           <div className="hidden leading-tight lg:block">
             <div className="mini-label">Shipped</div>
-            <div className="font-mono text-[12px] font-semibold tabular-nums text-ink-100">
+            <div className="font-mono text-[13px] font-semibold tabular-nums text-ink-100">
               {metrics.ordersCompleted}
               <span className="text-ink-400">/{metrics.ordersTotal}</span>
             </div>
           </div>
 
-          <div className="mx-0.5 h-7 w-px bg-ink-700" />
+          <div className="mx-0.5 h-8 w-px bg-ink-700" />
         </div>
       )}
 

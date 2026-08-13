@@ -40,9 +40,13 @@
   --ink-200: 27 36 48; /* primary text */
   --ink-100: 15 22 32;
 
-  --accent: 15 116 144;
-  --accent-soft: 11 92 115;
-  --accent-deep: 203 231 238;
+  --accent: 37 99 235;
+  --accent-soft: 29 78 216;
+  --accent-deep: 219 234 254;
+  /* Text/iconography sitting ON a solid accent fill. White carries blue-600;
+     the dark theme's cyan needs near-black instead, so this is a token rather
+     than a hard-coded colour in `.btn-primary`. */
+  --on-accent: 255 255 255;
 
   --viz-good: #0ca30c;
   --viz-warning: #b8860b;
@@ -79,6 +83,7 @@
   --accent: 34 211 238;
   --accent-soft: 103 232 249;
   --accent-deep: 14 116 144;
+  --on-accent: 7 10 15;
 
   --viz-good: #0ca30c;
   --viz-warning: #fab219;
@@ -157,37 +162,36 @@
 }
 
 @layer components {
+  /*
+   * A card: an opaque surface with a real edge, sitting on the rail's plane.
+   *
+   * Was translucent (`bg-ink-800/40` over a backdrop blur) with a heavy drop
+   * shadow, which made every card pick up whatever was behind it and left the
+   * small print they are mostly made of sitting on an unpredictable ground.
+   * Opaque fill + hairline + a shadow you can barely name reads as a stack of
+   * distinct objects, which is the whole job of a card.
+   */
   .panel {
-    @apply rounded-xl border border-ink-700/50 bg-ink-800/40 backdrop-blur-md shadow-[0_4px_24px_-8px_rgba(0,0,0,0.3)];
+    @apply rounded-xl border border-ink-700 bg-ink-800;
+    box-shadow: var(--shadow-panel);
   }
   /*
-   * The two side rails.
+   * The two side rails: a plain recessed plane, nothing more.
    *
-   * Depth lives at the edge that meets the 3D view, not across the whole
-   * surface: a soft accent glow and a bright inner hairline where the rail
-   * meets the canvas, then a clean, near-neutral plane for the panels to sit
-   * on. A broad accent wash across the full rail tinted every card sitting on
-   * it and cost contrast on the small print they are mostly made of — the
-   * glow reads as the same premium material without touching legibility.
+   * They used to carry a vertical gradient and an accent glow bleeding into
+   * the 3D view. With opaque cards on top, that depth was doing no work — the
+   * cards already separate themselves — and the glow tinted the edge of the
+   * canvas, which is the one surface in the app that should be showing the
+   * warehouse's own colours and not the chrome's.
    */
   .rail {
-    background:
-      linear-gradient(to bottom, rgb(var(--ink-900)), rgb(var(--ink-950)) 22%),
-      rgb(var(--ink-950));
+    background: rgb(var(--ink-950));
   }
   .rail-left {
     border-right: 1px solid rgb(var(--ink-700));
-    box-shadow:
-      inset -1px 0 0 rgb(255 255 255 / 0.04),
-      12px 0 40px -18px rgb(var(--accent) / 0.5),
-      2px 0 12px -6px rgb(0 0 0 / 0.35);
   }
   .rail-right {
     border-left: 1px solid rgb(var(--ink-700));
-    box-shadow:
-      inset 1px 0 0 rgb(255 255 255 / 0.04),
-      -12px 0 40px -18px rgb(var(--accent) / 0.5),
-      -2px 0 12px -6px rgb(0 0 0 / 0.35);
   }
 
   /* Floating overlays sit on the 3D canvas and need to stay legible over it. */
@@ -202,8 +206,8 @@
    * of one continuous wall of text.
    */
   .panel-header {
-    @apply flex items-center justify-between gap-2 rounded-t-xl border-b border-ink-700/70
-           bg-ink-850/50 px-3.5 py-2.5;
+    @apply flex items-center justify-between gap-2 rounded-t-xl border-b border-ink-700
+           bg-ink-850 px-3.5 py-2.5;
   }
   /*
    * Titles carry a short accent rule. Panels are the only landmark in a 340px
@@ -237,18 +241,46 @@
            focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent
            disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-ink-800;
   }
+  /*
+   * Solid, not a tint. The primary action in a panel — Run simulation, Confirm
+   * putaway — was a 10%-alpha accent wash that only filled in on hover, so at
+   * rest it sat at almost the same weight as the secondary button beside it and
+   * the eye had to hunt for the thing it was meant to press first.
+   */
   .btn-primary {
-    border-color: rgb(var(--accent) / 0.4);
-    background: rgb(var(--accent) / 0.1);
-    color: rgb(var(--accent-soft));
-  }
-  .btn-primary:hover:not(:disabled) {
     border-color: rgb(var(--accent));
     background: rgb(var(--accent));
-    color: rgb(var(--ink-900));
+    color: rgb(var(--on-accent));
+    box-shadow: 0 1px 2px rgb(var(--accent) / 0.32);
+  }
+  .btn-primary:hover:not(:disabled) {
+    border-color: rgb(var(--accent-soft));
+    background: rgb(var(--accent-soft));
+    color: rgb(var(--on-accent));
   }
   .btn-icon {
-    @apply h-7 w-7 p-0;
+    @apply h-8 w-8 rounded-full p-0;
+  }
+  /* Taller button for the primary action of a block. Size only — the caller
+     owns the width, so it works both full-width and as a flex row item. */
+  .btn-lg {
+    @apply py-2 text-[12.5px];
+  }
+  /*
+   * One option in a row of equal-weight choices (playback speed, filters).
+   * Distinct from `.btn` because the row is a single control: the selected one
+   * has to read as *chosen*, not merely hovered.
+   */
+  .seg-option {
+    @apply flex-1 rounded-lg border border-ink-700 bg-ink-800 py-1.5 text-[11px] font-semibold
+           text-ink-400 transition-colors duration-150
+           hover:border-ink-600 hover:text-ink-100
+           focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent;
+  }
+  .seg-option-active {
+    border-color: rgb(var(--accent));
+    background: rgb(var(--accent) / 0.08);
+    color: rgb(var(--accent-soft));
   }
   .chip {
     @apply inline-flex items-center gap-1 rounded-md border border-ink-700 bg-ink-850 px-1.5 py-0.5

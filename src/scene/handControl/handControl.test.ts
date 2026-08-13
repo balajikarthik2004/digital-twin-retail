@@ -1,8 +1,10 @@
 import type { NormalizedLandmark } from '@mediapipe/tasks-vision'
 import { describe, expect, it } from 'vitest'
 import { HandControlManager } from './HandControlManager'
+import { DEAD_ZONE, MAX_REACH, NavigationController } from './NavigationController'
 import { PINCH_ARM_MS, ROTATE_DRAG_SCALE } from './PinchRotateController'
 import { ZERO_INTENT } from './types'
+import { ZoomController } from './ZoomController'
 
 /**
  * Gesture arbitration, driven by synthetic hands.
@@ -295,5 +297,94 @@ describe('gestures do not collide', () => {
       ].filter(Boolean)
       expect(live.length).toBeLessThanOrEqual(1)
     }
+  })
+})
+
+describe('zoom smoothing', () => {
+  it('never zooms on the first frame, so engaging the gesture cannot snap the camera', () => {
+    expect(new ZoomController().drive(0.4)).toBe(0)
+  })
+
+  it('accumulates a slow spread instead of discarding it frame by frame', () => {
+    // Each individual step is under the noise floor. A controller that consumed
+    // its reference every frame would swallow all of them and never zoom, which
+    // is precisely what makes fine, deliberate placement impossible.
+    const z = new ZoomController()
+    z.drive(0.4)
+    let total = 0
+    for (let i = 1; i <= 12; i++) total += z.drive(0.4 + i * 0.0015)
+    expect(total).toBeGreaterThan(0)
+  })
+
+  it('holds still for pure jitter around a fixed pinch', () => {
+    const z = new ZoomController()
+    z.drive(0.4)
+    let total = 0
+    for (let i = 0; i < 40; i++) total += z.drive(0.4 + (i % 2 === 0 ? 0.0008 : -0.0008))
+    expect(Math.abs(total)).toBeLessThan(0.01)
+  })
+
+  it('is continuous through the noise floor rather than stepping over it', () => {
+    // A hard cut-off would jump straight to the full delta the moment it
+    // cleared; the soft knee means the first movement that registers is small.
+    const z = new ZoomController()
+    z.drive(0.4)
+    const justOver = z.drive(0.4 * (1 / (1 - 0.0055)))
+    expect(justOver).toBeGreaterThan(0)
+    expect(justOver).toBeLessThan(0.002)
+  })
+
+  it('clamps a mistracked frame so a lost hand cannot fling the camera', () => {
+    const z = new ZoomController()
+    z.drive(0.4)
+    // Pinch distance triples in one frame — a hand half out of the frame.
+    expect(Math.abs(z.drive(1.2))).toBeLessThanOrEqual(0.06)
+  })
+
+  it('spreading apart zooms in and closing zooms out', () => {
+    const wide = new ZoomController()
+    wide.drive(0.3)
+    expect(wide.drive(0.36)).toBeGreaterThan(0)
+
+    const narrow = new ZoomController()
+    narrow.drive(0.36)
+    expect(narrow.drive(0.3)).toBeLessThan(0)
+  })
+
+  it('forgets its reference on reset, so re-engaging never jumps', () => {
+    const z = new ZoomController()
+    z.drive(0.2)
+    z.reset()
+    expect(z.drive(0.9)).toBe(0)
+  })
+})
+
+describe('pan tracking ramp', () => {
+  const at = (dx: number) => {
+    const nav = new NavigationController()
+    nav.engage({ x: 0.5, y: 0.5 })
+    return nav.drive({ x: 0.5 + dx, y: 0.5 }, 1).right
+  }
+
+  it('ignores drift inside the dead zone', () => {
+    expect(at(DEAD_ZONE * 0.9)).toBe(0)
+  })
+
+  it('eases in, so the first movement past the dead zone is gentle', () => {
+    // Where the hand is least steady, a linear ramp is at its twitchiest. Just
+    // past the threshold the response should still be a fraction of the
+    // linear reading, not equal to it.
+    const justPast = (DEAD_ZONE + MAX_REACH) / 2 - (MAX_REACH - DEAD_ZONE) * 0.4
+    const linear = (justPast - DEAD_ZONE) / (MAX_REACH - DEAD_ZONE)
+    expect(at(justPast)).toBeLessThan(linear)
+  })
+
+  it('still reaches full deflection at full reach, and clamps beyond it', () => {
+    expect(at(MAX_REACH)).toBeCloseTo(1)
+    expect(at(MAX_REACH * 3)).toBeCloseTo(1)
+  })
+
+  it('is symmetric about the reference point', () => {
+    expect(at(-0.2)).toBeCloseTo(-at(0.2))
   })
 })

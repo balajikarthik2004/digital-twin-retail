@@ -124,6 +124,23 @@ const ROTATE_RATE = 1.6
  *  that reaches exactly zenith/nadir loses azimuth and the view can snap. */
 const MIN_POLAR = 0.03
 
+/**
+ * Per-second exponential approach rates for hand-driven camera motion, applied
+ * as `1 - exp(-rate * dt)` so they behave identically at 30 and 144 fps.
+ *
+ * Rotate is a *held rate* (how far the hand sits from where it grabbed), so the
+ * rate itself is what gets eased — a single mistracked frame becomes a nudge
+ * instead of a flick. Zoom is a *displacement* (total finger spread maps to
+ * total radius change), so easing its rate would break that mapping; the eased
+ * quantity is the radius itself, chasing a target the raw input moves instantly.
+ * Aggregate travel is therefore unchanged — only the path to it is smooth.
+ */
+const HAND_ROTATE_EASE = 10
+const HAND_ZOOM_EASE = 9
+/** Radius gap, relative to the radius, under which a settled zoom hands the
+ *  camera back — so the wheel and presets are never fighting a stale target. */
+const ZOOM_SETTLE = 0.004
+
 const DEFAULT_OPTIONS: SceneOptions = {
   showPaths: true,
   showSequence: true,
@@ -235,6 +252,11 @@ export class WarehouseScene {
   private padHoldLeft = 0
   /** Rotate/zoom rates from the hand control's left hand / two-hand gestures. */
   private handRotateZoom = { yaw: 0, pitch: 0, zoom: 0 }
+  /** Eased orbit rates actually applied, chasing {@link handRotateZoom}. */
+  private handOrbitEased = { yaw: 0, pitch: 0 }
+  /** Orbit radius the hand zoom is steering toward, or null when the camera is
+   *  not under hand-zoom control and the wheel/presets own the radius outright. */
+  private zoomTargetRadius: number | null = null
 
   private raycaster = new THREE.Raycaster()
   private pointer = new THREE.Vector2()
@@ -671,11 +693,14 @@ export class WarehouseScene {
     this.preset = preset
     const next = poseFor(preset, this.model)
     if (duration <= 0) {
+      this.zoomTargetRadius = null
       this.camera.position.copy(next.position)
       this.controls.target.copy(next.target)
       this.controls.update()
       return
     }
+    // The fly-in owns the radius from here; a held hand-zoom target would drag against it.
+    this.zoomTargetRadius = null
     this.tween.start(
       { position: this.camera.position.clone(), target: this.controls.target.clone() },
       next,
@@ -710,6 +735,8 @@ export class WarehouseScene {
     // so the camera does not end up pressed against the racking.
     const span = Math.max(maxX - minX, maxZ - minZ, 18)
 
+    // The fly-in owns the radius from here; a held hand-zoom target would drag against it.
+    this.zoomTargetRadius = null
     this.tween.start(
       { position: this.camera.position.clone(), target: this.controls.target.clone() },
       {
@@ -838,24 +865,66 @@ export class WarehouseScene {
    */
   private applyHandOrbitZoom(dt: number): void {
     const { yaw, pitch, zoom } = this.handRotateZoom
-    if (yaw === 0 && pitch === 0 && zoom === 0) return
-    // A preset fly-in would otherwise fight the input for the same camera.
-    this.tween.cancel()
+
+    // Ease the held rotate rates toward whatever the hand is asking for. Done
+    // before the early-out so releasing a gesture glides to a stop instead of
+    // stopping dead on the frame the hand opens.
+    const k = 1 - Math.exp(-HAND_ROTATE_EASE * dt)
+    this.handOrbitEased.yaw += (yaw - this.handOrbitEased.yaw) * k
+    this.handOrbitEased.pitch += (pitch - this.handOrbitEased.pitch) * k
+    // Denormals would keep the camera nominally "moving" forever.
+    if (yaw === 0 && Math.abs(this.handOrbitEased.yaw) < 1e-4) this.handOrbitEased.yaw = 0
+    if (pitch === 0 && Math.abs(this.handOrbitEased.pitch) < 1e-4) this.handOrbitEased.pitch = 0
+
+    const easedYaw = this.handOrbitEased.yaw
+    const easedPitch = this.handOrbitEased.pitch
 
     const cam = this.camera.position
     const target = this.controls.target
-    const offset = this.tmpC.subVectors(cam, target)
-    const spherical = this.tmpSpherical.setFromVector3(offset)
+    const currentRadius = cam.distanceTo(target)
 
-    spherical.theta -= yaw * ROTATE_RATE * dt
-    spherical.phi = clamp(spherical.phi - pitch * ROTATE_RATE * dt, MIN_POLAR, this.controls.maxPolarAngle)
+    // Zoom is a displacement, not a rate: the total spread of the fingers maps
+    // to the total change in radius. So the raw input moves the *target* the
+    // full amount immediately (keeping that mapping exact), and only the camera's
+    // approach to it is eased — which is what takes the shake out of the picture
+    // without making the gesture feel like it is dragging behind the hand.
     if (zoom !== 0) {
-      spherical.radius = clamp(
-        spherical.radius * (1 - zoom),
+      const base = this.zoomTargetRadius ?? currentRadius
+      this.zoomTargetRadius = clamp(
+        base * (1 - zoom),
         this.controls.minDistance,
         this.controls.maxDistance,
       )
     }
+
+    let radius = currentRadius
+    if (this.zoomTargetRadius !== null) {
+      const gap = this.zoomTargetRadius - radius
+      if (zoom === 0 && Math.abs(gap) <= radius * ZOOM_SETTLE) {
+        // Arrived and nothing is still pushing — hand the radius back, so the
+        // wheel and the presets are never dragging against a stale target.
+        radius = this.zoomTargetRadius
+        this.zoomTargetRadius = null
+      } else {
+        radius += gap * (1 - Math.exp(-HAND_ZOOM_EASE * dt))
+      }
+    }
+
+    const zooming = radius !== currentRadius
+    if (easedYaw === 0 && easedPitch === 0 && !zooming) return
+    // A preset fly-in would otherwise fight the input for the same camera.
+    this.tween.cancel()
+
+    const offset = this.tmpC.subVectors(cam, target)
+    const spherical = this.tmpSpherical.setFromVector3(offset)
+
+    spherical.theta -= easedYaw * ROTATE_RATE * dt
+    spherical.phi = clamp(
+      spherical.phi - easedPitch * ROTATE_RATE * dt,
+      MIN_POLAR,
+      this.controls.maxPolarAngle,
+    )
+    spherical.radius = clamp(radius, this.controls.minDistance, this.controls.maxDistance)
 
     offset.setFromSpherical(spherical)
     cam.copy(target).add(offset)
@@ -891,6 +960,8 @@ export class WarehouseScene {
     this.padAxes = { ...ZERO_AXES }
     this.padHoldLeft = 0
     this.handRotateZoom = { yaw: 0, pitch: 0, zoom: 0 }
+    this.handOrbitEased = { yaw: 0, pitch: 0 }
+    this.zoomTargetRadius = null
     this.setPointerTarget(null)
   }
 
@@ -911,6 +982,8 @@ export class WarehouseScene {
     const focus = this.selectionWorldPosition()
     if (!focus) return
     const offset = new THREE.Vector3(9, 9, -9)
+    // The fly-in owns the radius from here; a held hand-zoom target would drag against it.
+    this.zoomTargetRadius = null
     this.tween.start(
       { position: this.camera.position.clone(), target: this.controls.target.clone() },
       { position: focus.clone().add(offset), target: focus.clone() },
